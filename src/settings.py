@@ -10,32 +10,25 @@ FULL_EVENT_CATALOG = {
         "system_task.agent_missed_heartbeats_check": "event_agent_missed_heartbeats",
         "system_task.agent_offline_check": "event_agent_offline",
         "lost_agent.found": "event_lost_agent_found",
-        "agent.service_not_available": "event_service_not_available",
-        "agent.goodbye": "event_agent_goodbye"
+        "agent.service_not_available": "event_agent_service_not_available"
     },
     "Agent Security": {
         "agent.tampering": "event_agent_tampering",
-        "agent.suspend": "event_agent_suspend",
         "agent.clone_detected": "event_agent_clone_detected",
         "agent.activate": "event_agent_activate",
         "agent.deactivate": "event_agent_deactivate"
     },
     "User Access": {
         "user.authenticate": "event_user_authenticate",
-        "user.sign_in": "event_user_sign_in",
-        "user.sign_out": "event_user_sign_out",
-        "user.logout": "event_user_logout",
+        "user.sign_in,user.login": "event_user_sign_in",
+        "user.sign_out,user.logout": "event_user_sign_out",
         "user.login_session_terminated": "event_user_login_session_terminated",
-        "user.pce_session_terminated": "event_user_pce_session_terminated",
-        "user.create_session": "event_user_create_session",
-        "user.login_failure_count_exceeded": "event_brute_force",
-        "user.csrf_validation_failed": "event_csrf_failed"
+        "user.pce_session_terminated": "event_user_pce_session_terminated"
     },
     "Agent Health Detail": {
-        "agent.policy_deploy_failed": "event_policy_fail",
-        "agent.missing_heartbeats_after_upgrade": "event_upgrade_health",
-        "agent.refresh_policy": "agent.refresh_policy",
-        "agent.fw_state_table_threshold_exceeded": "agent.fw_state_table_threshold_exceeded"
+        "agent.goodbye": "event_agent_goodbye",
+        "agent.suspend": "event_agent_suspend",
+        "agent.refresh_policy": "event_agent_refresh_policy"
     },
     "Auth & API": {
         "request.authentication_failed": "event_api_auth_failed",
@@ -51,15 +44,7 @@ FULL_EVENT_CATALOG = {
         "sec_rule.delete": "event_rule_delete",
         "sec_policy.create": "event_policy_prov"
     },
-    "Workloads": {
-        "workload.create": "event_workload_create",
-        "workload.delete": "event_workload_delete",
-        "workload.online": "event_workload_online",
-        "workload.recalc_rules": "event_workload_recalc_rules",
-        "workload.redetect_network": "event_workload_redetect_network"
-    },
     "System": {
-        "pce.application_started": "event_pce_start",
         "cluster.update": "event_cluster_update"
     }
 }

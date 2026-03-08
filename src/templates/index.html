@@ -1055,9 +1055,9 @@
           <div class="form-group" style="margin-bottom:0;">
             <label data-i18n="gui_sort_by">Sort By</label>
             <select id="qt-sort" style="width:140px;">
-              <option value="bandwidth">Max Bandwidth</option>
-              <option value="volume">Total Volume</option>
-              <option value="connections">Connections</option>
+              <option value="bandwidth" data-i18n="gui_opt_bandwidth">Max Bandwidth</option>
+              <option value="volume" data-i18n="gui_opt_volume">Total Volume</option>
+              <option value="connections" data-i18n="gui_opt_connections">Connections</option>
             </select>
           </div>
 
@@ -1447,10 +1447,13 @@
       <div class="form-group">
         <label>Isolation Severity Level</label>
         <select id="q-severity" class="severity-select">
-          <option value="Mild" style="color:var(--accent2)">Mild (Block External Inbound, Allow Outbound/Internal)
+          <option value="Mild" style="color:var(--accent2)" data-i18n="gui_opt_mild">Mild (Block External Inbound, Allow
+            Outbound/Internal)
           </option>
-          <option value="Moderate" style="color:var(--warn)">Moderate (Block All Inbound, Allow Outbound)</option>
-          <option value="Severe" style="color:var(--danger)">Severe (Full Isolation - Block All Inbound/Outbound)
+          <option value="Moderate" style="color:var(--warn)" data-i18n="gui_opt_moderate">Moderate (Block All Inbound,
+            Allow Outbound)</option>
+          <option value="Severe" style="color:var(--danger)" data-i18n="gui_opt_severe">Severe (Full Isolation - Block
+            All Inbound/Outbound)
           </option>
         </select>
       </div>
@@ -1470,7 +1473,7 @@
           <option value="" data-i18n="gui_select">Select…</option>
         </select></div>
       <div class="form-group"><label data-i18n="gui_event_type">Event Type</label><select id="ev-type">
-          <option value="" data-i18n="gui_select_first">Select category first</option>
+          <option value="" data-i18n="gui_select_category_first">Select category first</option>
         </select></div>
       <fieldset>
         <legend data-i18n="gui_threshold">Threshold</legend>
@@ -2198,12 +2201,12 @@
     function closeModal(id) { $(id).classList.remove('show'); _editIdx = null }
     async function loadCatalog() {
       _catalog = await api('/api/event-catalog');
-      const sel = $('ev-cat'); sel.innerHTML = '<option value="">Select...</option>';
+      const sel = $('ev-cat'); sel.innerHTML = '<option value="" data-i18n="gui_select">Select...</option>';
       Object.keys(_catalog).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o) });
     }
     function populateEvents() {
       const cat = $('ev-cat').value; const sel = $('ev-type'); sel.innerHTML = '';
-      if (!cat || !_catalog[cat]) { sel.innerHTML = '<option>Select category first</option>'; return }
+      if (!cat || !_catalog[cat]) { sel.innerHTML = '<option data-i18n="gui_select_category_first">Select category first</option>'; applyI18n(sel); return }
       Object.entries(_catalog[cat]).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = k + ' (' + v + ')'; sel.appendChild(o) });
     }
 

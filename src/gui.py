@@ -50,49 +50,7 @@ def _capture_stdout(func):
 # ═══════════════════════════════════════════════════════════════════════════════
 # Event Catalog (mirrors settings.py)
 # ═══════════════════════════════════════════════════════════════════════════════
-FULL_EVENT_CATALOG = {
-    "Agent Health": {
-        "system_task.agent_missed_heartbeats_check": "Missed Heartbeats",
-        "system_task.agent_offline_check": "Agent Offline",
-        "lost_agent.found": "Lost Agent Found",
-        "agent.service_not_available": "Agent Service Not Available",
-        "agent.goodbye": "Agent Goodbye"
-    },
-    "Agent Security": {
-        "agent.tampering": "Agent Tampering",
-        "agent.suspend": "Agent Suspended",
-        "agent.clone_detected": "Clone Detected",
-        "agent.activate": "Agent Activated",
-        "agent.deactivate": "Agent Deactivated"
-    },
-    "User Access": {
-        "user.login_failed": "Login Failed",
-        "user.sign_in": "User Sign In",
-        "user.csrf_validation_failed": "CSRF Validation Failed"
-    },
-    "Auth & API": {
-        "request.authentication_failed": "API Auth Failed",
-        "request.authorization_failed": "API Auth Denied",
-        "api_key.create": "API Key Created",
-        "api_key.delete": "API Key Deleted"
-    },
-    "Policy": {
-        "rule_set.delete": "Ruleset Deleted",
-        "rule_set.create": "Ruleset Created",
-        "rule_set.update": "Ruleset Updated",
-        "sec_rule.create": "Rule Created",
-        "sec_rule.delete": "Rule Deleted",
-        "sec_policy.create": "Policy Provisioned"
-    },
-    "Workloads": {
-        "workload.create": "Workload Created",
-        "workload.delete": "Workload Deleted"
-    },
-    "System": {
-        "pce.application_started": "PCE Started",
-        "cluster.update": "Cluster Updated"
-    }
-}
+# We now dynamically import FULL_EVENT_CATALOG from src.settings inside the API route.
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -177,10 +135,24 @@ def _create_app(cm: ConfigManager) -> 'Flask':
         api.check_and_create_quarantine_labels()
         return jsonify({"ok": True})
 
-    # ─── API: Event Catalog ───────────────────────────────────────────────
     @app.route('/api/event-catalog')
     def api_event_catalog():
-        return jsonify(FULL_EVENT_CATALOG)
+        from src.settings import FULL_EVENT_CATALOG
+        from src.i18n import t
+        # Build dictionary with translated names
+        translated_catalog = {}
+        for category, events in FULL_EVENT_CATALOG.items():
+            trans_cat = t('cat_' + category.replace(' ', '_').lower(), default=category)
+            # Combine Agent Health details
+            if category == "Agent Health Detail":
+                trans_cat = t('cat_agent_health', default="Agent Health")
+                
+            if trans_cat not in translated_catalog:
+                translated_catalog[trans_cat] = {}
+                
+            for event_id, translation_key in events.items():
+                translated_catalog[trans_cat][event_id] = t(translation_key, default=translation_key)
+        return jsonify(translated_catalog)
 
     # ─── API: Rules CRUD ──────────────────────────────────────────────────
     @app.route('/api/rules')

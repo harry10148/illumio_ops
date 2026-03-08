@@ -257,7 +257,8 @@ class Analyzer:
                 # Enhanced filtering with status and severity
                 matches = []
                 for e in events:
-                    if rule["filter_value"] != e.get("event_type"):
+                    filter_vals = [x.strip() for x in rule["filter_value"].split(',')]
+                    if e.get("event_type") not in filter_vals:
                         continue
                         
                     # Status Filter
@@ -661,7 +662,8 @@ class Analyzer:
 
                     if e_time and e_time < rule_start: continue
                     
-                    if rule["filter_value"] != e.get("event_type"): continue
+                    filter_vals = [x.strip() for x in rule["filter_value"].split(',')]
+                    if e.get("event_type") not in filter_vals: continue
                     
                     # Filters
                     r_status = rule.get("filter_status", "all")

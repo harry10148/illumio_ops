@@ -107,13 +107,11 @@ class ConfigManager:
         print(f"{Colors.BLUE}{t('loading_best_practices')}{Colors.ENDC}")
         self.config["rules"] = []
         ts = int(time.time())
-        # (Name_Key, Event_Type, Threshold_Type, Count, Window, Cooldown, Status, Severity)
+        # type, name, threshold_type, threshold_count, threshold_window, cooldown_minutes, filter_status, filter_severity
         bps = [
             ("rule_agent_tampering", "agent.tampering", "immediate", 1, 10, 30, "all", "all"),
-            ("rule_brute_force", "user.login_failure_count_exceeded", "immediate", 1, 10, 30, "all", "all"),
-            ("rule_login_failed", "user.sign_in", "count", 5, 10, 30, "failure", "all"),
+            ("rule_login_failed", "user.sign_in,user.login", "count", 5, 10, 30, "failure", "all"),
             ("rule_api_auth_failed", "request.authentication_failed", "count", 5, 10, 30, "all", "all"),
-            ("rule_csrf_attack", "user.csrf_validation_failed", "immediate", 1, 10, 30, "all", "all"),
             ("rule_agent_offline", "system_task.agent_offline_check", "immediate", 1, 10, 30, "all", "all"),
             ("rule_policy_fail", "agent.refresh_policy", "immediate", 1, 10, 30, "failure", "all"),
             ("rule_agent_heartbeat", "system_task.agent_missed_heartbeats_check", "immediate", 1, 10, 30, "all", "all"),
