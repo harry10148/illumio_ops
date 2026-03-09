@@ -1436,16 +1436,16 @@
       </div>
       <input type="hidden" id="q-target-hrefs" value="">
       <div class="form-group" id="q-direction-grp" style="display:none; margin-bottom: 12px;">
-        <label>Which workload to isolate?</label>
+        <label data-i18n="gui_q_which">Which workload to isolate?</label>
         <div class="radio-group" style="display:flex;gap:15px;margin-top:6px;">
-          <label style="cursor:pointer;"><input type="radio" name="q-dir" value="source" checked> Source
-            Workload</label>
-          <label style="cursor:pointer;"><input type="radio" name="q-dir" value="destination"> Destination
-            Workload</label>
+          <label style="cursor:pointer;"><input type="radio" name="q-dir" value="source" checked> <span
+              data-i18n="gui_q_src">Source Workload</span></label>
+          <label style="cursor:pointer;"><input type="radio" name="q-dir" value="destination"> <span
+              data-i18n="gui_q_dst">Destination Workload</span></label>
         </div>
       </div>
       <div class="form-group">
-        <label>Isolation Severity Level</label>
+        <label data-i18n="gui_q_sev">Isolation Severity Level</label>
         <select id="q-severity" class="severity-select">
           <option value="Mild" style="color:var(--accent2)" data-i18n="gui_opt_mild">Mild (Block External Inbound, Allow
             Outbound/Internal)
@@ -1459,7 +1459,8 @@
       </div>
       <div class="modal-actions">
         <button class="btn btn-primary" onclick="closeModal('m-quarantine')">Cancel</button>
-        <button class="btn btn-danger" id="btn-apply-q" onclick="applyQuarantine()">Apply Quarantine</button>
+        <button class="btn btn-danger" id="btn-apply-q" onclick="applyQuarantine()" data-i18n="gui_q_apply">Apply
+          Quarantine</button>
       </div>
     </div>
   </div>
@@ -1623,31 +1624,36 @@
   <!-- Help / Parameter Guide -->
   <div class="modal-bg" id="m-help">
     <div class="modal" style="max-width:600px;">
-      <h2>📖 Parameter Guide (API 25.2)</h2>
+      <h2><span data-i18n="gui_help_title">📖 Parameter Guide (API 25.2)</span></h2>
       <div style="color:var(--dim);line-height:1.6;font-size:0.95rem;">
-        <p>Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API parameters.</p>
-        <h3 style="color:#fff;margin-top:12px">Filters & Excludes</h3>
+        <p data-i18n="gui_help_desc">Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API
+          parameters.</p>
+        <h3 style="color:#fff;margin-top:12px" data-i18n="gui_help_filters">Filters & Excludes</h3>
         <ul style="padding-left:20px;margin-bottom:12px">
-          <li><strong>Label format:</strong> <code>key=value</code> (e.g., <code>role=Web</code>,
+          <li data-i18n="gui_help_lf"><strong>Label format:</strong> <code>key=value</code> (e.g.,
+            <code>role=Web</code>,
             <code>env=Production</code>, <code>app=Database</code>). Must exactly match the PCE label keys and values.
           </li>
-          <li><strong>IP List/CIDR format:</strong> Standard CIDR notation (e.g., <code>10.0.0.0/8</code>) or exact
+          <li data-i18n="gui_help_ipf"><strong>IP List/CIDR format:</strong> Standard CIDR notation (e.g.,
+            <code>10.0.0.0/8</code>) or exact
             IPs
             (e.g., <code>192.168.1.50</code>).</li>
-          <li><strong>Port format:</strong> Integer port numbers (e.g., <code>80</code>, <code>443</code>,
+          <li data-i18n="gui_help_pf"><strong>Port format:</strong> Integer port numbers (e.g., <code>80</code>,
+            <code>443</code>,
             <code>3306</code>).
           </li>
         </ul>
 
-        <h3 style="color:#fff;margin-top:12px">Policy Decisions</h3>
+        <h3 style="color:#fff;margin-top:12px" data-i18n="gui_help_pd">Policy Decisions</h3>
         <ul style="padding-left:20px;margin-bottom:12px">
-          <li><strong>Blocked:</strong> Traffic explicitly dropped by policy.</li>
-          <li><strong>Potential:</strong> Traffic that <em>would</em> be blocked if the workload were placed into
-            Enforced mode.</li>
-          <li><strong>Allowed:</strong> Traffic permitted by policy.</li>
+          <li data-i18n="gui_help_pd_blk"><strong>Blocked:</strong> Traffic explicitly dropped by policy.</li>
+          <li data-i18n="gui_help_pd_pot"><strong>Potential:</strong> Traffic that <em>would</em> be blocked if the
+            workload were placed into Enforced mode.</li>
+          <li data-i18n="gui_help_pd_all"><strong>Allowed:</strong> Traffic permitted by policy.</li>
         </ul>
       </div>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-help')">Close window</button>
+      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-help')"
+          data-i18n="gui_help_close">Close window</button>
       </div>
     </div>
   </div>
@@ -1824,8 +1830,12 @@
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const k = el.getAttribute('data-i18n');
         if (_translations[k]) {
-          if (el.tagName === 'INPUT' && el.type === 'button') el.value = _translations[k];
-          else el.textContent = _translations[k];
+          if (el.tagName === 'INPUT' || el.tagName === 'SELECT') {
+            if (el.type === 'button') el.value = _translations[k];
+            else if (el.placeholder !== undefined) el.placeholder = _translations[k];
+          } else {
+            el.innerHTML = _translations[k];
+          }
         }
       });
     }
@@ -2090,9 +2100,9 @@
 
             let isoBtn = '';
             if (m.s_href && m.d_href) {
-              isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href}', false, '${m.d_href}')">Isolate</button>`;
+              isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href}', false, '${m.d_href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
             } else if (m.s_href || m.d_href) {
-              isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href || m.d_href}')">Isolate</button>`;
+              isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href || m.d_href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
             }
 
             const formatActor = (name, ip, href, labelsHtml, process, user) => {
@@ -2172,16 +2182,16 @@
         if (r.src_ip_in) f.push('SrcIP:' + r.src_ip_in); if (r.dst_ip_in) f.push('DstIP:' + r.dst_ip_in);
         html += `<tr><td><input type="checkbox" class="r-chk" data-idx="${r.index}"></td><td title="${typ}">${typ}</td><td title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</td><td>${statusHtml}</td><td title="${cond}">${cond}</td><td title="${escapeHtml(f.join(' | '))}">${escapeHtml(f.join(' | ')) || '—'}</td><td><button class="btn btn-primary btn-sm" onclick="editRule(${r.index},'${r.type}')">✏️</button></td></tr>`;
       });
-      $('r-body').innerHTML = html || '<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:24px">No rules. Add one above.</td></tr>';
+      $('r-body').innerHTML = html || ('<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:24px">' + (_translations['gui_no_rules_add_one'] || 'No rules. Add one above.') + '</td></tr>');
       initTableResizers();
     }
     function toggleAll(el) { document.querySelectorAll('.r-chk').forEach(c => c.checked = el.checked) }
     async function deleteSelected() {
       const ids = [...document.querySelectorAll('.r-chk:checked')].map(c => parseInt(c.dataset.idx)).sort((a, b) => b - a);
-      if (!ids.length) { toast('Select rules first', 'err'); return }
-      if (!confirm('Delete ' + ids.length + ' rule(s)?')) return;
+      if (!ids.length) { toast(_translations['gui_msg_select_rules_first'] || 'Select rules first', 'err'); return }
+      if (!confirm((_translations['gui_msg_confirm_delete'] || 'Delete {count} rule(s)?').replace('{count}', ids.length))) return;
       for (const i of ids) await del('/api/rules/' + i);
-      toast('Deleted'); loadRules(); loadDashboard();
+      toast(_translations['gui_msg_deleted'] || 'Deleted'); loadRules(); loadDashboard();
     }
     function openModal(id, isEdit) {
       _editIdx = isEdit ?? null; $(id).classList.add('show'); if (id === 'm-event' && !Object.keys(_catalog).length) loadCatalog();
@@ -2214,7 +2224,7 @@
     async function editRule(idx, type) {
       try {
         const r = await api('/api/rules/' + idx);
-        if (!r || r.error) { toast('Rule not found', 'err'); return }
+        if (!r || r.error) { toast(_translations['gui_msg_rule_not_found'] || 'Rule not found', 'err'); return }
         if (type === 'event') {
           await loadCatalog();
           // Find and select category
@@ -2257,26 +2267,26 @@
         }
       } catch (e) {
         console.error(e);
-        alert('UI Error: ' + e.message);
+        alert((_translations['gui_msg_ui_error'] || 'UI Error: {error}').replace('{error}', e.message));
       }
     }
 
     async function saveEvent() {
       const cat = $('ev-cat').value, ev = $('ev-type').value;
-      if (!cat || !ev) { toast('Select category and event', 'err'); return }
+      if (!cat || !ev) { toast(_translations['gui_msg_select_cat_event'] || 'Select category and event', 'err'); return }
       const name = (_catalog[cat] || {})[ev] || ev;
       const data = { name, filter_value: ev, threshold_type: rv('ev-tt'), threshold_count: $('ev-cnt').value, threshold_window: $('ev-win').value, cooldown_minutes: $('ev-cd').value };
       if (_editIdx !== null) await put('/api/rules/' + _editIdx, data); else await post('/api/rules/event', data);
-      closeModal('m-event'); toast('Event rule saved'); loadRules(); loadDashboard();
+      closeModal('m-event'); toast(_translations['gui_msg_event_rule_saved'] || 'Event rule saved'); loadRules(); loadDashboard();
     }
     async function saveTraffic() {
-      const name = $('tr-name').value.trim(); if (!name) { toast('Name required', 'err'); return }
+      const name = $('tr-name').value.trim(); if (!name) { toast(_translations['gui_msg_name_required'] || 'Name required', 'err'); return }
       const data = { name, pd: rv('tr-pd'), port: $('tr-port').value, proto: $('tr-proto').value, src: $('tr-src').value, dst: $('tr-dst').value, ex_port: $('tr-expt').value, ex_src: $('tr-exsrc').value, ex_dst: $('tr-exdst').value, threshold_count: $('tr-cnt').value, threshold_window: $('tr-win').value, cooldown_minutes: $('tr-cd').value };
       if (_editIdx !== null) await put('/api/rules/' + _editIdx, data); else await post('/api/rules/traffic', data);
-      closeModal('m-traffic'); toast('Traffic rule saved'); loadRules(); loadDashboard();
+      closeModal('m-traffic'); toast(_translations['gui_msg_traffic_rule_saved'] || 'Traffic rule saved'); loadRules(); loadDashboard();
     }
     async function saveBW() {
-      const name = $('bw-name').value.trim(); if (!name) { toast('Name required', 'err'); return }
+      const name = $('bw-name').value.trim(); if (!name) { toast(_translations['gui_msg_name_required'] || 'Name required', 'err'); return }
       const data = {
         name, rule_type: rv('bw-mt'), pd: rv('bw-pd'),
         port: $('bw-port').value, src: $('bw-src').value, dst: $('bw-dst').value,
@@ -2284,12 +2294,12 @@
         threshold_count: $('bw-val').value, threshold_window: $('bw-win').value, cooldown_minutes: $('bw-cd').value
       };
       if (_editIdx !== null) await put('/api/rules/' + _editIdx, { ...data, type: data.rule_type }); else await post('/api/rules/bandwidth', data);
-      closeModal('m-bw'); toast('Rule saved'); loadRules(); loadDashboard();
+      closeModal('m-bw'); toast(_translations['gui_msg_rule_saved'] || 'Rule saved'); loadRules(); loadDashboard();
     }
 
     function confirmBestPractices() {
-      if (!confirm('⚠️ WARNING: This will DELETE all existing rules and replace them with best practice defaults.\n\nAre you sure you want to continue?')) return;
-      if (!confirm('This action cannot be undone. Confirm once more to proceed.')) return;
+      if (!confirm((_translations['gui_warn_best_practices'] || '⚠️ WARNING: This will DELETE all existing rules and replace them with best practice defaults.\n\nAre you sure you want to continue?').replace(/\\n/g, '\n'))) return;
+      if (!confirm(_translations['gui_confirm_best_practices'] || 'This action cannot be undone. Confirm once more to proceed.')) return;
       runAction('best-practices');
     }
 
@@ -2667,8 +2677,8 @@
         else pdBadge = `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${pd_allowed}</span>`;
 
         let isoBtn = '';
-        if (shref && dhref) isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${shref}', false, '${dhref}')">Isolate</button>`;
-        else if (shref || dhref) isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${shref || dhref}')">Isolate</button>`;
+        if (shref && dhref) isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${shref}', false, '${dhref}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
+        else if (shref || dhref) isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${shref || dhref}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
 
         let f_seen = item.timestamp_range ? item.timestamp_range.first_detected || "" : "";
         let l_seen = item.timestamp_range ? item.timestamp_range.last_detected || "" : "";
@@ -2797,7 +2807,7 @@
               <td>${ipStr}</td>
               <td style="font-size:11px;">${labelsHtml || '<span style="color:var(--dim);font-size:10px;">No Labels</span>'}</td>
               <td>
-                <button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${href}')">Isolate</button>
+                <button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>
                 ${hasQuarantine ? `<span style="font-size:10px;color:var(--danger);font-weight:bold;margin-left:8px;">Isolated</span>` : ''}
               </td>
             </tr>`;

@@ -98,7 +98,7 @@ python illumio_monitor.py --monitor --interval 5     # 每 5 分鐘
 
 ### 3.1 事件規則（Event Rule）
 
-監控 PCE 稽核事件（如 `agent.tampering`、`user.login_failed`）。
+監控 PCE 稽核事件（如 `agent.tampering`、`user.sign_in`）。
 
 | 參數 | 說明 | 範例 |
 |:---|:---|:---|

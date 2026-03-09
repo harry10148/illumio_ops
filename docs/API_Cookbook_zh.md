@@ -248,7 +248,7 @@ for evt in events:
 | `agent.tampering` | Agent 健康 | 偵測到 VEN 竄改 |
 | `system_task.agent_offline_check` | Agent 健康 | Agent 離線 |
 | `system_task.agent_missed_heartbeats_check` | Agent 健康 | Agent 心跳遺失 |
-| `user.login_failed` | 認證 | 使用者登入失敗 |
+| `user.sign_in` | 認證 | 使用者登入 (包含失敗) |
 | `request.authentication_failed` | 認證 | API Key 認證失敗 |
 | `rule_set.create` / `rule_set.update` | 政策 | Ruleset 建立或修改 |
 | `sec_rule.create` / `sec_rule.delete` | 政策 | 安全規則建立或刪除 |

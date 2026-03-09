@@ -258,7 +258,7 @@ class Analyzer:
                 matches = []
                 for e in events:
                     filter_vals = [x.strip() for x in rule["filter_value"].split(',')]
-                    if e.get("event_type") not in filter_vals:
+                    if "*" not in filter_vals and e.get("event_type") not in filter_vals:
                         continue
                         
                     # Status Filter

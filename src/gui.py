@@ -1096,24 +1096,24 @@ legend { color:var(--accent2); font-weight:700; font-size:.9rem; padding:0 8px; 
 
 <!-- Help / Parameter Guide -->
 <div class="modal-bg" id="m-help"><div class="modal" style="max-width:600px;">
-  <h2>📖 Parameter Guide (API 25.2)</h2>
+  <h2><span data-i18n="gui_help_title">📖 Parameter Guide (API 25.2)</span></h2>
   <div style="color:var(--dim);line-height:1.6;font-size:0.95rem;">
-    <p>Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API parameters.</p>
-    <h3 style="color:#fff;margin-top:12px">Filters & Excludes</h3>
+    <p data-i18n="gui_help_desc">Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API parameters.</p>
+    <h3 style="color:#fff;margin-top:12px" data-i18n="gui_help_filters">Filters & Excludes</h3>
     <ul style="padding-left:20px;margin-bottom:12px">
-      <li><strong>Label format:</strong> <code>key=value</code> (e.g., <code>role=Web</code>, <code>env=Production</code>, <code>app=Database</code>). Must exactly match the PCE label keys and values.</li>
-      <li><strong>IP List/CIDR format:</strong> Standard CIDR notation (e.g., <code>10.0.0.0/8</code>) or exact IPs (e.g., <code>192.168.1.50</code>).</li>
-      <li><strong>Port format:</strong> Integer port numbers (e.g., <code>80</code>, <code>443</code>, <code>3306</code>).</li>
+      <li data-i18n="gui_help_lf"><strong>Label format:</strong> <code>key=value</code> (e.g., <code>role=Web</code>, <code>env=Production</code>, <code>app=Database</code>). Must exactly match the PCE label keys and values.</li>
+      <li data-i18n="gui_help_ipf"><strong>IP List/CIDR format:</strong> Standard CIDR notation (e.g., <code>10.0.0.0/8</code>) or exact IPs (e.g., <code>192.168.1.50</code>).</li>
+      <li data-i18n="gui_help_pf"><strong>Port format:</strong> Integer port numbers (e.g., <code>80</code>, <code>443</code>, <code>3306</code>).</li>
     </ul>
 
-    <h3 style="color:#fff;margin-top:12px">Policy Decisions</h3>
+    <h3 style="color:#fff;margin-top:12px" data-i18n="gui_help_pd">Policy Decisions</h3>
     <ul style="padding-left:20px;margin-bottom:12px">
-      <li><strong>Blocked:</strong> Traffic explicitly dropped by policy.</li>
-      <li><strong>Potential:</strong> Traffic that <em>would</em> be blocked if the workload were placed into Enforced mode.</li>
-      <li><strong>Allowed:</strong> Traffic permitted by policy.</li>
+      <li data-i18n="gui_help_pd_blk"><strong>Blocked:</strong> Traffic explicitly dropped by policy.</li>
+      <li data-i18n="gui_help_pd_pot"><strong>Potential:</strong> Traffic that <em>would</em> be blocked if the workload were placed into Enforced mode.</li>
+      <li data-i18n="gui_help_pd_all"><strong>Allowed:</strong> Traffic permitted by policy.</li>
     </ul>
   </div>
-  <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-help')">Close window</button></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-help')" data-i18n="gui_help_close">Close window</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>

@@ -248,7 +248,7 @@ for evt in events:
 | `agent.tampering` | Agent Health | VEN tampering detected |
 | `system_task.agent_offline_check` | Agent Health | Agent went offline |
 | `system_task.agent_missed_heartbeats_check` | Agent Health | Agent missed heartbeats |
-| `user.login_failed` | Authentication | User login failure |
+| `user.sign_in` | Authentication | User sign in (success or failure) |
 | `request.authentication_failed` | Authentication | API key authentication failure |
 | `rule_set.create` / `rule_set.update` | Policy | Ruleset created or modified |
 | `sec_rule.create` / `sec_rule.delete` | Policy | Security rule created or deleted |

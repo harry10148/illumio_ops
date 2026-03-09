@@ -98,7 +98,7 @@ Runs unattended in the background. Handles `SIGINT`/`SIGTERM` gracefully for cle
 
 ### 3.1 Event Rules
 
-Monitor PCE audit events (e.g., `agent.tampering`, `user.login_failed`).
+Monitor PCE audit events (e.g., `agent.tampering`, `user.sign_in`).
 
 | Parameter | Description | Example |
 |:---|:---|:---|

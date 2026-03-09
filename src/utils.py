@@ -21,20 +21,18 @@ class Colors:
 
 
 def safe_input(prompt: str, value_type=str, valid_range=None, allow_cancel=True, hint=None, help_text=None):
-    nav_hint = f" [{t('nav_back', default='0.Back')}]" if allow_cancel else ""
-    help_hint = f" [{t('nav_help', default='?:Help')}]" if help_text else ""
-    full_prompt = f"{prompt}{Colors.CYAN}{nav_hint}{help_hint}{Colors.ENDC}"
+    if help_text:
+        print(f"{Colors.DARK_GRAY}{help_text}{Colors.ENDC}")
+        
+    full_prompt = f"{prompt}"
     if hint:
-        full_prompt += f" {Colors.CYAN}({hint}){Colors.ENDC}"
+        def_text = t('def_val_prefix', default='Default')
+        full_prompt += f" {Colors.CYAN}({def_text}: {hint}){Colors.ENDC}"
     full_prompt += ": "
     
     while True:
         try:
             raw = input(full_prompt).strip()
-            
-            if raw == '?' and help_text:
-                print(f"{Colors.DARK_GRAY}{help_text}{Colors.ENDC}")
-                continue
                 
             if not raw:
                 # User hit Enter without typing anything

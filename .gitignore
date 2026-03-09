@@ -29,3 +29,5 @@ venv/
 # Temporary files from investigation
 find_api.py
 grep_out.txt
+debug_dump.json
+debug_events.json

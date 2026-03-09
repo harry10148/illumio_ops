@@ -6,6 +6,9 @@ from src.i18n import t, set_language
 from src import __version__
 
 FULL_EVENT_CATALOG = {
+    "General": {
+        "*": "event_all_events"
+    },
     "Agent Health": {
         "system_task.agent_missed_heartbeats_check": "event_agent_missed_heartbeats",
         "system_task.agent_offline_check": "event_agent_offline",
@@ -20,8 +23,8 @@ FULL_EVENT_CATALOG = {
     },
     "User Access": {
         "user.authenticate": "event_user_authenticate",
-        "user.sign_in,user.login": "event_user_sign_in",
-        "user.sign_out,user.logout": "event_user_sign_out",
+        "user.sign_in": "event_user_sign_in",
+        "user.sign_out": "event_user_sign_out",
         "user.login_session_terminated": "event_user_login_session_terminated",
         "user.pce_session_terminated": "event_user_pce_session_terminated"
     },
@@ -49,6 +52,24 @@ FULL_EVENT_CATALOG = {
     }
 }
 
+# Events that support Status (Success/Failure) and Severity filtering
+ACTION_EVENTS = [
+    'user.authenticate', 'user.sign_in', 'user.sign_out',
+    'request.authentication_failed', 'request.authorization_failed',
+    'api_key.create', 'api_key.delete',
+    'rule_set.create', 'rule_set.update', 'rule_set.delete',
+    'sec_rule.create', 'sec_rule.update', 'sec_rule.delete',
+    'sec_policy.create', 'cluster.update',
+    'agent.activate', 'agent.deactivate', 'agent.refresh_policy'
+]
+
+# Events that are mostly discovery/state based (hide Status/Severity prompts)
+DISCOVERY_EVENTS = [
+    'system_task.agent_missed_heartbeats_check', 'system_task.agent_offline_check',
+    'lost_agent.found', 'agent.service_not_available', 'agent.tampering',
+    'agent.clone_detected', 'agent.goodbye', 'agent.suspend'
+]
+
 def add_event_menu(cm: ConfigManager, edit_rule=None):
     from src.utils import Colors, safe_input
     
@@ -56,14 +77,13 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         os.system('cls' if os.name == 'nt' else 'clear')
         title = t('menu_add_event_title') if not edit_rule else f"=== Modify Event Rule: {edit_rule.get('name', '')} ==="
         print(f"{Colors.HEADER}{title}{Colors.ENDC}")
+        print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
         print(t('menu_return'))
         if not edit_rule:
-            hc = t('ssl_status_on') if cm.config["settings"].get("enable_health_check", True) else t('ssl_status_off')
-            print(t('set_health_check', status=hc))
-        print("-" * 40)
-        cats = list(FULL_EVENT_CATALOG.keys())
-        for i, c in enumerate(cats): print(f"{i+1}. {c}")
-        sel = input(f"\n{t('select_category')}").strip().upper()
+            print("-" * 40)
+            cats = list(FULL_EVENT_CATALOG.keys())
+            for i, c in enumerate(cats): print(f"{i+1}. {c}")
+            sel = input(f"\n{t('select_category')}").strip().upper()
         if sel == '0': break
         if sel == 'H':
             cm.config["settings"]["enable_health_check"] = not cm.config["settings"].get("enable_health_check", True)
@@ -77,9 +97,10 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         # Header for the list
         print(f"{'No.':<4} {'Event Type':<40} | {'Description'}")
         print("-" * 80)
-        for i, k in enumerate(evt_keys): 
-            desc = t(evts[k])
-            print(f"{i+1:<4} {k:<40} | {desc}")
+        for i, k in enumerate(evt_keys):
+            desc = t(FULL_EVENT_CATALOG[cat][k])
+            display_k = k if k != "*" else "* (All Events)"
+            print(f"{i+1:<4} {display_k:<40} | {desc}")
         
         print(f"\n{t('menu_cancel')}")
         if edit_rule and edit_rule.get('filter_value') in evt_keys:
@@ -97,10 +118,10 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         if ti is None: continue
         if ti == '' or ti == 0: ti = def_ti
         ttype, cnt, win = "immediate", 1, 10
+        def_win = edit_rule.get('threshold_window', 10) if edit_rule else 10
         if ti == 2:
             ttype = "count"
             def_cnt = edit_rule.get('threshold_count', 5) if edit_rule else 5
-            def_win = edit_rule.get('threshold_window', 10) if edit_rule else 10
             cnt_in = safe_input(t('cumulative_count'), int, hint=str(def_cnt), allow_cancel=True)
             if cnt_in is None: continue
             cnt = int(cnt_in) if cnt_in != '' else def_cnt
@@ -109,27 +130,40 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
             win = int(win_in) if win_in != '' else def_win
             
         def_cd = edit_rule.get('cooldown_minutes', win) if edit_rule else win
-        cd_in = safe_input(t('cooldown_mins_default').replace('[{win}]', '').replace('[Default: {win}]', '').strip(), int, allow_cancel=True, hint=str(def_cd), help_text=t('def_cooldown'))
+        cd_in = safe_input(t('cooldown_mins').format(win=def_win), int, allow_cancel=True, hint=str(def_cd), help_text=t('def_cooldown'))
         cd = int(cd_in) if cd_in and cd_in != '' else def_cd
         rid = edit_rule.get('id', int(datetime.datetime.now().timestamp())) if edit_rule else int(datetime.datetime.now().timestamp())
-
-        # New Status & Severity Filters
-        print(f"\n{Colors.CYAN}--- {t('advanced_filters')} ---{Colors.ENDC}")
-        def_status = edit_rule.get('filter_status', 'all') if edit_rule else 'all'
-        s_map = {1: 'success', 2: 'failure', 0: 'all'}
-        s_inv = {v: k for k, v in s_map.items()}
-        si = safe_input(t('filter_status').replace('[預設: 0]', '').replace('[Default: 0]', '').strip(), int, range(0, 3), allow_cancel=True, hint=str(s_inv.get(def_status, 0)), help_text=t('def_filters'))
-        if si is None: break
-        if si == '': si = s_inv.get(def_status, 0)
-        sel_status = s_map.get(si, def_status)
         
-        def_sev = edit_rule.get('filter_severity', 'all') if edit_rule else 'all'
-        v_map = {1: 'error', 2: 'warning', 3: 'info', 0: 'all'}
-        v_inv = {v: k for k, v in v_map.items()}
-        vi = safe_input(t('filter_severity').replace('[預設: 0]', '').replace('[Default: 0]', '').strip(), int, range(0, 4), allow_cancel=True, hint=str(v_inv.get(def_sev, 0)), help_text=t('def_filters'))
-        if vi is None: break
-        if vi == '': vi = v_inv.get(def_sev, 0)
-        sel_sev = v_map.get(vi, def_sev)
+        # Determine if we should show Advanced Filters based on event type
+        sel_status = 'all'
+        sel_sev = 'all'
+        
+        show_status = k in ACTION_EVENTS
+        show_severity = k in ACTION_EVENTS or k == "*"
+        
+        if show_status or show_severity:
+            print(f"\n{Colors.CYAN}--- {t('advanced_filters')} ---{Colors.ENDC}")
+            print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
+            
+            if show_status:
+                def_status = edit_rule.get('filter_status', 'all') if edit_rule else 'all'
+                s_map = {1: 'success', 2: 'failure', 0: 'all'}
+                s_inv = {v: k for k, v in s_map.items()}
+                si = safe_input(t('filter_status').strip(), int, range(0, 3), allow_cancel=True, hint=str(s_inv.get(def_status, 0)), help_text=t('def_filters'))
+                if si is None: break
+                if si == '': si = s_inv.get(def_status, 0)
+                sel_status = s_map.get(si, def_status)
+
+            if show_severity:
+                # Default to 'error' for global events (*)
+                default_sev_key = 'error' if k == "*" and not edit_rule else 'all'
+                def_sev = edit_rule.get('filter_severity', default_sev_key) if edit_rule else default_sev_key
+                v_map = {1: 'error', 2: 'warning', 3: 'info', 0: 'all'}
+                v_inv = {v: k for k, v in v_map.items()}
+                vi = safe_input(t('filter_severity').strip(), int, range(0, 4), allow_cancel=True, hint=str(v_inv.get(def_sev, 0)), help_text=t('def_filters'))
+                if vi is None: break
+                if vi == '': vi = v_inv.get(def_sev, 0)
+                sel_sev = v_map.get(vi, def_sev)
 
         cm.add_or_update_rule({
             "id": rid,
@@ -146,6 +180,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     
     title = t('menu_add_traffic_title') if not edit_rule else f"=== Modify Traffic Rule: {edit_rule.get('name', '')} ==="
     print(f"\n{Colors.HEADER}{title}{Colors.ENDC}")
+    print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
     print(t('menu_return'))
     
     def_name = edit_rule.get('name', '') if edit_rule else ''
@@ -162,7 +197,13 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         elif tpd == 1: def_pd = 3  # Allowed
         elif tpd == -1: def_pd = 4 # All
 
-    pd_sel = safe_input(t('pd_select_default'), int, range(0, 5), allow_cancel=True, hint=str(def_pd), help_text=t('def_traffic_pd'))
+    print(f"{Colors.DARK_GRAY}{t('def_traffic_pd')}{Colors.ENDC}")
+    print(t('policy_decision'))
+    print(t('pd_1'))
+    print(t('pd_2'))
+    print(t('pd_3'))
+    print(t('pd_4'))
+    pd_sel = safe_input(t('pd_select_default'), int, range(0, 5), allow_cancel=True, hint=str(def_pd))
     if pd_sel is None: return
     if pd_sel == '': pd_sel = def_pd
     
@@ -173,6 +214,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     else: target_pd = -1
     
     print(f"\n{Colors.CYAN}{t('advanced_filters')}{Colors.ENDC}")
+    print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
     
     def_port = edit_rule.get('port', '') if edit_rule else ''
     port_in = safe_input(t('port_input'), int, allow_cancel=True, hint=str(def_port) if def_port else '')
@@ -201,7 +243,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     if dst_in == '': dst_in = def_dst
     
     def_win = edit_rule.get('threshold_window', 10) if edit_rule else 10
-    win_in = safe_input(t('time_window_mins_default_5').replace('[{win}]', '').replace('[Default: 5]', '').strip(), int, allow_cancel=True, hint=str(def_win))
+    win_in = safe_input(t('time_window_mins').replace('[{win}]', '').replace('[Default: 5]', '').strip(), int, allow_cancel=True, hint=str(def_win))
     if win_in is None: return
     win = int(win_in) if win_in != '' else def_win
     
@@ -211,7 +253,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     cnt = int(cnt_in) if cnt_in != '' else def_cnt
     
     def_cd = edit_rule.get('cooldown_minutes', win) if edit_rule else win
-    cd_in = safe_input(t('cooldown_mins_default').replace('[{win}]', '').replace('[Default: {win}]', '').strip(), int, allow_cancel=True, hint=str(def_cd), help_text=t('def_cooldown'))
+    cd_in = safe_input(t('cooldown_mins').format(win=def_win), int, allow_cancel=True, hint=str(def_cd), help_text=t('def_cooldown'))
     if cd_in is None: return
     cd = int(cd_in) if cd_in != '' else def_cd
     
@@ -255,6 +297,7 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     
     title = t('menu_add_bw_vol_title') if not edit_rule else f"=== Modify Rule: {edit_rule.get('name', '')} ==="
     print(f"\n{Colors.HEADER}{title}{Colors.ENDC}")
+    print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
     print(t('menu_return'))
     
     def_name = edit_rule.get('name', '') if edit_rule else ''
@@ -277,6 +320,7 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     unit_prompt = "Mbps" if m_sel == 1 else "MB"
     
     print(f"\n{Colors.CYAN}{t('step_2_filters')}{Colors.ENDC}")
+    print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
     
     def_port = edit_rule.get('port', '') if edit_rule else ''
     port_in = safe_input(t('port_input'), int, allow_cancel=True, hint=str(def_port) if def_port else '')
@@ -313,12 +357,12 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     if th is None: return
     
     def_win = edit_rule.get('threshold_window', 5) if edit_rule else 5
-    win_in = safe_input(t('time_window_mins_default_5').replace('[{win}]', '').replace('[Default: 5]', '').strip(), int, allow_cancel=True, hint=str(def_win))
+    win_in = safe_input(t('time_window_mins').replace('[{win}]', '').replace('[Default: 5]', '').strip(), int, allow_cancel=True, hint=str(def_win))
     if win_in is None: return
     win = int(win_in) if win_in != '' else def_win
     
     def_cd = edit_rule.get('cooldown_minutes', win) if edit_rule else win
-    cd_in = safe_input(t('cooldown_mins_default').replace('[{win}]', '').replace('[Default: {win}]', '').strip(), int, allow_cancel=True, hint=str(def_cd), help_text=t('def_cooldown'))
+    cd_in = safe_input(t('cooldown_mins').format(win=def_win), int, allow_cancel=True, hint=str(def_cd), help_text=t('def_cooldown'))
     if cd_in is None: return
     cd = int(cd_in) if cd_in != '' else def_cd
     
@@ -390,13 +434,21 @@ def manage_rules_menu(cm: ConfigManager):
             if r.get('ex_dst_ip'): filters.append(f"{Colors.WARNING}[Excl DstIP:{r['ex_dst_ip']}]{Colors.ENDC}")
             filter_str = " ".join(filters)
             
-            from src.utils import pad_string
-            # Truncate string gracefully if it's too long
+            from src.utils import pad_string, get_display_width
             display_name = r['name']
-            from src.utils import get_display_width
+            
+            # CJK-aware truncation to keep table aligned
             if get_display_width(display_name) > 28:
-                # Rough truncation for mixed width
-                display_name = display_name[:25] + "..."
+                temp_name = ""
+                curr_w = 0
+                for char in display_name:
+                    char_w = get_display_width(char)
+                    if curr_w + char_w + 3 > 28:
+                        temp_name += "..."
+                        break
+                    temp_name += char
+                    curr_w += char_w
+                display_name = temp_name
                 
             padded_name = pad_string(display_name, 30)
             padded_type = pad_string(rtype, 10)
