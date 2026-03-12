@@ -15,7 +15,6 @@
       --bg3: #334155;
       --fg: #F8FAFC;
       --dim: #94A3B8;
-      --dim: #94A3B8;
       --accent: #F97316;
       --accent2: #FB923C;
       --success: #10B981;
@@ -26,7 +25,36 @@
       --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       --header-font: 'EB Garamond', serif;
       --body-font: 'Lato', system-ui, sans-serif;
+      --space-header-y: 12px;
+      --space-header-x: 20px;
+      --space-panel: 18px;
+      --space-card: 14px;
+      --space-fieldset: 16px;
+      --row-cell-y: 8px;
+      --row-cell-x: 12px;
+      --btn-pad-y: 8px;
+      --btn-pad-x: 14px;
+      --btn-font: .86rem;
+      --tab-pad-y: 10px;
+      --tab-pad-x: 16px;
+      --toolbar-gap: 10px;
       color-scheme: dark light;
+    }
+
+    [data-density="comfortable"] {
+      --space-header-y: 16px;
+      --space-header-x: 28px;
+      --space-panel: 24px;
+      --space-card: 20px;
+      --space-fieldset: 20px;
+      --row-cell-y: 12px;
+      --row-cell-x: 16px;
+      --btn-pad-y: 10px;
+      --btn-pad-x: 20px;
+      --btn-font: .9rem;
+      --tab-pad-y: 12px;
+      --tab-pad-x: 24px;
+      --toolbar-gap: 12px;
     }
 
     [data-theme="light"] {
@@ -34,7 +62,6 @@
       --bg2: #FFFFFF;
       --bg3: #F1F5F9;
       --fg: #0F172A;
-      --dim: #64748B;
       --dim: #64748B;
       --accent: #EA580C;
       --accent2: #F97316;
@@ -58,6 +85,42 @@
       min-height: 100vh;
       font-size: 14px;
       touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(249, 115, 22, 0.22);
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      pointer-events: none;
+      z-index: -1;
+      filter: blur(40px);
+      opacity: .22;
+    }
+
+    body::before {
+      width: 44vw;
+      height: 44vw;
+      min-width: 280px;
+      min-height: 280px;
+      right: -10vw;
+      top: -14vw;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, var(--accent2), transparent 62%);
+    }
+
+    body::after {
+      width: 38vw;
+      height: 38vw;
+      min-width: 220px;
+      min-height: 220px;
+      left: -12vw;
+      bottom: -18vw;
+      border-radius: 50%;
+      background: radial-gradient(circle at 70% 70%, var(--success), transparent 62%);
     }
 
     .skip-link {
@@ -99,10 +162,12 @@
     /* Header */
     .header {
       background: var(--bg2);
-      padding: 16px 28px;
+      padding: var(--space-header-y) var(--space-header-x);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
       border-bottom: 1px solid var(--border);
     }
 
@@ -114,6 +179,7 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       letter-spacing: 0.5px;
+      text-wrap: balance;
     }
 
     .header .meta {
@@ -122,17 +188,59 @@
       font-family: var(--body-font);
     }
 
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ui-pref {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 8px;
+    }
+
+    .ui-pref label {
+      font-size: 11px;
+      color: var(--dim);
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+
+    .ui-pref select {
+      background: transparent;
+      color: var(--fg);
+      border: none;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .ui-pref:focus-within {
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent2) 30%, transparent);
+    }
+
     /* Tabs */
     .tabs {
       display: flex;
       gap: 4px;
       background: var(--bg2);
-      padding: 10px 20px 0;
+      padding: 8px var(--space-header-x) 0;
       border-bottom: 1px solid var(--border);
+      overflow-x: auto;
     }
 
     .tab {
-      padding: 12px 24px;
+      padding: var(--tab-pad-y) var(--tab-pad-x);
       cursor: pointer;
       border-radius: var(--radius) var(--radius) 0 0;
       background: transparent;
@@ -168,7 +276,7 @@
     /* Panel */
     .panel {
       display: none;
-      padding: 24px;
+      padding: var(--space-panel);
       animation: fadeIn .25s ease-out;
     }
 
@@ -192,15 +300,15 @@
     .cards {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: var(--toolbar-gap);
+      margin-bottom: var(--space-panel);
     }
 
     .card {
       background: var(--bg2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
+      padding: var(--space-card);
       text-align: center;
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     }
@@ -240,10 +348,10 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 10px 20px;
+      padding: var(--btn-pad-y) var(--btn-pad-x);
       border: none;
       border-radius: var(--radius);
-      font-size: .9rem;
+      font-size: var(--btn-font);
       font-family: var(--body-font);
       font-weight: 600;
       cursor: pointer;
@@ -307,8 +415,8 @@
     }
 
     .btn-sm {
-      padding: 6px 14px;
-      font-size: .85rem;
+      padding: calc(var(--btn-pad-y) - 2px) calc(var(--btn-pad-x) - 4px);
+      font-size: calc(var(--btn-font) - 0.03rem);
       border-radius: 6px;
     }
 
@@ -375,8 +483,8 @@
     fieldset {
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 20px;
+      padding: var(--space-fieldset);
+      margin-bottom: var(--space-fieldset);
       background: var(--bg2);
     }
 
@@ -407,9 +515,9 @@
     .rule-table th,
     .rule-table td {
       text-align: left;
-      padding: 12px 16px;
+      padding: var(--row-cell-y) var(--row-cell-x);
       border-bottom: 1px solid var(--border);
-      font-size: .88rem;
+      font-size: .84rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -643,9 +751,9 @@
     /* Toolbar */
     .toolbar {
       display: flex;
-      gap: 12px;
+      gap: var(--toolbar-gap);
       flex-wrap: wrap;
-      margin-bottom: 16px;
+      margin-bottom: var(--toolbar-gap);
       align-items: center;
     }
 
@@ -932,6 +1040,26 @@
       outline-offset: 2px;
     }
 
+    @media (max-width: 960px) {
+      .header h1 {
+        font-size: 1.28rem;
+      }
+
+      .tabs {
+        white-space: nowrap;
+      }
+
+      .form-row,
+      .form-row-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .rule-table th,
+      .rule-table td {
+        font-size: .8rem;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *,
       *::before,
@@ -1007,8 +1135,23 @@
       </svg>
       Illumio PCE Monitor
     </h1>
-    <div style="display:flex;align-items:center;gap:16px">
+    <div class="header-right">
       <span class="meta" id="hdr-meta">Loading...</span>
+      <div class="ui-pref" aria-label="Theme mode selector">
+        <label for="ui-theme-mode">Theme</label>
+        <select id="ui-theme-mode" onchange="onUiThemeModeChange(this.value)">
+          <option value="auto">Auto</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+      <div class="ui-pref" aria-label="Density selector">
+        <label for="ui-density">Density</label>
+        <select id="ui-density" onchange="onUiDensityChange(this.value)">
+          <option value="compact">Compact</option>
+          <option value="comfortable">Comfortable</option>
+        </select>
+      </div>
       <button class="btn btn-secondary btn-sm" onclick="stopGui()" title="Stop Web GUI" data-i18n="gui_stop">
         <svg class="icon" aria-hidden="true" focusable="false">
           <use href="#icon-stop"></use>
@@ -1249,7 +1392,7 @@
           <input id="d-global-min" type="number" value="30"
             style="width:100px;background:var(--bg);border:1px solid var(--border);color:var(--fg);padding:8px 12px;border-radius:6px;">
           <span style="flex:1"></span>
-          <button class="btn btn-secondary btn-sm" onclick="openQueryModal()" data-i18n="gui_add_query_widget">➕ Add
+          <button class="btn btn-secondary btn-sm" onclick="openQueryModal()" data-i18n="gui_add_query_widget"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Add
             Query Widget</button>
           <button class="btn btn-primary btn-sm" onclick="runAllQueries()" data-i18n="gui_run_all_queries"><svg
               class="icon">
@@ -1282,13 +1425,13 @@
       <span style="font-size:1.1rem;font-weight:700;color:var(--accent2)" data-i18n="gui_tab_rules">Rules</span>
       <span class="badge" id="r-badge">0</span>
       <button class="btn btn-sm" style="margin-left:8px;background:var(--dim);color:#fff" onclick="openModal('m-help')"
-        data-i18n="gui_param_guide">📖 Parameter Guide</button>
+        data-i18n="gui_param_guide"><svg class="icon" aria-hidden="true"><use href="#icon-help-circle"></use></svg> Parameter Guide</button>
       <div class="spacer"></div>
-      <button class="btn btn-warn btn-sm" onclick="openModal('m-event')" data-i18n="gui_add_event">📋 + Event</button>
-      <button class="btn btn-warn btn-sm" onclick="openModal('m-traffic')" data-i18n="gui_add_traffic">🚦 +
+      <button class="btn btn-warn btn-sm" onclick="openModal('m-event')" data-i18n="gui_add_event"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> + Event</button>
+      <button class="btn btn-warn btn-sm" onclick="openModal('m-traffic')" data-i18n="gui_add_traffic"><svg class="icon" aria-hidden="true"><use href="#icon-activity"></use></svg> +
         Traffic</button>
-      <button class="btn btn-warn btn-sm" onclick="openModal('m-bw')" data-i18n="gui_add_bw">📊 + BW/Vol</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteSelected()" data-i18n="gui_delete">🗑 Delete</button>
+      <button class="btn btn-warn btn-sm" onclick="openModal('m-bw')" data-i18n="gui_add_bw"><svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg> + BW/Vol</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteSelected()" data-i18n="gui_delete"><svg class="icon" aria-hidden="true"><use href="#icon-cross"></use></svg> Delete</button>
     </div>
     <table class="rule-table">
       <thead>
@@ -1315,12 +1458,12 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;">
-      <button class="btn btn-primary" onclick="testConn()" data-i18n="gui_test_conn">🔗 Test Connection</button>
+      <button class="btn btn-primary" onclick="testConn()" data-i18n="gui_test_conn"><svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg> Test Connection</button>
     </div>
     <div class="log-box" id="s-log" style="height:80px;margin-bottom:14px;font-size:0.85rem;">[Ready]</div>
     <div id="s-form"></div>
     <div style="text-align:right;margin-top:16px;">
-      <button class="btn btn-success" onclick="saveSettings()" data-i18n="gui_save_all">💾 Save All Settings</button>
+      <button class="btn btn-success" onclick="saveSettings()" data-i18n="gui_save_all"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save All Settings</button>
     </div>
   </div>
 
@@ -1328,12 +1471,12 @@
   <div class="panel" id="p-actions">
     <div class="action-grid">
       <div class="action-card">
-        <h3 data-i18n="gui_run_once">▶ Run Monitor Once</h3>
+        <h3 data-i18n="gui_run_once"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> Run Monitor Once</h3>
         <p data-i18n="gui_run_once_desc">Execute full cycle: Health → Fetch → Analyze → Alert</p><button
           class="btn btn-primary" onclick="runAction('run')" data-i18n="gui_run_btn">Run</button>
       </div>
       <div class="action-card">
-        <h3 data-i18n="gui_debug_mode">🔍 Debug Mode</h3>
+        <h3 data-i18n="gui_debug_mode"><svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg> Debug Mode</h3>
         <p data-i18n="gui_debug_desc">Sandbox mode — no alerts, no state updates</p>
         <div class="form-row" style="margin-bottom:8px;">
           <div class="form-group"><label data-i18n="gui_window_min">Window (min)</label><input id="a-debug-mins"
@@ -1347,12 +1490,12 @@
         <button class="btn btn-primary" onclick="runDebug()" data-i18n="gui_run_debug">Run Debug</button>
       </div>
       <div class="action-card">
-        <h3 data-i18n="gui_test_alert">📧 Send Test Alert</h3>
+        <h3 data-i18n="gui_test_alert"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Send Test Alert</h3>
         <p data-i18n="gui_test_alert_desc">Verify Email / LINE / Webhook delivery</p><button class="btn btn-primary"
           onclick="runAction('test-alert')" data-i18n="gui_send">Send</button>
       </div>
       <div class="action-card">
-        <h3 data-i18n="gui_best_practices">📋 Load Best Practices</h3>
+        <h3 data-i18n="gui_best_practices"><svg class="icon" aria-hidden="true"><use href="#icon-shield"></use></svg> Load Best Practices</h3>
         <p data-i18n="gui_best_practices_desc">Replace ALL existing rules with recommended defaults</p><button
           class="btn btn-danger" onclick="confirmBestPractices()" data-i18n="gui_load">Load</button>
       </div>
@@ -1416,7 +1559,7 @@
       </fieldset>
       <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-query')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveDashboardQuery()"
-          data-i18n="gui_save">💾 Save</button></div>
+          data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
@@ -1545,7 +1688,7 @@
       </fieldset>
       <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-event')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveEvent()"
-          data-i18n="gui_save">💾 Save</button></div>
+          data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
@@ -1606,7 +1749,7 @@
       </fieldset>
       <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-traffic')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveTraffic()"
-          data-i18n="gui_save">💾 Save</button></div>
+          data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
@@ -1668,14 +1811,14 @@
       </fieldset>
       <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-bw')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveBW()"
-          data-i18n="gui_save">💾 Save</button></div>
+          data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
   <!-- Help / Parameter Guide -->
   <div class="modal-bg" id="m-help">
     <div class="modal" style="max-width:600px;">
-      <h2><span data-i18n="gui_help_title">📖 Parameter Guide (API 25.2)</span></h2>
+      <h2><span data-i18n="gui_help_title">Parameter Guide (API 25.2)</span></h2>
       <div style="color:var(--dim);line-height:1.6;font-size:0.95rem;">
         <p data-i18n="gui_help_desc">Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API
           parameters.</p>
@@ -1762,6 +1905,72 @@
 
     let _translations = {};
     let _timezone = 'local';
+
+    const UI_PREF_KEYS = {
+      themeMode: 'illumio_gui_theme_mode',
+      density: 'illumio_gui_density'
+    };
+
+    function getStoredThemeMode() {
+      const mode = localStorage.getItem(UI_PREF_KEYS.themeMode) || 'auto';
+      return ['auto', 'dark', 'light'].includes(mode) ? mode : 'auto';
+    }
+
+    function getStoredDensity() {
+      const density = localStorage.getItem(UI_PREF_KEYS.density) || 'compact';
+      return ['compact', 'comfortable'].includes(density) ? density : 'compact';
+    }
+
+    function applyThemeMode(mode) {
+      const preferLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      const resolved = mode === 'auto'
+        ? (preferLight ? 'light' : 'dark')
+        : mode;
+      document.documentElement.setAttribute('data-theme', resolved);
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) metaTheme.setAttribute('content', resolved === 'light' ? '#F8FAFC' : '#0F172A');
+      const sel = $('ui-theme-mode');
+      if (sel) sel.value = mode;
+    }
+
+    function applyDensity(density) {
+      document.documentElement.setAttribute('data-density', density);
+      const sel = $('ui-density');
+      if (sel) sel.value = density;
+    }
+
+    function initUiPreferences() {
+      applyThemeMode(getStoredThemeMode());
+      applyDensity(getStoredDensity());
+    }
+
+    function updateUrlState(key, value) {
+      try {
+        const u = new URL(window.location.href);
+        if (!value) u.searchParams.delete(key);
+        else u.searchParams.set(key, value);
+        history.replaceState({}, '', u.toString());
+      } catch (_) { }
+    }
+
+    function onUiThemeModeChange(mode) {
+      localStorage.setItem(UI_PREF_KEYS.themeMode, mode);
+      applyThemeMode(mode);
+    }
+
+    function onUiDensityChange(density) {
+      localStorage.setItem(UI_PREF_KEYS.density, density);
+      applyDensity(density);
+    }
+
+    if (window.matchMedia) {
+      const media = window.matchMedia('(prefers-color-scheme: light)');
+      media.addEventListener('change', () => {
+        if (getStoredThemeMode() === 'auto') {
+          applyThemeMode('auto');
+        }
+      });
+    }
 
     function formatDateZ(utcString) {
       if (!utcString) return "";
@@ -1869,6 +2078,15 @@
       await loadStatus();
       await loadDashboardQueries();
       setInterval(loadStatus, 30000);
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && ['dashboard', 'rules', 'settings', 'actions'].includes(tab)) {
+        switchTab(tab, false);
+      }
+      const qtab = params.get('qtab');
+      if (qtab && ['traffic', 'workloads', 'legacy'].includes(qtab)) {
+        switchQTab(qtab, false);
+      }
       hideAll();
     }
 
@@ -1937,7 +2155,7 @@
     function alog(msg) { const l = $('a-log'); l.textContent += '\n' + msg; l.scrollTop = l.scrollHeight }
 
     /* ─── Tabs ────────────────────────────────────────────────────────── */
-    function switchTab(id) {
+    function switchTab(id, updateUrl = true) {
       document.querySelectorAll('.tab').forEach((tabBtn) => {
         const active = tabBtn.dataset.tab === id;
         tabBtn.classList.toggle('active', active);
@@ -1948,6 +2166,7 @@
       if (id === 'rules') loadRules();
       if (id === 'settings') loadSettings();
       if (id === 'dashboard') loadDashboard();
+      if (updateUrl) updateUrlState('tab', id);
     }
 
     /* ─── Dashboard ───────────────────────────────────────────────────── */
@@ -1958,7 +2177,7 @@
       $('d-health').textContent = d.health_check ? 'ON' : 'OFF';
       $('d-lang').textContent = (d.language || 'en').toUpperCase();
       if (d.timezone) _timezone = d.timezone;
-      if (d.theme) document.documentElement.setAttribute('data-theme', d.theme);
+      applyThemeMode(getStoredThemeMode());
 
       if (d.cooldowns && d.cooldowns.length > 0) {
         const activeCds = d.cooldowns.filter(c => c.remaining_mins > 0).length;
@@ -2388,7 +2607,7 @@
     <div style="display:flex;gap:20px"><div class="chk"><label><input type="checkbox" id="s-tls" ${sm.enable_tls ? 'checked' : ''}> STARTTLS</label></div><div class="chk"><label><input type="checkbox" id="s-auth" ${sm.enable_auth ? 'checked' : ''}> Auth</label></div></div>
   </fieldset>
   <fieldset><legend data-i18n="gui_alert_channels">Alert Channels</legend>
-    <div style="display:flex;gap:20px;margin-bottom:12px"><div class="chk"><label><input type="checkbox" id="s-amail" ${active.includes('mail') ? 'checked' : ''}> 📧 <span data-i18n="gui_mail">Mail</span></label></div><div class="chk"><label><input type="checkbox" id="s-aline" ${active.includes('line') ? 'checked' : ''}> 📱 <span data-i18n="gui_line">LINE</span></label></div><div class="chk"><label><input type="checkbox" id="s-awh" ${active.includes('webhook') ? 'checked' : ''}> 🔗 <span data-i18n="gui_webhook">Webhook</span></label></div></div>
+    <div style="display:flex;gap:20px;margin-bottom:12px"><div class="chk"><label><input type="checkbox" id="s-amail" ${active.includes('mail') ? 'checked' : ''}> <span data-i18n="gui_mail">Mail</span></label></div><div class="chk"><label><input type="checkbox" id="s-aline" ${active.includes('line') ? 'checked' : ''}> <span data-i18n="gui_line">LINE</span></label></div><div class="chk"><label><input type="checkbox" id="s-awh" ${active.includes('webhook') ? 'checked' : ''}> <span data-i18n="gui_webhook">Webhook</span></label></div></div>
     <div class="form-row"><div class="form-group"><label data-i18n="gui_line_token">LINE Token</label><input id="s-ltok" value="${al.line_channel_access_token || ''}"></div><div class="form-group"><label data-i18n="gui_line_target_id">LINE Target ID</label><input id="s-ltgt" value="${al.line_target_id || ''}"></div></div>
     <div class="form-group"><label data-i18n="gui_webhook_url">Webhook URL</label><input id="s-whurl" value="${al.webhook_url || ''}"></div>
   </fieldset>
@@ -2453,7 +2672,7 @@
       const active = []; if ($('s-amail').checked) active.push('mail'); if ($('s-aline').checked) active.push('line'); if ($('s-awh').checked) active.push('webhook');
       const theme = rv('s-theme');
       const lang = rv('s-lang');
-      document.documentElement.setAttribute('data-theme', theme);
+      applyThemeMode(getStoredThemeMode());
       await post('/api/settings', {
         api: { url: $('s-url').value, org_id: $('s-org').value, key: $('s-key').value, secret: $('s-sec').value, verify_ssl: $('s-ssl').checked },
         email: { sender: $('s-sender').value, recipients: $('s-rcpt').value.split(',').map(s => s.trim()).filter(Boolean) },
@@ -2493,12 +2712,13 @@
     /* ─── Traffic & Quarantine Logic ──────────────────────────────────── */
 
     // Sub Navigation
-    function switchQTab(tabStr) {
+    function switchQTab(tabStr, updateUrl = true) {
       document.querySelectorAll('.sub-nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('qbtn-' + tabStr).classList.add('active');
 
       document.querySelectorAll('.q-panel').forEach(p => p.classList.remove('active'));
       document.getElementById('q-panel-' + tabStr).classList.add('active');
+      if (updateUrl) updateUrlState('qtab', tabStr);
     }
 
     // Checkboxes and Bulk Bar
@@ -2913,7 +3133,8 @@
       fetch('/api/init_quarantine', { method: 'POST' }).catch(() => { });
     }, 2000);
 
-    loadDashboard();
+    initUiPreferences();
+    init();
     testConn();
   </script>
   </main>

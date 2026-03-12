@@ -17,7 +17,7 @@ from src.settings import (
     add_bandwidth_volume_menu,
     manage_rules_menu,
 )
-from src.i18n import t
+from src.i18n import t, get_language
 
 logger = logging.getLogger(__name__)
 LOG_FILE = ""  # To be set in main() or main_menu()
@@ -75,7 +75,7 @@ def view_logs(log_file):
         if not os.path.exists(log_file):
             print(f"Log file not found: {log_file}")
         else:
-            with open(log_file, "r", encoding="utf-8") as f:
+            with open(log_file, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
                 # Print last 20 lines
                 for line in lines[-20:]:
@@ -111,10 +111,19 @@ def main_menu():
         health_status = "ON" if settings.get("enable_health_check", True) else "OFF"
         current_lang = (settings.get("language", "en") or "en").upper()
         current_theme = (settings.get("theme", "dark") or "dark").capitalize()
+        shortcuts_line = (
+            "快捷: Enter預設 | 0返回 | -1取消 | h/?說明"
+            if get_language() == "zh_TW"
+            else t(
+                "cli_shortcuts_compact",
+                default="Shortcuts: Enter=default | 0=back | -1=cancel | h/?=help",
+            )
+        )
 
         lines = [
             f"API: {cm.config['api']['url']} | Rules: {len(cm.config['rules'])}",
             f"Health Check: {health_status} | Language: {current_lang} | Theme: {current_theme}",
+            f"{Colors.DARK_GRAY}{shortcuts_line}{Colors.ENDC}",
             "-",
             t("main_menu_1"),
             t("main_menu_2")

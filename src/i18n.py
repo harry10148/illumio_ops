@@ -1,24 +1,32 @@
 import locale
+
 _current_lang = "en"
+
 
 def set_language(lang: str):
     global _current_lang
     if lang in ["en", "zh_TW"]:
         _current_lang = lang
 
+
 def get_language() -> str:
     return _current_lang
+
 
 MESSAGES = {
     "en": {
         # General & Errors
         "hint_return": "(輸入0返回上層選單)",
         "def_val_prefix": "預設",
+        "cli_path_label": "Path: {path}",
+        "cli_shortcuts_compact": "Shortcuts: Enter=default | 0=back | -1=cancel | h/?=help",
+        "cli_shortcuts_full": "Enter=default, 0=back, -1=cancel, h=help",
+        "cli_shortcuts_no_cancel": "Enter=default, h=help",
+        "cli_no_field_help": "No extra help for this field.",
         "nav_help": "",
         "error_loading_config": "Error loading config: {error}",
         "confirm_delete": "Delete {count} rules? (y/n)",
         "config_saved": "Configuration Saved Successfully.",
-        
         # functional definitions
         "def_threshold_type": "Definition: 'Immediate' triggers alert on every event. 'Cumulative' triggers only when count exceeds threshold within window.",
         "def_filters": "Definition: Filter by PCE reported 'status' (Success/Failure) or 'severity' (Info/Warning/Error).",
@@ -34,7 +42,6 @@ MESSAGES = {
         "nav_back": "0. Back",
         "done": "Done.",
         "bye": "Bye.",
-        
         # Menu Titles
         "main_menu_title": "=== Illumio PCE Monitor ===",
         "main_menu_api": "API: {url} | Rules: {count}",
@@ -53,7 +60,6 @@ MESSAGES = {
         "bye_msg": "Exiting... Goodbye!",
         "please_select": "Please select",
         "starting_web_gui": "Starting Web GUI at",
-        
         # Add Rules Menus
         "menu_add_event_title": "=== Add Event Monitor Rule ===",
         "menu_return": "0. Return",
@@ -71,7 +77,6 @@ MESSAGES = {
         "hint_example_10": "e.g.: 10",
         "cooldown_mins": "Cooldown Time (mins)",
         "rule_saved": "Rule saved. Press Enter to continue...",
-        
         "menu_add_traffic_title": "=== Add Traffic Rule (Blocked/Potential) ===",
         "rule_name": "Rule Name (e.g.: Blocked SSH)",
         "policy_decision": "Policy Decision:",
@@ -91,7 +96,6 @@ MESSAGES = {
         "ex_src_input": "Exclude Source Label/IP/CIDR (e.g., env=Kube, 10.9.9.9) [Press Enter to skip]",
         "ex_dst_input": "Exclude Dest Label/IP/CIDR (e.g., 8.8.8.8) [Press Enter to skip]",
         "traffic_rule_saved": "Traffic Rule added. Press Enter to continue...",
-        
         "menu_add_bw_vol_title": "=== Add Bandwidth & Volume Rule ===",
         "rule_name_bw": "Rule Name (e.g.: Database Spike)",
         "step_1_metric": "--- 1. Select Metric ---",
@@ -101,11 +105,9 @@ MESSAGES = {
         "step_3_threshold": "--- 3. Threshold ---",
         "trigger_threshold_unit": "Trigger Threshold ({unit})",
         "time_window_mins": "Time Window (mins)",
-        
         "menu_manage_rules_title": "=== Manage Monitor Rules ===",
         "input_delete_indices": "Enter 'd <indices>' to delete (e.g. d 0, 2), 'm <idx>' to modify (e.g. m 1), or 0 back: ",
         "menu_view_logs_title": "=== Application Logs (Last 20 lines) ===",
-        
         "menu_settings_title": "=== System Settings v{version} ===",
         "not_set": "Not Set",
         "settings_1": "1. Change API Settings (URL, Key, Secret)",
@@ -117,7 +119,6 @@ MESSAGES = {
         "ssl_status_on": "\033[92mON\033[0m",
         "ssl_status_off": "\033[91mOFF\033[0m",
         "change_verify_to": "Change to? (1. Verify, 2. Ignore)",
-        
         "settings_alert_title": "=== Alert & Language Settings ===",
         "change_language": "1. Change Language (Current: {lang})",
         "select_language": "Select Language (1. English, 2. 繁體中文)",
@@ -130,14 +131,11 @@ MESSAGES = {
         "line_token_input": "LINE Channel Token",
         "line_target_id_input": "LINE Target ID",
         "webhook_url_input": "Webhook URL",
-        
         "smtp_title": "=== SMTP Settings ===",
         "enable_starttls": "Enable STARTTLS (Y/N/Enter)? [{status}]",
         "enable_auth": "Enable Auth (Y/N/Enter)? [{status}]",
-        
         "warning_best_practices": "Warning: This action will clear all existing rules and load official recommended settings.",
         "confirm_continue": "Are you sure you want to continue? (Enter 'YES' to confirm)",
-        
         # Debug & Analysis
         "checking_health": "Checking PCE Health...",
         "checking_events": "Checking Events...",
@@ -145,7 +143,6 @@ MESSAGES = {
         "processed_traffic_records": "  Processed {count} traffic records.",
         "trigger_alert": ">>> Trigger Alert: {name}",
         "rule_cooldown": "Rule {name} triggered but in cooldown.",
-        
         "debug_mode_title": "=== Rule Simulation & Debug Mode ===",
         "query_past_mins": "Query data from past how many minutes? [Default: Auto-detect based on max rule window]",
         "submitting_query": "Submitting query ({start} to {end})...",
@@ -165,8 +162,6 @@ MESSAGES = {
         "debug_done": "Debug complete. Press Enter to return.",
         "save_debug_query": "Save raw queried data (events/traffic) to JSON for debugging? (y/n)",
         "file_saved": "Data saved to {path}.",
-        
-
         # Event Descriptions (Enriched from Illumio Documentation)
         "event_agent_missed_heartbeats": "Agent Missed Heartbeats: VEN failed to send a heartbeat within the expected window (Potential network issue or workload down).",
         "event_agent_offline": "Agent Marked Offline: VEN has been consistently unreachable and is now marked Offline by the PCE.",
@@ -205,10 +200,8 @@ MESSAGES = {
         "rule_agent_heartbeat": "Agent Heartbeat Missed",
         "rule_agent_goodbye": "Agent Unpaired (Goodbye)",
         "rule_high_blocked": "High Blocked Traffic volume",
-        
         "selected": "Selected",
         "setup_smtp": "=== SMTP Settings ===",
-        
         # Debug Mode & Traffic Query
         "waiting_traffic": "Waiting for traffic calculation...",
         "query_failed": "Failed.",
@@ -216,7 +209,6 @@ MESSAGES = {
         "pd_2_allowed_only": "Allowed Only",
         "pd_3_all": "All (Blocked + Potential + Allowed)",
         "nav_default": "Default",
-        
         # Mail/Reporter HTML UI
         "no_recipients": "Recipients empty, skipping Mail alert.",
         "mail_sent": "Email Sent via {host}:{port}.",
@@ -253,7 +245,6 @@ MESSAGES = {
         "decision_blocked": "\033[91mBlocked\033[0m",
         "decision_potential": "\033[93mPotentially Blocked\033[0m",
         "decision_allowed": "\033[92mAllowed\033[0m",
-        
         # Alerters
         "line_alert_sent": "LINE Alert Sent.",
         "line_alert_failed": "LINE Alert Failed: {error} / {status}",
@@ -261,7 +252,6 @@ MESSAGES = {
         "webhook_alert_sent": "Webhook Alert Sent.",
         "webhook_alert_failed": "Webhook Alert Failed: {error} / {status}",
         "webhook_url_missing": "Webhook URL not set. Skipping Webhook alert.",
-
         # Web GUI
         "gui_title": "Illumio PCE Monitor",
         "gui_stop": "Stop",
@@ -379,7 +369,6 @@ MESSAGES = {
         "gui_cooldown_remaining": "{mins}m remaining",
         "gui_cooldown_active": "Cooldown",
         "gui_cooldown_ready": "Ready",
-
         # --- NEW JS + MODAL GUI ---
         "gui_no_rules_add_one": "No rules. Add one above.",
         "gui_msg_select_rules_first": "Select rules first.",
@@ -419,7 +408,6 @@ MESSAGES = {
         "error_loading_config": "讀取設定失敗: {error}",
         "confirm_delete": "確定要刪除 {count} 條規則嗎？ (y/n)",
         "config_saved": "配置已成功儲存。",
-        
         # 功能定義 (functional definitions)
         "def_threshold_type": "定義：'立即 (Immediate)' 每次事件即觸發。'累計 (Cumulative)' 則在時間窗口內超過設定次數才觸發。",
         "def_filters": "定義：根據 PCE 回傳的 '狀態' (Success/Failure) 或 '嚴重性' (Error/Warning/Info) 進行精確過濾。",
@@ -435,9 +423,13 @@ MESSAGES = {
         "operation_cancelled": "\n操作已取消。按 Enter 繼續...",
         "hint_return": "(輸入0返回上層選單)",
         "def_val_prefix": "預設",
+        "cli_path_label": "路徑: {path}",
+        "cli_shortcuts_compact": "快捷: Enter預設 | 0返回 | -1取消 | h/?說明",
+        "cli_shortcuts_full": "Enter預設, 0返回, -1取消, h說明",
+        "cli_shortcuts_no_cancel": "Enter預設, h說明",
+        "cli_no_field_help": "此欄位沒有額外說明。",
         "done": "完成。",
         "bye": "再見。",
-        
         # Menu Titles
         "main_menu_title": "=== Illumio PCE Monitor ===",
         "main_menu_api": "API: {url} | 規則數: {count}",
@@ -456,7 +448,6 @@ MESSAGES = {
         "bye_msg": "正在離開... 再見！",
         "please_select": "請選擇",
         "starting_web_gui": "正在啟動 Web GUI 於",
-        
         # Add Rules Menus
         "menu_add_event_title": "=== 新增事件監控規則 ===",
         "menu_return": "",
@@ -474,7 +465,6 @@ MESSAGES = {
         "hint_example_10": "例: 10",
         "cooldown_mins": "冷卻時間 (分鐘)",
         "rule_saved": "規則已儲存。按 Enter 繼續...",
-        
         "menu_add_traffic_title": "=== 新增流量規則 (Traffic Rule - Blocked/Potential) ===",
         "rule_name": "規則名稱 (例如: Blocked SSH)",
         "policy_decision": "Policy Decision:",
@@ -494,7 +484,6 @@ MESSAGES = {
         "ex_src_input": "排除來源標籤/IP/CIDR (例: env=Kube, 10.9.9.9) [按 Enter 跳過]",
         "ex_dst_input": "排除目的標籤/IP/CIDR (例: 8.8.8.8) [按 Enter 跳過]",
         "traffic_rule_saved": "流量規則已新增。按 Enter 繼續...",
-        
         "menu_add_bw_vol_title": "=== 新增頻寬與傳輸量規則 (Bandwidth & Volume) ===",
         "rule_name_bw": "規則名稱 (例如: Database Spike)",
         "step_1_metric": "--- 1. 選擇監控指標 (Metric) ---",
@@ -504,12 +493,10 @@ MESSAGES = {
         "step_3_threshold": "--- 3. 閾值設定 (Threshold) ---",
         "trigger_threshold_unit": "觸發閾值 ({unit})",
         "time_window_mins_default_5": "時間窗口 (分鐘)",
-        
         "menu_manage_rules_title": "=== 管理監控規則 ===",
         "no_rules": "(目前沒有規則)",
         "input_delete_indices": "輸入 'd 編號' 刪除 (如 d 0, 2)、'm 編號' 修改 (如 m 1) 或 0 返回: ",
         "menu_view_logs_title": "=== 系統日誌 (最後 20 行) ===",
-        
         "menu_settings_title": "=== 系統設定 (System Settings) v{version} ===",
         "not_set": "未設定",
         "settings_1": "1. 修改 API 設定 (URL, Key, Secret)",
@@ -521,7 +508,6 @@ MESSAGES = {
         "ssl_status_on": "\033[92m開啟\033[0m",
         "ssl_status_off": "\033[91m關閉\033[0m",
         "change_verify_to": "變更為? (1. 開啟 Verify, 2. 關閉 Ignore)",
-        
         "settings_alert_title": "=== 告警通道與語言設定 ===",
         "change_language": "1. 更改語言 (目前: {lang})",
         "select_language": "選擇語言 (1. English, 2. 繁體中文)",
@@ -534,14 +520,11 @@ MESSAGES = {
         "line_token_input": "LINE Channel Token",
         "line_target_id_input": "LINE Target ID",
         "webhook_url_input": "Webhook URL",
-
         "smtp_title": "=== SMTP 設定 ===",
         "enable_starttls": "啟用 STARTTLS (Y/N/Enter)? [{status}]",
         "enable_auth": "啟用驗證 (Y/N/Enter)? [{status}]",
-        
         "warning_best_practices": "警告: 此操作將清除所有現有規則並載入官方建議設定。",
         "confirm_continue": "確定要繼續嗎? (輸入 'YES' 確認)",
-        
         # Debug & Analysis
         "checking_health": "檢查 PCE 健康狀態...",
         "checking_events": "檢查事件 (Events)...",
@@ -549,7 +532,6 @@ MESSAGES = {
         "processed_traffic_records": "  處理了 {count} 筆流量紀錄。",
         "trigger_alert": ">>> 觸發告警: {name}",
         "rule_cooldown": "規則 {name} 已觸發但處於冷卻時間中。",
-        
         "debug_mode_title": "=== 規則模擬與除錯模式 ===",
         "query_past_mins": "查詢過去幾分鐘的資料?",
         "submitting_query": "正在提交查詢 ({start} 至 {end})...",
@@ -569,7 +551,6 @@ MESSAGES = {
         "debug_done": "除錯完成，按 Enter 返回。",
         "save_debug_query": "是否將查詢到的原始資料 (Events/Traffic) 儲存為 JSON 以供除錯？ (y/n)",
         "file_saved": "資料已儲存至 {path}。",
-        
         # Mail/Reporter HTML UI
         "no_recipients": "未設定收件人，略過發信。",
         "mail_sent": "Email 已透過 {host}:{port} 發送。",
@@ -606,7 +587,6 @@ MESSAGES = {
         "decision_blocked": "\033[91mBlocked\033[0m",
         "decision_potential": "\033[93mPotentially Blocked\033[0m",
         "decision_allowed": "\033[92mAllowed\033[0m",
-
         # Alerters
         "line_alert_sent": "LINE 告警已送出。",
         "line_alert_failed": "LINE 告警失敗: {error} / {status}",
@@ -614,7 +594,6 @@ MESSAGES = {
         "webhook_alert_sent": "Webhook 告警已送出。",
         "webhook_alert_failed": "Webhook 告警失敗: {error} / {status}",
         "webhook_url_missing": "未設定 Webhook URL，略過 Webhook 告警。",
-
         # Web GUI
         "gui_title": "Illumio PCE Monitor",
         "gui_stop": "停止",
@@ -815,7 +794,6 @@ MESSAGES = {
         "gui_cooldown_remaining": "{mins}m remaining",
         "gui_cooldown_active": "Cooldown",
         "gui_cooldown_ready": "Ready",
-
         # --- NEW JS + MODAL GUI ---
         "gui_no_rules_add_one": "No rules. Add one above.",
         "gui_msg_select_rules_first": "Select rules first.",
@@ -855,7 +833,6 @@ MESSAGES = {
         "error_loading_config": "讀取設定失敗: {error}",
         "confirm_delete": "確定要刪除 {count} 條規則嗎？ (y/n)",
         "config_saved": "配置已成功儲存。",
-        
         # 功能定義 (functional definitions)
         "def_threshold_type": "定義：'立即 (Immediate)' 每次事件即觸發。'累計 (Cumulative)' 則在時間窗口內超過設定次數才觸發。",
         "def_filters": "定義：根據 PCE 回傳的 '狀態' (Success/Failure) 或 '嚴重性' (Error/Warning/Info) 進行精確過濾。",
@@ -873,7 +850,6 @@ MESSAGES = {
         "def_val_prefix": "預設",
         "done": "完成。",
         "bye": "再見。",
-        
         # Menu Titles
         "main_menu_title": "=== Illumio PCE Monitor ===",
         "main_menu_api": "API: {url} | 規則數: {count}",
@@ -892,7 +868,6 @@ MESSAGES = {
         "bye_msg": "正在離開... 再見！",
         "please_select": "請選擇",
         "starting_web_gui": "正在啟動 Web GUI 於",
-        
         # Add Rules Menus
         "menu_add_event_title": "=== 新增事件監控規則 ===",
         "menu_return": "",
@@ -908,7 +883,6 @@ MESSAGES = {
         "hint_example_10": "例: 10",
         "cooldown_mins": "冷卻時間 (分鐘)",
         "rule_saved": "規則已儲存。按 Enter 繼續...",
-        
         "menu_add_traffic_title": "=== 新增流量規則 (Traffic Rule - Blocked/Potential) ===",
         "rule_name": "規則名稱 (例如: Blocked SSH)",
         "policy_decision": "Policy Decision:",
@@ -928,7 +902,6 @@ MESSAGES = {
         "ex_src_input": "排除來源標籤/IP/CIDR (例: env=Kube, 10.9.9.9) [按 Enter 跳過]",
         "ex_dst_input": "排除目的標籤/IP/CIDR (例: 8.8.8.8) [按 Enter 跳過]",
         "traffic_rule_saved": "流量規則已新增。按 Enter 繼續...",
-        
         "menu_add_bw_vol_title": "=== 新增頻寬與傳輸量規則 (Bandwidth & Volume) ===",
         "rule_name_bw": "規則名稱 (例如: Database Spike)",
         "step_1_metric": "--- 1. 選擇監控指標 (Metric) ---",
@@ -938,12 +911,10 @@ MESSAGES = {
         "step_3_threshold": "--- 3. 閾值設定 (Threshold) ---",
         "trigger_threshold_unit": "觸發閾值 ({unit})",
         "time_window_mins_default_5": "時間窗口 (分鐘)",
-        
         "menu_manage_rules_title": "=== 管理監控規則 ===",
         "no_rules": "(目前沒有規則)",
         "input_delete_indices": "輸入 'd 編號' 刪除 (如 d 0, 2)、'm 編號' 修改 (如 m 1) 或 0 返回: ",
         "menu_view_logs_title": "=== 系統日誌 (最後 20 行) ===",
-        
         "menu_settings_title": "=== 系統設定 (System Settings) v{version} ===",
         "not_set": "未設定",
         "settings_1": "1. 修改 API 設定 (URL, Key, Secret)",
@@ -955,7 +926,6 @@ MESSAGES = {
         "ssl_status_on": "\033[92m開啟\033[0m",
         "ssl_status_off": "\033[91m關閉\033[0m",
         "change_verify_to": "變更為? (1. 開啟 Verify, 2. 關閉 Ignore)",
-        
         "settings_alert_title": "=== 告警通道與語言設定 ===",
         "change_language": "1. 更改語言 (目前: {lang})",
         "select_language": "選擇語言 (1. English, 2. 繁體中文)",
@@ -968,14 +938,11 @@ MESSAGES = {
         "line_token_input": "LINE Channel Token",
         "line_target_id_input": "LINE Target ID",
         "webhook_url_input": "Webhook URL",
-
         "smtp_title": "=== SMTP 設定 ===",
         "enable_starttls": "啟用 STARTTLS (Y/N/Enter)? [{status}]",
         "enable_auth": "啟用驗證 (Y/N/Enter)? [{status}]",
-        
         "warning_best_practices": "警告: 此操作將清除所有現有規則並載入官方建議設定。",
         "confirm_continue": "確定要繼續嗎? (輸入 'YES' 確認)",
-        
         # Debug & Analysis
         "checking_health": "檢查 PCE 健康狀態...",
         "checking_events": "檢查事件 (Events)...",
@@ -983,7 +950,6 @@ MESSAGES = {
         "processed_traffic_records": "  處理了 {count} 筆流量紀錄。",
         "trigger_alert": ">>> 觸發告警: {name}",
         "rule_cooldown": "規則 {name} 已觸發但處於冷卻時間中。",
-        
         "debug_mode_title": "=== 規則模擬與除錯模式 ===",
         "query_past_mins": "查詢過去幾分鐘的資料?",
         "submitting_query": "正在提交查詢 ({start} 至 {end})...",
@@ -1003,7 +969,6 @@ MESSAGES = {
         "debug_done": "除錯完成，按 Enter 返回。",
         "save_debug_query": "是否將查詢到的原始資料 (Events/Traffic) 儲存為 JSON 以供除錯？ (y/n)",
         "file_saved": "資料已儲存至 {path}。",
-        
         # Mail/Reporter HTML UI
         "no_recipients": "未設定收件人，略過發信。",
         "mail_sent": "Email 已透過 {host}:{port} 發送。",
@@ -1040,7 +1005,6 @@ MESSAGES = {
         "decision_blocked": "\033[91mBlocked\033[0m",
         "decision_potential": "\033[93mPotentially Blocked\033[0m",
         "decision_allowed": "\033[92mAllowed\033[0m",
-
         # Alerters
         "line_alert_sent": "LINE 告警已送出。",
         "line_alert_failed": "LINE 告警失敗: {error} / {status}",
@@ -1048,7 +1012,6 @@ MESSAGES = {
         "webhook_alert_sent": "Webhook 告警已送出。",
         "webhook_alert_failed": "Webhook 告警失敗: {error} / {status}",
         "webhook_url_missing": "未設定 Webhook URL，略過 Webhook 告警。",
-
         # Web GUI
         "gui_title": "Illumio PCE Monitor",
         "gui_stop": "停止",
@@ -1241,8 +1204,6 @@ MESSAGES = {
         "gui_cooldown_remaining": "剩餘 {mins} 分鐘",
         "gui_cooldown_active": "冷卻中",
         "gui_cooldown_ready": "就緒",
-
-
         # Event Descriptions (Enriched from Illumio Documentation)
         "event_agent_missed_heartbeats": "遺漏心跳：VEN 未能在預期時間內回報狀態 (可能是網路或主機離線)",
         "event_agent_offline": "標記為離線：VEN 持續無法連線，已被系統判定為離線狀態",
@@ -1280,10 +1241,8 @@ MESSAGES = {
         "rule_agent_heartbeat": "VEN 心跳遺漏告警",
         "rule_agent_goodbye": "VEN 已取消配對(Goodbye)",
         "rule_high_blocked": "高額阻斷流量告警",
-        
         "selected": "已選擇",
         "setup_smtp": "=== SMTP 設定 ===",
-        
         # Debug Mode & Traffic Query
         "waiting_traffic": "等待流量計算中...",
         "query_failed": "查詢失敗。",
@@ -1291,19 +1250,20 @@ MESSAGES = {
         "pd_2_allowed_only": "2. 僅 \033[92mAllowed\033[0m",
         "pd_3_all": "3. 全部 (All)",
         "nav_default": "預設",
-    }
+    },
 }
+
 
 def t(key: str, **kwargs) -> str:
     """Translates a key into the currently selected language."""
     # 支援 default 參數：如果 key 不存在，使用 default 值
-    default_val = kwargs.pop('default', None)
+    default_val = kwargs.pop("default", None)
     text = MESSAGES.get(_current_lang, MESSAGES["en"]).get(key)
     if text is None:
         text = MESSAGES["en"].get(key)
     if text is None:
         text = default_val if default_val else key
-    
+
     if kwargs:
         try:
             return text.format(**kwargs)
