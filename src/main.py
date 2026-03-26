@@ -288,12 +288,12 @@ def _run_report_menu(cm):
             break
 
         if sel in (1, 2):
-            fmt = cm.config.get('report', {}).get('format', ['excel'])
+            fmt = cm.config.get('report', {}).get('format', ['html'])
             if isinstance(fmt, list):
-                fmt = fmt[0] if fmt else 'excel'
-            fmt_str = safe_input(f"Output format [excel/html/all] (default: {fmt}): ", str) or fmt
-            if fmt_str not in ('excel', 'html', 'all'):
-                fmt_str = 'excel'
+                fmt = fmt[0] if fmt else 'html'
+            fmt_str = safe_input(f"Output format [html/csv/all] (default: {fmt}): ", str) or fmt
+            if fmt_str not in ('html', 'csv', 'all'):
+                fmt_str = 'html'
             send_email = safe_input("Send report by email? [y/N]: ", str).strip().lower() == 'y'
 
             # Date range for API source
@@ -407,9 +407,9 @@ def main():
     )
     parser.add_argument(
         "--format",
-        choices=["excel", "html", "all"],
-        default="excel",
-        help="Report output format: excel (default), html, or all",
+        choices=["html", "csv", "all"],
+        default="html",
+        help="Report output format: html (default), csv (raw data ZIP), or all",
     )
 
     parser.add_argument(
@@ -520,9 +520,9 @@ def _run_audit_report_menu(cm):
         input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
         return
 
-    fmt_str = safe_input("Output format [excel/html/all] (default: all): ", str) or 'all'
-    if fmt_str not in ('excel', 'html', 'all'):
-        fmt_str = 'all'
+    fmt_str = safe_input("Output format [html/csv/all] (default: html): ", str) or 'html'
+    if fmt_str not in ('html', 'csv', 'all'):
+        fmt_str = 'html'
 
     print(f"\n{Colors.CYAN}[Audit] Generating System Health & Event Report...{Colors.ENDC}")
     try:

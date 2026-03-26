@@ -96,8 +96,13 @@ API: https://pce.lab.local:8443 | Rules: 5
  6. Load Best Practices
  7. Test Alert
  8. Run Monitor Once
- 9. Debug Mode
+ 9. Rule Simulation & Debug Mode
 10. Launch Web GUI
+11. View Application Logs
+12. Generate Traffic Flow Report
+13. Generate Audit Log Report
+14. Generate VEN Status Report
+15. Report Schedules
  0. Exit
 ```
 
@@ -112,11 +117,11 @@ Opens a browser-based dashboard at `http://127.0.0.1:5001` with tabs for:
 
 | Tab | Features |
 |:---|:---|
-| **Dashboard** | API connectivity, rule summary, PCE health check, Traffic Analyzer with Top-10 widgets |
+| **Dashboard** | API connectivity, rule summary, PCE health check; Traffic Analyzer with Top-10 widgets (by bandwidth / volume / flow count); saved dashboard queries |
 | **Rules** | Full CRUD for Event/Traffic/Bandwidth/Volume rules, bulk delete, inline edit |
-| **Reports** | Generate Traffic, Audit, and VEN Status reports on demand; download HTML or CSV raw data ZIP |
-| **Report Schedules** | Create/edit/toggle recurring schedules (daily/weekly/monthly) with email delivery |
-| **Workload Search** | Search by hostname/IP/label, apply Quarantine labels |
+| **Reports** | Generate Traffic, Audit, and VEN Status reports on demand; download HTML or CSV raw data ZIP; delete old reports |
+| **Report Schedules** | Create/edit/toggle recurring schedules (daily/weekly/monthly) with email delivery; trigger on demand; view run history |
+| **Workload Search** | Search by hostname/IP/label; apply Quarantine labels (single or bulk) |
 | **Settings** | API credentials, alert channels, timezone, language/theme switching |
 | **Actions** | Run Monitor Once, Debug Mode, Test Alert, Load Best Practices |
 
@@ -128,6 +133,38 @@ python illumio_monitor.py --monitor --interval 5     # Every 5 minutes
 ```
 
 Runs unattended in the background. Handles `SIGINT`/`SIGTERM` gracefully for clean shutdowns.
+
+### 2.4 Command-Line Reference
+
+```bash
+python illumio_monitor.py [OPTIONS]
+```
+
+| Flag | Default | Description |
+|:---|:---|:---|
+| `--monitor` | — | Run in headless daemon mode |
+| `-i` / `--interval N` | `10` | Monitoring interval in minutes |
+| `--gui` | — | Launch the Web GUI |
+| `-p` / `--port N` | `5001` | Web GUI port |
+| `--report` | — | Generate a Traffic Flow Report from the command line |
+| `--source api\|csv` | `api` | Report data source |
+| `--file PATH` | — | CSV file path (used with `--source csv`) |
+| `--format html\|csv\|all` | `html` | Report output format |
+| `--email` | — | Send report by email after generation |
+| `--output-dir PATH` | `reports/` | Output directory for report files |
+
+**Examples:**
+
+```bash
+# Generate HTML report for the last 7 days and email it
+python illumio_monitor.py --report --format html --email
+
+# Generate report from CSV export and save both HTML + raw CSV
+python illumio_monitor.py --report --source csv --file traffic_export.csv --format all
+
+# Web GUI on a custom port
+python illumio_monitor.py --gui --port 8080
+```
 
 ---
 
@@ -231,10 +268,12 @@ The Quarantine feature enables you to tag compromised workloads with severity la
 
 ### Workflow
 
-1. **Search** for the target workload (by hostname, IP, or label) via Web GUI → **Workload Search**
-2. **Select** a Quarantine level: `Mild`, `Moderate`, or `Severe`
+1. **Search** for the target workload(s) (by hostname, IP, or label) via Web GUI → **Workload Search**
+2. **Select** one or more workloads, then choose a Quarantine level: `Mild`, `Moderate`, or `Severe`
 3. The system **automatically creates** the Quarantine label type in the PCE if it doesn't exist
-4. The system **appends** the Quarantine label to the workload's existing labels (preserving all others)
+4. The system **appends** the Quarantine label to each workload's existing labels (preserving all others)
+
+**Single vs. bulk apply**: Select a single workload and click **Apply Quarantine** for individual isolation. Check multiple workloads and click **Bulk Quarantine** to isolate them in parallel (concurrent API calls).
 
 > **Important**: Quarantine labels alone do not block traffic. You must create corresponding **Enforcement Boundaries** or **Deny Rules** in the PCE that reference the `Quarantine` label key to actually restrict traffic.
 
@@ -384,6 +423,31 @@ The Security Findings section runs **19 automated detection rules** against ever
 
 For full documentation of each rule — including trigger conditions, attack technique context, and tuning guidance — see **[Security Rules Reference](Security_Rules_Reference.md)**.
 
+### 7.3 Audit Report Sections
+
+The Audit Report contains **4 modules**:
+
+| Module | Description |
+|:---|:---|
+| Executive Summary | Event counts by severity and category; top event types |
+| 1 · System Health Events | `agent.tampering`, offline agents, heartbeat failures |
+| 2 · User Activity | Authentication events, login failures, account changes |
+| 3 · Policy Changes | Ruleset and rule create/update/delete, policy provisioning |
+
+### 7.3b VEN Status Report
+
+The VEN Status Report inventories all PCE-managed workloads and classifies VEN connectivity:
+
+| Section | Description |
+|:---|:---|
+| KPI Summary | Total VENs, Online count, Offline count |
+| Online VENs | VENs with `active` agent status |
+| Offline VENs | All non-active VENs |
+| Lost (last 24 h) | VENs whose last heartbeat was within the past 24 hours |
+| Lost (24–48 h ago) | VENs whose last heartbeat was 24–48 hours ago |
+
+Each row includes: hostname, IP, labels, VEN status, last heartbeat, policy received timestamp, VEN version.
+
 ### 7.4 Tuning Security Rules
 
 All detection thresholds are in `config/report_config.yaml`:
@@ -421,7 +485,33 @@ The daemon loop checks schedules every 60 seconds and runs any schedule whose co
 
 ---
 
-## 8. Troubleshooting
+## 8. Settings Reference
+
+### 8.1 Timezone
+
+The timezone setting controls how timestamps are displayed in reports and schedule input fields. Configure it in Web GUI → **Settings → Timezone**, or directly in `config.json`:
+
+```json
+{
+    "settings": {
+        "timezone": "UTC+8"
+    }
+}
+```
+
+Supported formats: `local` (system timezone), `UTC`, `UTC+8`, `UTC-5`, `UTC+5.5`
+
+> Schedule times are always **stored as UTC** internally. The CLI wizard and Web GUI schedule modal automatically convert to/from your configured timezone for display.
+
+### 8.2 Dashboard Queries
+
+The Dashboard tab supports saving custom traffic queries for repeated use. Each saved query stores filter parameters (policy decision, port, label, IP range) and can be run on demand from the Dashboard to populate the Top-10 widgets.
+
+Queries are stored in `config.json` → `settings.dashboard_queries` and are managed entirely through the Web GUI.
+
+---
+
+## 9. Troubleshooting
 
 | Symptom | Cause | Solution |
 |:---|:---|:---|

@@ -96,8 +96,13 @@ API: https://pce.lab.local:8443 | Rules: 5
  6. 載入最佳實踐
  7. 測試告警
  8. 執行一次監控
- 9. 除錯模式
+ 9. 規則模擬與除錯模式
 10. 啟動 Web GUI
+11. 檢視應用程式日誌
+12. 產生流量報表
+13. 產生稽核日誌報表
+14. 產生 VEN 狀態報表
+15. 排程報表管理
  0. 離開
 ```
 
@@ -112,11 +117,11 @@ python illumio_monitor.py --gui --port 8080    # 自訂連接埠
 
 | 頁籤 | 功能 |
 |:---|:---|
-| **Dashboard** | API 連線狀態、規則摘要、PCE 健康檢查、流量分析器含 Top-10 小工具 |
+| **Dashboard** | API 連線狀態、規則摘要、PCE 健康檢查；流量分析器含 Top-10 小工具（頻寬/流量/連線數）；可儲存自訂查詢 |
 | **Rules** | 完整的事件/流量/頻寬/流量規則 CRUD，支援批次刪除與行內編輯 |
-| **Reports** | 手動產生流量、稽核、VEN 狀態報表；下載 HTML 報表或 CSV 原始資料 ZIP |
-| **Report Schedules** | 建立/編輯/啟停週期性排程（每日/每週/每月），可設定自動 Email 寄送 |
-| **Workload Search** | 依主機名/IP/標籤搜尋工作負載，套用隔離標籤 |
+| **Reports** | 手動產生流量、稽核、VEN 狀態報表；下載 HTML 報表或 CSV 原始資料 ZIP；刪除舊報表 |
+| **Report Schedules** | 建立/編輯/啟停週期性排程（每日/每週/每月）；立即觸發執行；檢視執行歷史；可設定 Email 附件寄送 |
+| **Workload Search** | 依主機名/IP/標籤搜尋工作負載；支援單筆或批次套用隔離標籤 |
 | **Settings** | API 憑證設定、告警通道設定、時區、語言/主題切換 |
 | **Actions** | 執行監控、除錯模式、測試告警、載入最佳實踐 |
 
@@ -128,6 +133,38 @@ python illumio_monitor.py --monitor --interval 5     # 每 5 分鐘
 ```
 
 在背景無人值守運行，可透過 `SIGINT`/`SIGTERM` 優雅關閉。
+
+### 2.4 命令列參數參考
+
+```bash
+python illumio_monitor.py [OPTIONS]
+```
+
+| 參數 | 預設值 | 說明 |
+|:---|:---|:---|
+| `--monitor` | — | 以無頭 Daemon 模式執行 |
+| `-i` / `--interval N` | `10` | 監控間隔（分鐘） |
+| `--gui` | — | 啟動 Web GUI |
+| `-p` / `--port N` | `5001` | Web GUI 連接埠 |
+| `--report` | — | 從命令列直接產生流量報表 |
+| `--source api\|csv` | `api` | 報表資料來源 |
+| `--file PATH` | — | CSV 檔案路徑（搭配 `--source csv`） |
+| `--format html\|csv\|all` | `html` | 報表輸出格式 |
+| `--email` | — | 產生報表後自動寄送 Email |
+| `--output-dir PATH` | `reports/` | 報表輸出目錄 |
+
+**範例：**
+
+```bash
+# 產生 HTML 報表並 Email 寄送
+python illumio_monitor.py --report --format html --email
+
+# 從 CSV 匯出檔產生報表，同時輸出 HTML 與原始 CSV
+python illumio_monitor.py --report --source csv --file traffic_export.csv --format all
+
+# 在自訂連接埠啟動 Web GUI
+python illumio_monitor.py --gui --port 8080
+```
 
 ---
 
@@ -232,9 +269,11 @@ python illumio_monitor.py --monitor --interval 5     # 每 5 分鐘
 ### 操作流程
 
 1. 在 Web GUI → **Workload Search** 中 **搜尋** 目標主機（依主機名、IP 或標籤）
-2. **選擇** 隔離等級：`Mild`（輕微）、`Moderate`（中度）、`Severe`（嚴重）
+2. 選取一台或多台工作負載，**選擇** 隔離等級：`Mild`（輕微）、`Moderate`（中度）、`Severe`（嚴重）
 3. 系統 **自動建立** Quarantine 標籤類別（若 PCE 中尚不存在）
 4. 系統 **追加** 隔離標籤至工作負載的現有標籤（保留所有原始標籤）
+
+**單筆與批次隔離**：選取單筆工作負載後點選 **Apply Quarantine** 進行個別隔離。勾選多筆後點選 **Bulk Quarantine** 可平行發送 API 請求同時隔離多台主機。
 
 > **重要提示**：單純標記 Quarantine 標籤不會自動阻擋流量。您必須在 PCE 中建立對應的 **Enforcement Boundary** 或 **Deny Rule** 來參照 `Quarantine` 標籤鍵，才能真正限制流量。
 
@@ -384,6 +423,31 @@ pip install pandas pyyaml
 
 每條規則的完整說明（含觸發條件、攻擊技術背景及調整指引）請參閱 **[安全規則參考手冊](Security_Rules_Reference_zh.md)**。
 
+### 7.3 稽核報表章節
+
+稽核報表包含 **4 個模組**：
+
+| 模組 | 說明 |
+|:---|:---|
+| 執行摘要 | 依嚴重性和類別統計事件數；Top 事件類型 |
+| 1 · 系統健康事件 | `agent.tampering`、Agent 離線、心跳失敗 |
+| 2 · 使用者活動 | 認證事件、登入失敗、帳號變更 |
+| 3 · 政策變更 | Ruleset 與 Rule 的新增/修改/刪除、政策部署 |
+
+### 7.3b VEN 狀態報表
+
+VEN 狀態報表盤點所有 PCE 管理的工作負載，並依 VEN 連線狀態分類：
+
+| 章節 | 說明 |
+|:---|:---|
+| KPI 摘要 | 總 VEN 數、線上數量、離線數量 |
+| 線上 VENs | Agent 狀態為 `active` 的 VEN |
+| 離線 VENs | 所有非 active 狀態的 VEN |
+| 斷線（近 24 小時） | 最後心跳在過去 24 小時內的 VEN |
+| 斷線（24–48 小時前） | 最後心跳在 24–48 小時前的 VEN |
+
+每筆資料包含：主機名稱、IP、標籤、VEN 狀態、最後心跳時間、政策接收時間、VEN 版本。
+
 ### 7.4 調整安全規則閾值
 
 所有偵測閾值均在 `config/report_config.yaml` 中設定：
@@ -421,7 +485,33 @@ Daemon 迴圈每 60 秒檢查一次排程，在到達設定時間時自動執行
 
 ---
 
-## 8. 疑難排解
+## 8. 設定參考
+
+### 8.1 時區設定
+
+時區設定控制報表中時間戳記的顯示格式，以及排程時間的輸入基準。可在 Web GUI → **Settings → Timezone** 修改，或直接編輯 `config.json`：
+
+```json
+{
+    "settings": {
+        "timezone": "UTC+8"
+    }
+}
+```
+
+支援格式：`local`（系統時區）、`UTC`、`UTC+8`、`UTC-5`、`UTC+5.5`
+
+> 排程時間在內部一律以 **UTC** 儲存。CLI 精靈與 Web GUI 排程視窗會自動依設定時區進行換算顯示。
+
+### 8.2 Dashboard 自訂查詢
+
+Dashboard 頁籤支援儲存自訂流量查詢以便重複使用。每個查詢可儲存篩選條件（Policy Decision、Port、Label、IP 範圍），並可從 Dashboard 隨時執行以更新 Top-10 小工具的資料。
+
+查詢儲存於 `config.json` → `settings.dashboard_queries`，完全透過 Web GUI 管理。
+
+---
+
+## 9. 疑難排解
 
 | 症狀 | 原因 | 解決方式 |
 |:---|:---|:---|
