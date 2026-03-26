@@ -3,8 +3,14 @@ src/report/ven_status_generator.py
 Orchestrates the VEN Status Inventory Report.
 
 Classifies every VEN-managed workload as:
-  - Online  : agent status is 'active'
-  - Offline : everything else
+  - Online  : administrative status is 'active' AND last heartbeat <= 1 h ago
+  - Offline : suspended/stopped, OR active but heartbeat > 1 h ago (lost connectivity),
+              OR no heartbeat information available
+
+Note: PCE's agent.status.status reflects *administrative* state only.
+A VEN can remain "active" administratively while being unreachable.
+Real connectivity is determined from hours_since_last_heartbeat (PCE-computed)
+or by computing age from the last_heartbeat_on timestamp.
 
 Then further buckets offline VENs by when they last sent a heartbeat:
   - Lost in last 24 h
@@ -28,6 +34,9 @@ def _fmt_tz_str(dt: datetime.datetime) -> str:
     return dt.strftime('%Y-%m-%d %H:%M:%S') + f' ({tz_label})'
 
 _ONLINE_STATUSES = {'active', 'online'}
+# VENs whose last heartbeat is older than this are considered offline,
+# even when PCE reports their administrative status as "active".
+_ONLINE_HEARTBEAT_THRESHOLD_HOURS = 1.0
 
 
 @dataclass
@@ -102,16 +111,17 @@ class VenStatusGenerator:
             )
 
             rows.append({
-                'hostname':         w.get('hostname', w.get('name', '')),
-                'name':             w.get('name', ''),
-                'ip':               ip_str,
-                'labels':           labels_str,
-                'ven_status':       st.get('status', ''),
-                'last_heartbeat':   st.get('last_heartbeat_on', ''),
-                'policy_received':  st.get('security_policy_refresh_at', ''),
-                'paired_at':        st.get('managed_since', ''),
-                'ven_version':      st.get('agent_version', ''),
-                'pce_fqdn':         st.get('active_pce_fqdn', ''),
+                'hostname':                  w.get('hostname', w.get('name', '')),
+                'name':                      w.get('name', ''),
+                'ip':                        ip_str,
+                'labels':                    labels_str,
+                'ven_status':                st.get('status', ''),
+                'last_heartbeat':            st.get('last_heartbeat_on', ''),
+                'hours_since_last_heartbeat': st.get('hours_since_last_heartbeat', None),
+                'policy_received':           st.get('security_policy_refresh_at', ''),
+                'paired_at':                 st.get('managed_since', ''),
+                'ven_version':               st.get('agent_version', ''),
+                'pce_fqdn':                  st.get('active_pce_fqdn', ''),
             })
 
         return pd.DataFrame(rows) if rows else pd.DataFrame(
@@ -142,7 +152,8 @@ class VenStatusGenerator:
         cutoff_48h = now - datetime.timedelta(hours=48)
 
         _COLS = ['hostname', 'name', 'ip', 'labels',
-                 'ven_status', 'last_heartbeat', 'policy_received',
+                 'ven_status', 'hours_since_last_heartbeat',
+                 'last_heartbeat', 'policy_received',
                  'paired_at', 'ven_version']
 
         def _parse(ts: str):
@@ -169,7 +180,33 @@ class VenStatusGenerator:
         df = df.copy()
         df['_hb_dt'] = df['last_heartbeat'].apply(_parse)
 
-        is_online = df['ven_status'].astype(str).str.lower().isin(_ONLINE_STATUSES)
+        # --- Online / Offline determination ---
+        # Illumio PCE's agent.status.status reflects *administrative* state.
+        # A VEN can show "active" while being unreachable (no heartbeat).
+        # Real connectivity is determined by hours_since_last_heartbeat:
+        #   - If the field is present and numeric → use it directly.
+        #   - Otherwise fall back to computing age from last_heartbeat_on timestamp.
+        #   - If neither is available, treat as offline (unknown connectivity).
+        def _is_online_row(row) -> bool:
+            # Must be in an active administrative state first
+            if str(row.get('ven_status', '')).lower() not in _ONLINE_STATUSES:
+                return False
+            # Try hours_since_last_heartbeat (most reliable — PCE-computed)
+            hslh = row.get('hours_since_last_heartbeat')
+            if hslh is not None:
+                try:
+                    return float(hslh) <= _ONLINE_HEARTBEAT_THRESHOLD_HOURS
+                except (TypeError, ValueError):
+                    pass
+            # Fall back to timestamp age
+            hb_dt = row.get('_hb_dt')
+            if hb_dt is not None:
+                age_hours = (now - hb_dt.astimezone(now.tzinfo)).total_seconds() / 3600
+                return age_hours <= _ONLINE_HEARTBEAT_THRESHOLD_HOURS
+            # No heartbeat info at all → treat as offline
+            return False
+
+        is_online = df.apply(_is_online_row, axis=1).astype(bool)
         df_online  = df[is_online].copy()
         df_offline = df[~is_online].copy()
 
