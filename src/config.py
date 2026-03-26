@@ -31,9 +31,10 @@ _DEFAULT_CONFIG = {
         "day_of_week": "monday",
         "hour": 8,
         "source": "api",
-        "format": ["excel"],
+        "format": ["html"],
         "email_report": False,
         "output_dir": "reports/",
+        "retention_days": 30,
         "include_raw_data": False,
         "max_top_n": 20,
         "api_query": {

@@ -112,8 +112,8 @@ class ReportScheduler:
         name = schedule.get("name", "Unnamed")
         report_type = schedule.get("report_type", "traffic")
         lookback_days = int(schedule.get("lookback_days", 7))
-        fmt_list = schedule.get("format", ["excel"])
-        fmt = fmt_list[0] if isinstance(fmt_list, list) and fmt_list else "excel"
+        fmt_list = schedule.get("format", ["html"])
+        fmt = fmt_list[0] if isinstance(fmt_list, list) and fmt_list else "html"
         if len(fmt_list) > 1:
             fmt = "all"
         send_email = schedule.get("email_report", False)
@@ -174,6 +174,7 @@ class ReportScheduler:
                                             custom_recipients, report_type="ven_status")
 
             logger.info(f"[Scheduler] '{name}': completed, files={[os.path.basename(p) for p in paths]}")
+            self._prune_old_reports(output_dir)
             return True
 
         except Exception as e:
@@ -249,11 +250,21 @@ class ReportScheduler:
             sev_colors = {"CRITICAL": "#BE122F", "HIGH": "#F97607", "MEDIUM": "#F59E0B", "LOW": "#166644"}
             for i, f in enumerate(findings[:15]):
                 row_bg = "#fff" if i % 2 == 0 else "#F7F4EE"
-                sev = str(f.get("severity", "INFO")).upper()
+                # Finding is a dataclass; support dict fallback for forward compatibility
+                if hasattr(f, 'severity'):
+                    sev   = str(getattr(f, 'severity',    'INFO') or 'INFO').upper()
+                    fid   = str(getattr(f, 'rule_id',     ''))
+                    fname = str(getattr(f, 'rule_name',   ''))
+                    fdesc = str(getattr(f, 'description', ''))
+                else:
+                    sev   = str(f.get('severity',    'INFO')).upper()
+                    fid   = str(f.get('id',          ''))
+                    fname = str(f.get('name',        ''))
+                    fdesc = str(f.get('description', ''))
                 sev_color = sev_colors.get(sev, "#313638")
                 body += f"<tr style='background:{row_bg};'>"
-                body += f"<td style='padding:8px;border-bottom:1px solid #E3D8C5;font-weight:700;color:#FF5500;'>{esc(f.get('id',''))}</td>"
-                body += f"<td style='padding:8px;border-bottom:1px solid #E3D8C5;'><strong>{esc(f.get('name',''))}</strong><br><small style='color:#989A9B;'>{esc(f.get('description',''))}</small></td>"
+                body += f"<td style='padding:8px;border-bottom:1px solid #E3D8C5;font-weight:700;color:#FF5500;'>{esc(fid)}</td>"
+                body += f"<td style='padding:8px;border-bottom:1px solid #E3D8C5;'><strong>{esc(fname)}</strong><br><small style='color:#989A9B;'>{esc(fdesc)}</small></td>"
                 body += f"<td style='padding:8px;border-bottom:1px solid #E3D8C5;font-weight:700;color:{sev_color};'>{esc(sev)}</td>"
                 body += "</tr>"
             body += "</table></div>"
@@ -268,14 +279,45 @@ class ReportScheduler:
 
         body += "</div></div></div></body></html>"
 
-        # Send with attachments
-        excel_path = next((p for p in paths if p.endswith(".xlsx")), None)
         self.reporter.send_scheduled_report_email(
             subject=subject,
             html_body=body,
             attachment_paths=paths,
             custom_recipients=custom_recipients,
         )
+
+    # ─── Report retention ────────────────────────────────────────────────────
+
+    def _prune_old_reports(self, output_dir: str):
+        """Delete report files older than retention_days (default 30).
+
+        Covers .html and .zip files produced by the report engine.
+        Controlled by config.report.retention_days; set to 0 to disable.
+        """
+        retention_days = int(
+            self.cm.config.get("report", {}).get("retention_days", 30)
+        )
+        if retention_days <= 0:
+            return
+        if not os.path.isdir(output_dir):
+            return
+
+        cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
+        removed = 0
+        for fname in os.listdir(output_dir):
+            if not (fname.endswith(".html") or fname.endswith(".zip")):
+                continue
+            fpath = os.path.join(output_dir, fname)
+            try:
+                mtime = datetime.datetime.utcfromtimestamp(os.path.getmtime(fpath))
+                if mtime < cutoff:
+                    os.remove(fpath)
+                    removed += 1
+                    logger.debug(f"[Scheduler] Pruned old report: {fname}")
+            except Exception as e:
+                logger.warning(f"[Scheduler] Could not prune {fname}: {e}")
+        if removed:
+            logger.info(f"[Scheduler] Pruned {removed} report file(s) older than {retention_days} days from {output_dir}")
 
     # ─── Tick (called every minute from daemon loop) ──────────────────────────
 
