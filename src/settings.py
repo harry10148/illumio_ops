@@ -1321,7 +1321,7 @@ def manage_report_schedules_menu(cm: ConfigManager):
 
                 type_map = {"traffic": "Traffic", "audit": "Audit", "ven_status": "VEN"}
                 rtype = type_map.get(s.get("report_type", ""), s.get("report_type", "?"))
-                rows.append([f"[{i}] {s.get('name','')}", rtype, freq, last_run, status, enabled])
+                rows.append([f"[{i+1}] {s.get('name','')}", rtype, freq, last_run, status, enabled])
 
             draw_table(headers, rows)
 
@@ -1340,9 +1340,9 @@ def manage_report_schedules_menu(cm: ConfigManager):
                 print(f"{Colors.WARNING}No schedules to act on.{Colors.ENDC}")
                 input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
                 continue
-            idx_str = safe_input(t("sched_select_index") + f" [0-{len(schedules)-1}]", str)
+            idx_str = safe_input(t("sched_select_index") + f" [1-{len(schedules)}]", str)
             try:
-                idx = int(idx_str)
+                idx = int(idx_str) - 1   # display is 1-based; 0 is reserved for "back"
                 if not (0 <= idx < len(schedules)):
                     raise ValueError
             except (ValueError, TypeError):

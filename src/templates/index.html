@@ -2650,11 +2650,17 @@
         enabled: true,
       };
 
+      const _headers = { 'Content-Type': 'application/json' };
       let r;
-      if (_editSchedId) {
-        r = await api(`/api/report-schedules/${_editSchedId}`, { method: 'PUT', body: JSON.stringify(payload) });
-      } else {
-        r = await api('/api/report-schedules', { method: 'POST', body: JSON.stringify(payload) });
+      try {
+        if (_editSchedId) {
+          r = await api(`/api/report-schedules/${_editSchedId}`, { method: 'PUT', headers: _headers, body: JSON.stringify(payload) });
+        } else {
+          r = await api('/api/report-schedules', { method: 'POST', headers: _headers, body: JSON.stringify(payload) });
+        }
+      } catch (err) {
+        toast('Network error: ' + err.message, true);
+        return;
       }
       if (r && r.ok) {
         closeModal('m-sched');
