@@ -343,12 +343,17 @@ def _create_app(cm: ConfigManager) -> 'Flask':
     @app.route('/api/settings')
     def api_get_settings():
         cm.load()
+        rpt = cm.config.get("report", {})
         return jsonify({
             "api": cm.config.get("api", {}),
             "email": cm.config.get("email", {}),
             "smtp": cm.config.get("smtp", {}),
             "alerts": cm.config.get("alerts", {}),
-            "settings": cm.config.get("settings", {})
+            "settings": cm.config.get("settings", {}),
+            "report": {
+                "output_dir":      rpt.get("output_dir", "reports/"),
+                "retention_days":  rpt.get("retention_days", 30),
+            },
         })
 
     @app.route('/api/settings', methods=['POST'])
@@ -369,6 +374,16 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             cm.config.setdefault('alerts', {}).update(d['alerts'])
         if 'settings' in d:
             cm.config.setdefault('settings', {}).update(d['settings'])
+        if 'report' in d:
+            rpt_in = d['report']
+            rpt_cfg = cm.config.setdefault('report', {})
+            if 'output_dir' in rpt_in:
+                rpt_cfg['output_dir'] = rpt_in['output_dir']
+            if 'retention_days' in rpt_in:
+                try:
+                    rpt_cfg['retention_days'] = max(0, int(rpt_in['retention_days']))
+                except (TypeError, ValueError):
+                    pass
         cm.save()
         return jsonify({"ok": True})
 

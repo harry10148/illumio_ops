@@ -1191,8 +1191,12 @@ def settings_menu(cm: ConfigManager):
         print(
             f"{t('settings_4')} ({smtp_conf.get('host')}:{smtp_conf.get('port')} | {auth_status})"
         )
+        rpt_cfg = cm.config.get("report", {})
+        rpt_dir = rpt_cfg.get("output_dir", "reports/")
+        rpt_ret = rpt_cfg.get("retention_days", 30)
+        print(t("settings_5", output_dir=rpt_dir, retention_days=rpt_ret))
         print(t("menu_return"))
-        sel = safe_input(f"\n{t('please_select')}", int, range(0, 5))
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 6))
         if sel is None:
             break
         if sel == 1:
@@ -1267,6 +1271,23 @@ def settings_menu(cm: ConfigManager):
 
             cm.config["smtp"] = c
             cm.save()
+        elif sel == 5:
+            rc = cm.config.setdefault("report", {})
+            print(f"\n{Colors.CYAN}{t('setup_report_output')}{Colors.ENDC}")
+            new_dir = safe_input(
+                t("report_output_dir"), str, allow_cancel=True,
+                hint=rc.get("output_dir", "reports/")
+            ) or rc.get("output_dir", "reports/")
+            rc["output_dir"] = new_dir.strip()
+
+            ret_hint = str(rc.get("retention_days", 30))
+            new_ret = safe_input(
+                t("report_retention_days"), int, allow_cancel=True, hint=ret_hint
+            )
+            if new_ret is not None:
+                rc["retention_days"] = max(0, int(new_ret))
+            cm.save()
+            print(f"{Colors.GREEN}{t('saved')}{Colors.ENDC}")
 
 
 # ─── Report Schedule Management ───────────────────────────────────────────────

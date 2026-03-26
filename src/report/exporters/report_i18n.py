@@ -100,6 +100,127 @@ STRINGS: dict[str, dict[str, str]] = {
     "rpt_tr_footer":          {"en": "Illumio PCE Monitor — Traffic Flow Report",
                                "zh_TW": "Illumio PCE Monitor — 流量分析報表"},
 
+    # ── Security Findings – no data ──────────────────────────────────────────
+    "rpt_no_findings_detail": {
+        "en":    "No security findings were triggered for this dataset. This may indicate good policy coverage or that thresholds need tuning.",
+        "zh_TW": "此資料集未觸發任何安全發現項目，可能代表策略覆蓋率良好，或需要調整偵測閾值。",
+    },
+
+    # ── Security Findings – category names & descriptions ────────────────────
+    "rpt_cat_ransomware_name": {"en": "🦠 Ransomware Exposure", "zh_TW": "🦠 勒索軟體風險"},
+    "rpt_cat_ransomware_desc": {
+        "en":    "Rules detecting traffic patterns associated with ransomware attack chains: critical lateral-spread ports (SMB, RDP, WinRM, RPC), remote-access persistence tools, and policy gaps that leave high-risk ports unblocked or only in test mode.",
+        "zh_TW": "偵測與勒索軟體攻擊鏈相關的流量模式：關鍵橫向擴散通訊埠（SMB、RDP、WinRM、RPC）、遠端存取持久化工具，以及使高風險通訊埠暴露於測試模式或未阻斷狀態的策略缺口。",
+    },
+    "rpt_cat_lateralmovement_name": {"en": "↔ Lateral Movement", "zh_TW": "↔ 橫向移動"},
+    "rpt_cat_lateralmovement_desc": {
+        "en":    "Rules targeting attacker pivoting techniques inside the network. Covers: cleartext credential exposure (Telnet/FTP), network discovery poisoning (LLMNR/NetBIOS), database over-exposure, identity infrastructure (Kerberos/LDAP) access, graph-based blast-radius analysis, enforcement gaps, exfiltration patterns, and cross-environment boundary breaks — the full lateral movement kill-chain.",
+        "zh_TW": "偵測攻擊者在網路內部橫向滲透的技術。涵蓋：明文憑證暴露（Telnet/FTP）、網路探索協定投毒（LLMNR/NetBIOS）、資料庫過度暴露、身份基礎架構（Kerberos/LDAP）存取、圖形化爆炸半徑分析、執行模式落差、資料外洩模式，以及跨環境邊界突破——完整的橫向移動殺傷鏈。",
+    },
+    "rpt_cat_unmanagedhost_name": {"en": "🖥 Unmanaged Hosts", "zh_TW": "🖥 非受管主機"},
+    "rpt_cat_unmanagedhost_desc": {
+        "en":    "Rules triggered by traffic from hosts not enrolled in the PCE. These hosts operate outside your zero-trust boundary with no VEN enforcement — they are blind spots that cannot be protected by Illumio micro-segmentation rules.",
+        "zh_TW": "偵測來自未納入 PCE 管理主機的流量。這些主機在零信任邊界之外運行，缺乏 VEN 執行機制——它們是無法受 Illumio 微分段規則保護的盲點。",
+    },
+    "rpt_cat_policy_name": {"en": "📋 Policy Coverage", "zh_TW": "📋 策略覆蓋率"},
+    "rpt_cat_policy_desc": {
+        "en":    "Rules evaluating the completeness of your segmentation policy: overall coverage percentage, cross-environment traffic volume, and gaps in rule-set coverage that leave workloads unprotected.",
+        "zh_TW": "評估微分段策略的完整性：整體覆蓋率百分比、跨環境流量量，以及使工作負載處於未受保護狀態的規則集缺口。",
+    },
+    "rpt_cat_useractivity_name": {"en": "👤 User Activity", "zh_TW": "👤 使用者活動"},
+    "rpt_cat_useractivity_desc": {
+        "en":    "Rules detecting anomalous user account behaviour — a single account reaching an unusually high number of distinct destinations, which may indicate credential abuse, a compromised account, or data staging before exfiltration.",
+        "zh_TW": "偵測異常使用者帳戶行為——單一帳戶連線至異常多的不同目標，可能表示憑證遭濫用、帳戶被盜，或資料外洩前的資料暫存。",
+    },
+    "rpt_cat_bandwidth_name": {"en": "📶 Bandwidth Anomaly", "zh_TW": "📶 頻寬異常"},
+    "rpt_cat_bandwidth_desc": {
+        "en":    "Rules flagging flows with abnormally high byte volume relative to the dataset baseline. Sudden large transfers from unexpected sources are a key indicator of data exfiltration, unauthorised backups, or attacker data staging.",
+        "zh_TW": "偵測位元組傳輸量相對於資料集基準值異常偏高的流量。來自非預期來源的突發大量傳輸是資料外洩、未授權備份或攻擊者資料暫存的關鍵指標。",
+    },
+
+    # ── Security Findings – shared labels ────────────────────────────────────
+    "rpt_rule_check_label": {"en": "What this rule checks:", "zh_TW": "此規則檢查項目："},
+
+    # ── Security Findings – rule how-text (B-series) ──────────────────────────
+    "rpt_rule_B001_how": {
+        "en":    "Checks for traffic on ransomware's primary attack ports (SMB 445, RPC 135, RDP 3389, WinRM 5985/5986) that is NOT blocked. These are the exact ports used in EternalBlue, NotPetya, and WannaCry-class attacks for network-wide lateral spread.",
+        "zh_TW": "檢查勒索軟體主要攻擊通訊埠（SMB 445、RPC 135、RDP 3389、WinRM 5985/5986）上未被阻斷的流量。這些正是 EternalBlue、NotPetya 和 WannaCry 類攻擊用於全網橫向擴散的通訊埠。",
+    },
+    "rpt_rule_B002_how": {
+        "en":    "Detects allowed flows on secondary remote-access ports (TeamViewer 5938, VNC 5900, NetBIOS 137-139). Ransomware operators and APT groups use these for C2 persistence and remote control after initial compromise.",
+        "zh_TW": "偵測次要遠端存取通訊埠（TeamViewer 5938、VNC 5900、NetBIOS 137-139）上的允許流量。勒索軟體操作者和 APT 組織在初始入侵後利用這些通訊埠進行 C2 持久化與遠端控制。",
+    },
+    "rpt_rule_B003_how": {
+        "en":    "Detects medium-risk ports (SSH 22, NFS 2049, FTP 20/21, HTTP 80) showing as potentially_blocked. This means the segmentation rule exists but the workload is in visibility/test mode — the block is NOT enforced and traffic flows freely.",
+        "zh_TW": "偵測中等風險通訊埠（SSH 22、NFS 2049、FTP 20/21、HTTP 80）顯示為 potentially_blocked 的情形。這表示微分段規則存在但工作負載處於可見度/測試模式——阻斷未生效，流量仍可自由通過。",
+    },
+    "rpt_rule_B004_how": {
+        "en":    "Counts flows from hosts not enrolled in the PCE. Unmanaged hosts have no VEN and therefore no micro-segmentation enforcement — they are outside the zero-trust boundary and represent uncontrolled attack surface.",
+        "zh_TW": "計算來自未納入 PCE 管理主機的流量筆數。非受管主機沒有 VEN，因此缺乏微分段執行機制——它們在零信任邊界之外，代表無法控制的攻擊面。",
+    },
+    "rpt_rule_B005_how": {
+        "en":    "Measures the percentage of observed flows with an active allow policy. Coverage below 30% means most traffic is uncontrolled — a sign that segmentation is in early stages and large attack surface remains exposed.",
+        "zh_TW": "衡量擁有主動允許策略的觀測流量百分比。覆蓋率低於 30% 表示大部分流量未受管控——這是微分段仍處於初期階段且大量攻擊面仍暴露的訊號。",
+    },
+    "rpt_rule_B006_how": {
+        "en":    "Detects source IPs that connect to an abnormally high number of distinct destinations on lateral movement ports. This fan-out pattern (one source → many destinations) is the hallmark of worm propagation and attacker pivoting after initial compromise.",
+        "zh_TW": "偵測來源 IP 在橫向移動通訊埠上連線至異常多個不同目標的情形。此扇出模式（單一來源 → 多個目標）是蠕蟲傳播和攻擊者在初始入侵後橫向移動的典型特徵。",
+    },
+    "rpt_rule_B007_how": {
+        "en":    "Detects individual user accounts connecting to unusually many unique destination IPs. This may indicate a compromised account being used for automated reconnaissance, credential stuffing, or data staging before exfiltration.",
+        "zh_TW": "偵測個別使用者帳戶連線至異常多個不同目標 IP 的情形。這可能表示帳戶遭入侵並被用於自動化偵察、憑證填充，或資料外洩前的資料暫存。",
+    },
+    "rpt_rule_B008_how": {
+        "en":    "Flags individual flows exceeding the 95th percentile of byte volume in the dataset. Sudden high-volume transfers from unexpected sources are a key indicator of data staging, exfiltration, or unsanctioned large-scale backups.",
+        "zh_TW": "標記位元組傳輸量超過資料集第 95 百分位的個別流量。來自非預期來源的突發高量傳輸是資料暫存、外洩或未授權大規模備份的關鍵指標。",
+    },
+    "rpt_rule_B009_how": {
+        "en":    "Tracks the number of flows crossing environment boundaries (e.g. Production → Development). Excessive cross-env traffic may indicate lateral movement from a compromised lower-security zone into production.",
+        "zh_TW": "追蹤跨越環境邊界（例如生產環境 → 開發環境）的流量筆數。過多的跨環境流量可能表示攻擊者從安全性較低的環境橫向移動至生產環境。",
+    },
+
+    # ── Security Findings – rule how-text (L-series) ──────────────────────────
+    "rpt_rule_L001_how": {
+        "en":    "Detects any traffic on Telnet (23) or FTP (20/21). These protocols transmit credentials and data without encryption. Any attacker with network access can perform a man-in-the-middle or ARP poisoning attack to harvest passwords in plaintext — enabling instant credential reuse for lateral movement.",
+        "zh_TW": "偵測 Telnet（23）或 FTP（20/21）上的任何流量。這些協定在傳輸憑證和資料時不加密。任何具有網路存取權的攻擊者都可以執行中間人攻擊或 ARP 毒化來擷取明文密碼——讓其得以立即重複使用憑證進行橫向移動。",
+    },
+    "rpt_rule_L002_how": {
+        "en":    "Detects unblocked flows on broadcast/discovery protocols: NetBIOS (137/138), mDNS (5353), LLMNR (5355), SSDP (1900). Tools like Responder and Inveigh exploit these to perform hostname poisoning and capture NTLMv2 hashes without any authentication — then crack or relay those hashes for lateral movement.",
+        "zh_TW": "偵測廣播/探索協定的未阻斷流量：NetBIOS（137/138）、mDNS（5353）、LLMNR（5355）、SSDP（1900）。Responder 和 Inveigh 等工具利用這些協定執行主機名稱投毒並擷取 NTLMv2 雜湊值，無需任何驗證——隨後可用於破解或轉發以進行橫向移動。",
+    },
+    "rpt_rule_L003_how": {
+        "en":    "Checks whether database ports (MSSQL 1433, MySQL 3306, PostgreSQL 5432, Oracle 1521, MongoDB 27017, Redis 6379, Elasticsearch 9200) are reachable from many distinct application labels. Databases should only be reachable from their direct app tier. Wide exposure provides direct data access after a single lateral move.",
+        "zh_TW": "檢查資料庫通訊埠（MSSQL 1433、MySQL 3306、PostgreSQL 5432、Oracle 1521、MongoDB 27017、Redis 6379、Elasticsearch 9200）是否可從多個不同應用程式標籤存取。資料庫應只能從其直接應用程式層存取；廣泛暴露使攻擊者只需一次橫向移動即可直接存取資料。",
+    },
+    "rpt_rule_L004_how": {
+        "en":    "Detects allowed database flows crossing environment boundaries (e.g. Dev app → Production database). Environment boundaries are the macro-segmentation layer. Breaching them allows an attacker in a low-security Dev environment to directly access Production data stores.",
+        "zh_TW": "偵測跨越環境邊界的允許資料庫流量（例如開發應用程式 → 生產資料庫）。環境邊界是巨觀分段層；突破這些邊界使攻擊者得以從安全性較低的開發環境直接存取生產資料庫。",
+    },
+    "rpt_rule_L005_how": {
+        "en":    "Detects Kerberos (88), LDAP (389/636), and Global Catalog (3268/3269) traffic from many source applications. Active Directory is the domain's authentication authority. Excessive access enables domain enumeration (BloodHound), Kerberoasting, Golden/Silver Ticket attacks, and full domain takeover.",
+        "zh_TW": "偵測來自多個來源應用程式的 Kerberos（88）、LDAP（389/636）和全域目錄（3268/3269）流量。Active Directory 是網域的驗證中心；過度存取使攻擊者得以進行網域列舉（BloodHound）、Kerberoasting、Golden/Silver Ticket 攻擊，乃至完全接管網域。",
+    },
+    "rpt_rule_L006_how": {
+        "en":    "Uses BFS graph traversal on allowed lateral-port connections to find apps that can reach many others through a chain of pivots. High reachability = high blast radius. An attacker who compromises a top-ranked app can traverse the entire reachable subgraph.",
+        "zh_TW": "使用廣度優先搜尋（BFS）圖形遍歷分析允許橫向通訊埠連線，找出可通過多段橫向移動連鏈接觸多個其他應用程式的節點。高可及性 = 高爆炸半徑；被入侵的頂級排名應用程式可能讓攻擊者遍歷整個可及子圖。",
+    },
+    "rpt_rule_L007_how": {
+        "en":    "Detects unmanaged (non-PCE) hosts communicating on database, identity (Kerberos/LDAP), or Windows management ports to managed workloads. Unmanaged hosts have no VEN enforcement — they are outside zero-trust. If they can reach critical services, they represent uncontrolled lateral movement entry points.",
+        "zh_TW": "偵測非受管（非 PCE）主機在資料庫、身份識別（Kerberos/LDAP）或 Windows 管理通訊埠上與受管工作負載的通訊。非受管主機沒有 VEN 執行機制——它們在零信任邊界外，若能存取關鍵服務，即代表無法控制的橫向移動入口點。",
+    },
+    "rpt_rule_L008_how": {
+        "en":    "Identifies 'potentially_blocked' flows on lateral movement ports. This means the policy rule exists but the destination workload is in visibility/test mode — the block is not active. These are live, traversable attack paths right now.",
+        "zh_TW": "識別橫向移動通訊埠上的 potentially_blocked 流量。這表示策略規則存在但目標工作負載處於可見度/測試模式——阻斷未生效，這些是現在就可被橫穿的攻擊路徑，是「我們有策略但仍遭入侵」事件中最常見的原因。",
+    },
+    "rpt_rule_L009_how": {
+        "en":    "Detects managed workloads transferring significant data volume to unmanaged (external/unknown) destinations. This is the post-lateral-movement exfiltration phase: attacker has pivoted to a high-value host and is now staging or exfiltrating data to an external C2 or drop server outside PCE visibility.",
+        "zh_TW": "偵測受管工作負載向非受管（外部/未知）目標傳輸大量資料的情形。這是橫向移動後的資料外洩階段：攻擊者已橫向移動至高價值主機，正在向 PCE 可見範圍外的外部 C2 或投放伺服器暫存或外洩資料。",
+    },
+    "rpt_rule_L010_how": {
+        "en":    "CRITICAL: Detects lateral movement ports (SMB 445, RDP 3389, WinRM 5985/5986, RPC 135) allowed between different environments. Environment segmentation is the macro-security boundary. If lateral ports cross it, an attacker who compromises Dev/Test can directly pivot into Production.",
+        "zh_TW": "重大：偵測橫向移動通訊埠（SMB 445、RDP 3389、WinRM 5985/5986、RPC 135）在不同環境間的允許流量。環境分段是巨觀安全邊界；若橫向通訊埠可跨越此邊界，入侵開發/測試環境的攻擊者即可直接使用相同技術橫向移動至生產環境。",
+    },
+
     # ── Audit report ─────────────────────────────────────────────────────────
     "rpt_au_title":         {"en": "Illumio Audit & System Events Report",
                              "zh_TW": "Illumio 稽核與系統事件報表"},

@@ -635,9 +635,11 @@ class HtmlExporter:
         return out
 
     def _findings_html(self):
+        from src.report.exporters.report_i18n import STRINGS as _S
         findings = self._r.get('findings', [])
         if not findings:
-            return '<p class="note" data-i18n="rpt_no_findings_detail">No security findings were triggered for this dataset. This may indicate good policy coverage or that thresholds need tuning.</p>'
+            en_msg = _S.get('rpt_no_findings_detail', {}).get('en', '')
+            return f'<p class="note" data-i18n="rpt_no_findings_detail">{en_msg}</p>'
 
         from collections import Counter, defaultdict
         counts = Counter(f.severity for f in findings)
@@ -660,58 +662,22 @@ class HtmlExporter:
         for f in sorted(findings, key=lambda x: (x.severity_rank, x.rule_id)):
             by_cat[f.category].append(f)
 
-        # Category display names and descriptions
-        _cat_labels = {
-            'Ransomware': (
-                '🦠 Ransomware Exposure',
-                'Rules detecting traffic patterns associated with ransomware attack chains: '
-                'critical lateral-spread ports (SMB, RDP, WinRM, RPC), remote-access persistence tools, '
-                'and policy gaps that leave high-risk ports unblocked or only in test mode.'
-            ),
-            'LateralMovement': (
-                '↔ Lateral Movement',
-                'Rules targeting attacker pivoting techniques inside the network. Covers: '
-                'cleartext credential exposure (Telnet/FTP), network discovery poisoning (LLMNR/NetBIOS), '
-                'database over-exposure, identity infrastructure (Kerberos/LDAP) access, '
-                'graph-based blast-radius analysis, enforcement gaps, exfiltration patterns, '
-                'and cross-environment boundary breaks — the full lateral movement kill-chain.'
-            ),
-            'UnmanagedHost': (
-                '🖥 Unmanaged Hosts',
-                'Rules triggered by traffic from hosts not enrolled in the PCE. '
-                'These hosts operate outside your zero-trust boundary with no VEN enforcement — '
-                'they are blind spots that cannot be protected by Illumio micro-segmentation rules.'
-            ),
-            'Policy': (
-                '📋 Policy Coverage',
-                'Rules evaluating the completeness of your segmentation policy: '
-                'overall coverage percentage, cross-environment traffic volume, '
-                'and gaps in rule-set coverage that leave workloads unprotected.'
-            ),
-            'UserActivity': (
-                '👤 User Activity',
-                'Rules detecting anomalous user account behaviour — a single account reaching '
-                'an unusually high number of distinct destinations, which may indicate '
-                'credential abuse, a compromised account, or data staging before exfiltration.'
-            ),
-            'Bandwidth': (
-                '📶 Bandwidth Anomaly',
-                'Rules flagging flows with abnormally high byte volume relative to the dataset baseline. '
-                'Sudden large transfers from unexpected sources are a key indicator of '
-                'data exfiltration, unauthorised backups, or attacker data staging.'
-            ),
-        }
-
         cards_html = ''
         for cat, cat_findings in by_cat.items():
-            cat_label, cat_desc = _cat_labels.get(cat, (cat, ''))
+            # Look up bilingual category strings from report_i18n.STRINGS
+            cat_key = cat.lower()
+            name_key = f'rpt_cat_{cat_key}_name'
+            desc_key = f'rpt_cat_{cat_key}_desc'
+            cat_name_en = _S.get(name_key, {}).get('en', cat)
+            cat_desc_en = _S.get(desc_key, {}).get('en', '')
             cards_html += (
                 f'<div class="cat-group">'
-                f'<h3 style="margin-bottom:6px;">{cat_label}</h3>'
-                f'<p style="font-size:12px;color:var(--slate-50);margin-bottom:14px;">{cat_desc}</p>'
+                f'<h3 style="margin-bottom:6px;" data-i18n="{name_key}">{cat_name_en}</h3>'
+                f'<p style="font-size:12px;color:var(--slate-50);margin-bottom:14px;"'
+                f' data-i18n="{desc_key}">{cat_desc_en}</p>'
             )
             for f in cat_findings:
-                rule_title, rule_how = _RULE_DESCRIPTIONS.get(f.rule_id, (f.rule_name, ''))
+                _rule_title, rule_how = _RULE_DESCRIPTIONS.get(f.rule_id, (f.rule_name, ''))
                 evidence_html = _format_evidence(f.evidence)
                 cards_html += (
                     f'<div class="finding-card sev-{f.severity}">'
@@ -722,9 +688,13 @@ class HtmlExporter:
                     f'</div>'
                 )
                 if rule_how:
+                    how_key = f'rpt_rule_{f.rule_id}_how'
+                    how_en = _S.get(how_key, {}).get('en', rule_how)
+                    check_label_en = _S.get('rpt_rule_check_label', {}).get('en', 'What this rule checks:')
                     cards_html += (
                         f'<p style="font-size:11px;color:var(--slate-50);margin-bottom:8px;">'
-                        f'<b>What this rule checks:</b> {rule_how}</p>'
+                        f'<b data-i18n="rpt_rule_check_label">{check_label_en}</b>'
+                        f' <span data-i18n="{how_key}">{how_en}</span></p>'
                     )
                 cards_html += (
                     f'<p class="finding-desc">{f.description}</p>'

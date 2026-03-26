@@ -3346,7 +3346,7 @@
     let _settings = {};
     async function loadSettings() {
       _settings = await api('/api/settings');
-      const s = _settings, a = s.api || {}, e = s.email || {}, sm = s.smtp || {}, al = s.alerts || {}, st = s.settings || {};
+      const s = _settings, a = s.api || {}, e = s.email || {}, sm = s.smtp || {}, al = s.alerts || {}, st = s.settings || {}, rpt = s.report || {};
       const active = al.active || [];
       $('s-form').innerHTML = `
   <fieldset><legend data-i18n="gui_api_conn">API Connection</legend>
@@ -3419,6 +3419,20 @@
         </div>
       </div>
     </div>
+  </fieldset>
+  <fieldset><legend data-i18n="gui_report_output">Report Output</legend>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label data-i18n="gui_report_output_dir">Output Directory</label>
+        <input id="s-rpt-dir" value="${rpt.output_dir || 'reports/'}">
+        <small style="color:var(--dim)" data-i18n="gui_report_output_dir_hint">Path where generated reports are saved (relative to project root or absolute).</small>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label data-i18n="gui_retention_days">Retention (days)</label>
+        <input id="s-rpt-retention" type="number" min="0" value="${rpt.retention_days ?? 30}">
+        <small style="color:var(--dim)" data-i18n="gui_retention_hint">0 = keep forever</small>
+      </div>
+    </div>
   </fieldset>`;
       await loadTranslations();
     }
@@ -3432,7 +3446,8 @@
         email: { sender: $('s-sender').value, recipients: $('s-rcpt').value.split(',').map(s => s.trim()).filter(Boolean) },
         smtp: { host: $('s-smhost').value, port: parseInt($('s-smport').value) || 25, user: $('s-smuser').value, password: $('s-smpass').value, enable_tls: $('s-tls').checked, enable_auth: $('s-auth').checked },
         alerts: { active, line_channel_access_token: $('s-ltok').value, line_target_id: $('s-ltgt').value, webhook_url: $('s-whurl').value },
-        settings: { language: lang, theme: theme, timezone: $('s-timezone').value, enable_health_check: $('s-hc').checked }
+        settings: { language: lang, theme: theme, timezone: $('s-timezone').value, enable_health_check: $('s-hc').checked },
+        report: { output_dir: $('s-rpt-dir').value.trim(), retention_days: parseInt($('s-rpt-retention').value) || 0 }
       });
       await loadTranslations();
       if (typeof renderQtPage === 'function') renderQtPage();
