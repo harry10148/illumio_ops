@@ -24,7 +24,25 @@ _DEFAULT_CONFIG = {
     "email": {"sender": "monitor@localhost", "recipients": ["admin@example.com"]},
     "smtp": {"host": "localhost", "port": 25, "user": "", "password": "", "enable_auth": False, "enable_tls": False},
     "settings": {"enable_health_check": True, "language": "en", "theme": "light"},
-    "rules": []
+    "rules": [],
+    "report": {
+        "enabled": False,
+        "schedule": "weekly",
+        "day_of_week": "monday",
+        "hour": 8,
+        "source": "api",
+        "format": ["excel"],
+        "email_report": False,
+        "output_dir": "reports/",
+        "include_raw_data": False,
+        "max_top_n": 20,
+        "api_query": {
+            "start_date": None,
+            "end_date": None,
+            "max_results": 200000
+        }
+    },
+    "report_schedules": []
 }
 
 
@@ -102,6 +120,40 @@ class ConfigManager:
                 count = count + 1
         if count > 0:
             self.save()
+
+    # ─── Report Schedule CRUD ─────────────────────────────────────────────────
+
+    def get_report_schedules(self) -> list:
+        return self.config.get("report_schedules", [])
+
+    def add_report_schedule(self, sched: dict) -> dict:
+        """Add a new report schedule. Assigns a unique id if missing."""
+        if not sched.get("id"):
+            sched["id"] = int(time.time() * 1000)
+        self.config.setdefault("report_schedules", []).append(sched)
+        self.save()
+        return sched
+
+    def update_report_schedule(self, schedule_id: int, updates: dict) -> bool:
+        """Update fields of an existing schedule by id. Returns True on success."""
+        for i, s in enumerate(self.config.get("report_schedules", [])):
+            if s.get("id") == schedule_id:
+                self.config["report_schedules"][i].update(updates)
+                self.save()
+                return True
+        return False
+
+    def remove_report_schedule(self, schedule_id: int) -> bool:
+        """Remove a schedule by id. Returns True on success."""
+        before = len(self.config.get("report_schedules", []))
+        self.config["report_schedules"] = [
+            s for s in self.config.get("report_schedules", [])
+            if s.get("id") != schedule_id
+        ]
+        if len(self.config["report_schedules"]) < before:
+            self.save()
+            return True
+        return False
 
     def load_best_practices(self):
         print(f"{Colors.BLUE}{t('loading_best_practices')}{Colors.ENDC}")

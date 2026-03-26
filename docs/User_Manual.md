@@ -239,7 +239,118 @@ sudo systemctl enable --now illumio-monitor
 
 ---
 
-## 7. Troubleshooting
+## 7. Traffic Reports & Security Findings
+
+### 7.1 Generating Reports
+
+Reports can be triggered from three places:
+
+| Location | How |
+|:---|:---|
+| Web GUI → Reports tab | Click **Traffic Report**, **Audit Summary**, or **VEN Status** |
+| CLI → menu item **[13] Generate Report** | Select report type and date range |
+| Daemon mode | Configure a schedule via **[15] Report Schedules** — reports run automatically and can be emailed |
+
+Reports are saved to the `reports/` directory as `.html` and/or `.xlsx` files depending on your format setting.
+
+**Dependencies required:**
+```bash
+pip install pandas openpyxl pyyaml
+```
+
+### 7.2 Report Sections (Traffic Report)
+
+A traffic report contains 12 analytical sections plus the Security Findings section:
+
+| Section | Description |
+|:---|:---|
+| Executive Summary | KPI cards: total flows, policy coverage %, top findings |
+| 1 · Traffic Overview | Total flows, allowed/blocked/PB breakdown, top ports |
+| 2 · Policy Decisions | Per-decision breakdown with inbound/outbound split and per-port coverage % |
+| 3 · Uncovered Flows | Flows without an allow rule; port gap ranking; uncovered services (app+port) |
+| 4 · Ransomware Exposure | Flows on ransomware-associated ports by risk level |
+| 5 · Remote Access | SSH/RDP/VNC/TeamViewer traffic analysis |
+| 6 · User & Process | User accounts and processes appearing in flow records |
+| 7 · Cross-Label Matrix | Traffic matrix between environment/app/role label combinations |
+| 8 · Unmanaged Hosts | Traffic from/to non-PCE-managed hosts; per-app and per-port detail |
+| 9 · Traffic Distribution | Port and protocol distribution |
+| 10 · Allowed Traffic | Top allowed flows; audit flags |
+| 11 · Bandwidth & Volume | Top flows by byte volume; bandwidth statistics |
+| **Security Findings** | **Automated rule evaluation — see Section 7.3** |
+
+### 7.3 Security Findings Rules
+
+The Security Findings section runs **19 automated detection rules** against every traffic dataset and groups results by severity (CRITICAL → INFO) and category.
+
+**Rule series overview:**
+
+| Series | Rules | Focus |
+|:---|:---|:---|
+| **B-series** | B001–B009 | Ransomware exposure, policy coverage gaps, behavioural anomalies |
+| **L-series** | L001–L010 | Lateral movement, credential theft, blast-radius paths, data exfiltration |
+
+**Quick reference:**
+
+| Rule | Severity | What it detects |
+|:---|:---|:---|
+| B001 | CRITICAL | Ransomware ports (SMB/RDP/WinRM/RPC) not blocked |
+| B002 | HIGH | Remote-access tools (TeamViewer/VNC/NetBIOS) allowed |
+| B003 | MEDIUM | Ransomware ports in test mode — block not enforced |
+| B004 | MEDIUM | High volume from unmanaged (non-PCE) hosts |
+| B005 | MEDIUM | Policy coverage below threshold |
+| B006 | HIGH | Single source fan-out on lateral movement ports |
+| B007 | HIGH | Single user reaching abnormally many destinations |
+| B008 | MEDIUM | High bandwidth anomaly (potential exfiltration/backup) |
+| B009 | INFO | Cross-environment traffic volume above threshold |
+| L001 | HIGH | Cleartext protocols (Telnet/FTP) in use |
+| L002 | MEDIUM | Network discovery protocols unblocked (LLMNR/NetBIOS/mDNS) |
+| L003 | HIGH | Database ports reachable from too many application tiers |
+| L004 | HIGH | Database flows crossing environment boundaries |
+| L005 | HIGH | Kerberos/LDAP accessible from too many source applications |
+| L006 | HIGH | High blast-radius lateral path (BFS graph analysis) |
+| L007 | HIGH | Unmanaged hosts accessing database/identity/management ports |
+| L008 | HIGH | Lateral ports in test mode — policies exist but not enforced |
+| L009 | HIGH | Data exfiltration pattern (managed → unmanaged, high bytes) |
+| L010 | CRITICAL | Lateral ports allowed across environment boundaries |
+
+For full documentation of each rule — including trigger conditions, attack technique context, and tuning guidance — see **[Security Rules Reference](Security_Rules_Reference.md)**.
+
+### 7.4 Tuning Security Rules
+
+All detection thresholds are in `config/report_config.yaml`:
+
+```yaml
+thresholds:
+  min_policy_coverage_pct: 30         # B005
+  lateral_movement_outbound_dst: 10   # B006
+  db_unique_src_app_threshold: 5      # L003
+  blast_radius_threshold: 5           # L006
+  exfil_bytes_threshold_mb: 100       # L009
+  cross_env_lateral_threshold: 5      # L010
+  # ... (see Security_Rules_Reference.md for complete list)
+```
+
+Edit this file and re-run a report to apply new thresholds — no restart required.
+
+### 7.5 Report Schedules
+
+Configure automated recurring reports via CLI menu **[15]** or Web GUI **Report Schedules** tab:
+
+| Field | Description |
+|:---|:---|
+| Report Type | Traffic Flow / Audit / VEN Status |
+| Frequency | Daily / Weekly (day of week) / Monthly (day of month) |
+| Time | UTC hour and minute |
+| Lookback Days | How many days of traffic data to include |
+| Output Format | Excel / HTML / Both |
+| Send by Email | Attach report to email using SMTP settings |
+| Custom Recipients | Override default recipients for this schedule |
+
+The daemon loop checks schedules every 60 seconds and runs any schedule whose configured time has been reached.
+
+---
+
+## 8. Troubleshooting
 
 | Symptom | Cause | Solution |
 |:---|:---|:---|

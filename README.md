@@ -27,7 +27,9 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 ### 1. Requirements
 - **Python 3.8+**
-- (Optional for Web GUI): `pip install flask`
+- **Core (no install needed):** Python stdlib only — CLI and daemon modes run with zero external dependencies
+- **Optional — Web GUI:** `flask`
+- **Optional — Traffic Report:** `pandas`, `openpyxl`, `pyyaml`
 
 ### 2. Installation & Launch
 
@@ -64,7 +66,62 @@ python illumio_monitor.py --monitor --interval 5
 
 ---
 
-## 📖 Documentation
+## 🏢 Enterprise / Offline Installation
+
+For air-gapped environments without internet access, use one of the methods below.
+
+### Method A — Red Hat / CentOS (dnf / yum)
+
+Core and Web GUI dependencies are available directly from **RHEL 8/9 AppStream**:
+
+```bash
+# Web GUI
+sudo dnf install python3-flask
+
+# YAML config (for Traffic Report)
+sudo dnf install python3-pyyaml
+
+# pandas (RHEL 8+ AppStream — version may be older)
+sudo dnf install python3-pandas
+```
+
+> `openpyxl` is **not** in the official RHEL repo. Use Method B or C for it.
+
+### Method B — Pre-download Wheels (pip offline)
+
+On a machine with internet access (must match target OS/arch, e.g. `linux_x86_64`):
+
+```bash
+# Download all optional dependencies as wheel files
+pip download flask pandas openpyxl pyyaml -d ./offline_packages/
+```
+
+Copy `offline_packages/` to the air-gapped host, then install:
+
+```bash
+pip install --no-index --find-links=./offline_packages/ flask pandas openpyxl pyyaml
+```
+
+### Method C — Internal PyPI Mirror (Nexus / Artifactory)
+
+If your organisation runs a Nexus Repository or JFrog Artifactory:
+
+```bash
+pip install pandas openpyxl pyyaml flask \
+    --index-url https://nexus.internal/repository/pypi-proxy/simple/
+```
+
+### Dependency Summary
+
+| Package | RHEL AppStream | Ubuntu `apt` | Offline wheel |
+|---------|:--------------:|:------------:|:-------------:|
+| `flask` | ✅ `python3-flask` | ✅ `python3-flask` | ✅ |
+| `pyyaml` | ✅ `python3-pyyaml` | ✅ `python3-yaml` | ✅ |
+| `pandas` | ✅ `python3-pandas` (RHEL 8+) | ✅ `python3-pandas` | ✅ |
+| `openpyxl` | ❌ not in repo | ✅ `python3-openpyxl` | ✅ |
+
+---
+
 
 | Document | Description |
 |:---|:---|

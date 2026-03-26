@@ -17,6 +17,61 @@ ROOT_DIR = os.path.dirname(PKG_DIR)
 STATE_FILE = os.path.join(ROOT_DIR, "state.json")
 
 
+# ─── Standalone Calculators (shared by Analyzer and Report modules) ──────────
+
+
+def calculate_mbps(flow):
+    """
+    Compute bandwidth in Mbps from a PCE traffic flow record.
+    Priority 1: delta bytes (dst_dbo+dst_dbi) / ddms  → Mbps (Interval)
+    Priority 2: total bytes (dst_tbo+dst_tbi) / tdms   → Mbps (Avg)
+    Fallback:   returns (0.0, '', 0.0, 0.0)
+
+    Importable independently:
+        from src.analyzer import calculate_mbps
+    """
+    delta_bytes = float(flow.get("dst_dbo") or flow.get("dbo") or 0) + \
+                  float(flow.get("dst_dbi") or flow.get("dbi") or 0)
+    ddms = float(flow.get("ddms") or 0)
+
+    if delta_bytes > 0 and ddms > 0:
+        if ddms < 1000:
+            ddms = 1000.0
+        val = (delta_bytes * 8.0) / (ddms / 1000.0) / 1000000.0
+        return val, "(Interval)", delta_bytes, ddms
+
+    tbo = float(flow.get("dst_tbo") or flow.get("tbo") or flow.get("dst_bo") or 0)
+    tbi = float(flow.get("dst_tbi") or flow.get("tbi") or flow.get("dst_bi") or 0)
+    total_bytes = tbo + tbi
+    tdms = float(flow.get("tdms") or 0)
+    if tdms < 1000:
+        tdms = float(flow.get("interval_sec", 600)) * 1000
+    if total_bytes > 0 and tdms > 0:
+        val = (total_bytes * 8.0) / (tdms / 1000.0) / 1000000.0
+        return val, "(Avg)", total_bytes, tdms
+    return 0.0, "", 0.0, 0.0
+
+
+def calculate_volume_mb(flow):
+    """
+    Compute data volume in MB from a PCE traffic flow record.
+    Priority 1: delta bytes (dst_dbo+dst_dbi)  → MB (Interval)
+    Priority 2: total bytes (dst_tbo+dst_tbi)  → MB (Total)
+
+    Importable independently:
+        from src.analyzer import calculate_volume_mb
+    """
+    delta_bytes = float(flow.get("dst_dbo") or flow.get("dbo") or 0) + \
+                  float(flow.get("dst_dbi") or flow.get("dbi") or 0)
+    if delta_bytes > 0:
+        return delta_bytes / 1024 / 1024, "(Interval)"
+    tbo = float(flow.get("dst_tbo") or flow.get("tbo") or flow.get("dst_bo") or 0)
+    tbi = float(flow.get("dst_tbi") or flow.get("tbi") or flow.get("dst_bi") or 0)
+    return (tbo + tbi) / 1024 / 1024, "(Total)"
+
+
+# ─── Analyzer Class ───────────────────────────────────────────────────────────
+
 class Analyzer:
     def __init__(self, config_manager, api_client, reporter):
         self.cm = config_manager
@@ -82,39 +137,12 @@ class Analyzer:
             logger.error(f"Error saving state: {e}")
 
     def calculate_mbps(self, flow):
-        # Hybrid Calculation: Interval vs Total
-        delta_bytes = float(flow.get("dst_dbo") or flow.get("dbo") or 0) + float(flow.get("dst_dbi") or flow.get("dbi") or 0)
-        ddms = float(flow.get("ddms") or 0)
-
-        if delta_bytes > 0 and ddms > 0:
-            if ddms < 1000:
-                ddms = 1000.0
-            val = (delta_bytes * 8.0) / (ddms / 1000.0) / 1000000.0
-            return val, "(Interval)", delta_bytes, ddms
-
-        # Fallback to Total if Interval is 0
-        tbo = float(flow.get("dst_tbo") or flow.get("tbo") or flow.get("dst_bo") or 0)
-        tbi = float(flow.get("dst_tbi") or flow.get("tbi") or flow.get("dst_bi") or 0)
-        total_bytes = tbo + tbi
-        tdms = float(flow.get("tdms") or 0)
-
-        if tdms < 1000:
-            tdms = float(flow.get("interval_sec", 600)) * 1000
-
-        if total_bytes > 0 and tdms > 0:
-            val = (total_bytes * 8.0) / (tdms / 1000.0) / 1000000.0
-            return val, "(Avg)", total_bytes, tdms
-
-        return 0.0, "", 0.0, 0.0
+        """Delegate to module-level calculate_mbps(). See src.analyzer.calculate_mbps."""
+        return calculate_mbps(flow)
 
     def calculate_volume_mb(self, flow):
-        delta_bytes = float(flow.get("dst_dbo") or flow.get("dbo") or 0) + float(flow.get("dst_dbi") or flow.get("dbi") or 0)
-        if delta_bytes > 0:
-            return delta_bytes / 1024 / 1024, "(Interval)"
-
-        tbo = float(flow.get("dst_tbo") or flow.get("tbo") or flow.get("dst_bo") or 0)
-        tbi = float(flow.get("dst_tbi") or flow.get("tbi") or flow.get("dst_bi") or 0)
-        return (tbo + tbi) / 1024 / 1024, "(Total)"
+        """Delegate to module-level calculate_volume_mb(). See src.analyzer.calculate_volume_mb."""
+        return calculate_volume_mb(flow)
 
     def check_flow_match(self, rule, f, start_time_limit):
         # Dynamic Sliding Window Check

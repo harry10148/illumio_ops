@@ -1,6 +1,8 @@
 # Secrets and Personal Config
 config.json
 state.json
+config-old.json
+CLAUDE.md
 
 # Logs
 logs/
@@ -25,6 +27,16 @@ venv/
 
 # OS files
 .DS_Store
+
+# Reports output
+reports/
+
+# Claude Code project memory
+.claude/
+
+# Temporary / backup files
+tmp_*.py
+config-old*.json
 
 # Temporary files from investigation
 find_api.py

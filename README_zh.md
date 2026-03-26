@@ -27,7 +27,9 @@
 
 ### 1. 系統需求
 - **Python 3.8+**
-- （若需 Web GUI）：`pip install flask`
+- **核心功能（免安裝）**：CLI 及 Daemon 模式僅使用 Python 標準函式庫，無需任何外部套件
+- **選用 — Web GUI**：`flask`
+- **選用 — 流量分析報表**：`pandas`、`openpyxl`、`pyyaml`
 
 ### 2. 安裝與啟動
 
@@ -64,7 +66,62 @@ python illumio_monitor.py --monitor --interval 5
 
 ---
 
-## 📖 文件目錄
+## 🏢 企業環境 / 離線安裝
+
+適用於無法連線網際網路的Air-gap環境。
+
+### 方案 A — Red Hat / CentOS（dnf / yum）
+
+Web GUI 及 YAML 相依套件可直接從 **RHEL 8/9 AppStream** 安裝：
+
+```bash
+# Web GUI
+sudo dnf install python3-flask
+
+# YAML 設定檔（流量報表用）
+sudo dnf install python3-pyyaml
+
+# pandas（RHEL 8+ AppStream，版本可能較舊）
+sudo dnf install python3-pandas
+```
+
+> `openpyxl` **不在** RHEL 官方 Repo 中，請使用方案 B 或 C 安裝。
+
+### 方案 B — 預先下載 Wheel（pip 離線安裝）
+
+在有網路的機器上（作業系統與架構須與目標主機相同，如 `linux_x86_64`）：
+
+```bash
+# 下載所有選用套件的 wheel 檔
+pip download flask pandas openpyxl pyyaml -d ./offline_packages/
+```
+
+將 `offline_packages/` 資料夾複製到離線主機後安裝：
+
+```bash
+pip install --no-index --find-links=./offline_packages/ flask pandas openpyxl pyyaml
+```
+
+### 方案 C — 內部 PyPI Mirror（Nexus / Artifactory）
+
+若組織已架設 Nexus Repository 或 JFrog Artifactory：
+
+```bash
+pip install pandas openpyxl pyyaml flask \
+    --index-url https://nexus.internal/repository/pypi-proxy/simple/
+```
+
+### 套件來源速查表
+
+| 套件 | RHEL AppStream | Ubuntu `apt` | Wheel 離線 |
+|------|:--------------:|:------------:|:----------:|
+| `flask` | ✅ `python3-flask` | ✅ `python3-flask` | ✅ |
+| `pyyaml` | ✅ `python3-pyyaml` | ✅ `python3-yaml` | ✅ |
+| `pandas` | ✅ `python3-pandas`（RHEL 8+）| ✅ `python3-pandas` | ✅ |
+| `openpyxl` | ❌ 不在官方 Repo | ✅ `python3-openpyxl` | ✅ |
+
+---
+
 
 | 文件 | 說明 |
 |:---|:---|

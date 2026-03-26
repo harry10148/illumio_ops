@@ -102,17 +102,21 @@ class ApiClient:
             logger.error(f"Health check failed: {e}")
             return 0, str(e)
 
-    def fetch_events(self, start_time_str, max_results=1000):
+    def fetch_events(self, start_time_str, end_time_str=None, max_results=5000):
         try:
-            params = urllib.parse.urlencode({
+            p = {
                 "timestamp[gte]": start_time_str,
                 "max_results": max_results
-            })
+            }
+            if end_time_str:
+                p["timestamp[lte]"] = end_time_str
+            params = urllib.parse.urlencode(p)
             url = f"{self.base_url}/events?{params}"
-            status, body = self._request(url, timeout=15)
+            status, body = self._request(url, timeout=30)
             if status != 200:
-                logger.error(f"Get Events Failed: {status}")
-                print(f"{Colors.FAIL}Get Events Failed: {status}{Colors.ENDC}")
+                err_msg = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
+                logger.error(f"Get Events Failed: {status} - {err_msg}")
+                print(f"{Colors.FAIL}Get Events Failed: {status} | Error: {err_msg[:500]}{Colors.ENDC}")
                 return []
             return json.loads(body)
         except Exception as e:
@@ -226,6 +230,23 @@ class ApiClient:
             print(f"Query Exception: {e}")
             return
 
+    def fetch_traffic_for_report(self, start_time_str, end_time_str,
+                                 policy_decisions=None):
+        """
+        Convenience wrapper for report generation.
+        Collects all results from execute_traffic_query_stream() into a list.
+        Returns: list[dict] — all flow records, or empty list on failure.
+        """
+        if policy_decisions is None:
+            policy_decisions = ["blocked", "potentially_blocked", "allowed"]
+
+        stream = self.execute_traffic_query_stream(
+            start_time_str, end_time_str, policy_decisions
+        )
+        if stream is None:
+            return []
+        return list(stream)
+
     # ═══════════════════════════════════════════════════════════════════════════════
     # Quarantine Feature: Labels and Workloads
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -300,6 +321,21 @@ class ApiClient:
         except Exception as e:
             logger.error(f"Update Workload Labels Error: {e}")
             return False
+
+    def fetch_managed_workloads(self, max_results: int = 10000) -> list:
+        """Fetch all VEN-managed workloads (those with an active VEN agent)."""
+        try:
+            params = urllib.parse.urlencode({'managed': 'true', 'max_results': max_results})
+            url = f"{self.base_url}/workloads?{params}"
+            status, body = self._request(url, timeout=30)
+            if status == 200:
+                return json.loads(body)
+            err_msg = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
+            logger.error(f"Fetch Managed Workloads Failed: {status} - {err_msg}")
+            return []
+        except Exception as e:
+            logger.error(f"Fetch Managed Workloads Error: {e}")
+            return []
 
     def search_workloads(self, params: dict) -> list:
         """Search workloads matching query params (e.g., name, hostname, ip_address, labels)"""

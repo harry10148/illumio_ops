@@ -7,24 +7,25 @@
   <meta name="theme-color" content="#0F172A">
   <title>Illumio PCE Monitor</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600;700&family=Lato:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
     :root {
-      --bg: #0F172A;
-      --bg2: #1E293B;
-      --bg3: #334155;
-      --fg: #F8FAFC;
-      --dim: #94A3B8;
-      --accent: #F97316;
-      --accent2: #FB923C;
-      --success: #10B981;
-      --warn: #EAB308;
-      --danger: #EF4444;
-      --border: #475569;
+      /* Illumio Brand Colors */
+      --bg:      #1A2C32;   /* System Cyan 120 */
+      --bg2:     #24393F;   /* System Cyan 110 */
+      --bg3:     #2D454C;   /* System Cyan 100 */
+      --fg:      #FFFFFF;
+      --dim:     #989A9B;   /* Server Slate 50 */
+      --accent:  #FF5500;   /* Illumio Orange */
+      --accent2: #FFA22F;   /* Circuit Gold 100 */
+      --success: #299B65;   /* Safeguard Green 80 */
+      --warn:    #FFA22F;   /* Circuit Gold 100 */
+      --danger:  #F43F51;   /* Risk Red 80 */
+      --border:  #325158;   /* System Cyan 90 */
       --radius: 8px;
       --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      --header-font: 'EB Garamond', serif;
-      --body-font: 'Lato', system-ui, sans-serif;
+      --header-font: 'Montserrat', system-ui, sans-serif;
+      --body-font:   'Montserrat', system-ui, sans-serif;
       --space-header-y: 12px;
       --space-header-x: 20px;
       --space-panel: 18px;
@@ -1121,10 +1122,30 @@
     <symbol id="icon-stop" viewBox="0 0 24 24">
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2" fill="none" />
     </symbol>
+    <symbol id="icon-cpu" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+      <rect x="9" y="9" width="6" height="6" stroke="currentColor" stroke-width="2" fill="none"/>
+      <line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="15" y1="1" x2="15" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="9" y1="20" x2="9" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="15" y1="20" x2="15" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="20" y1="9" x2="23" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="20" y1="15" x2="23" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="1" y1="15" x2="4" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
     <symbol id="icon-help-circle" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" />
       <path d="M9.1 9a3 3 0 1 1 5.2 2c-.9.9-1.5 1.3-1.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
       <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none" />
+      <polyline points="12 6 12 12 16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24">
+      <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+      <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
     </symbol>
   </svg>
 
@@ -1171,6 +1192,16 @@
         <use href="#icon-shield"></use>
       </svg> Rules
     </button>
+    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-reports" data-tab="reports" onclick="switchTab('reports')">
+      <svg class="icon">
+        <use href="#icon-activity"></use>
+      </svg> Reports
+    </button>
+    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-report-schedules" data-tab="report-schedules" onclick="switchTab('report-schedules')" data-i18n="gui_tab_report_schedules">
+      <svg class="icon">
+        <use href="#icon-clock"></use>
+      </svg> Report Schedules
+    </button>
     <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-settings" data-tab="settings" onclick="switchTab('settings')" data-i18n="gui_tab_settings">
       <svg class="icon">
         <use href="#icon-settings"></use>
@@ -1201,6 +1232,14 @@
       <div class="card">
         <div class="label" data-i18n="gui_language">Language</div>
         <div class="value" id="d-lang">—</div>
+      </div>
+      <div class="card" id="card-flows" style="display:none">
+        <div class="label">Total Flows</div>
+        <div class="value" id="d-flows" style="color:var(--accent2)">—</div>
+      </div>
+      <div class="card" id="card-ransom" style="display:none">
+        <div class="label">Ransomware Exp</div>
+        <div class="value" id="d-ransom">—</div>
       </div>
     </div>
 
@@ -1384,6 +1423,79 @@
 
     <!-- Legacy Dashboards -->
     <div id="q-panel-legacy" class="q-panel">
+
+      <!-- ── Latest Traffic Report Summary ─────────────────────────────── -->
+      <fieldset id="snap-fieldset" style="margin-bottom:18px;">
+        <legend style="font-size:1.05rem;" data-i18n="gui_snap_title">Latest Traffic Report Summary</legend>
+        <div id="snap-placeholder" style="text-align:center;padding:24px;color:var(--dim);font-size:0.9rem;" data-i18n="gui_snap_no_data">
+          No traffic report snapshot found. Generate a Traffic Report to populate this section.
+        </div>
+        <div id="snap-content" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <span style="color:var(--dim);font-size:0.82rem;"><span data-i18n="gui_snap_generated">Generated:</span> <span id="snap-generated-at">—</span></span>
+            <span style="color:var(--dim);font-size:0.82rem;"><span data-i18n="gui_snap_date_range">Date Range:</span> <span id="snap-date-range">—</span></span>
+          </div>
+
+          <!-- KPI Cards -->
+          <div id="snap-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px;"></div>
+
+          <!-- Key Findings -->
+          <div id="snap-findings-wrap" style="margin-bottom:16px;">
+            <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_snap_key_findings">Key Findings</div>
+            <table class="rule-table" style="font-size:0.8rem;">
+              <thead><tr><th style="width:90px" data-i18n="gui_snap_col_severity">Severity</th><th data-i18n="gui_snap_col_finding">Finding</th><th data-i18n="gui_snap_col_action">Action</th></tr></thead>
+              <tbody id="snap-findings-body">
+                <tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;" data-i18n="gui_snap_no_findings">No findings.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Two-column: Policy Breakdown + Top Ports -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+            <div>
+              <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_snap_policy_breakdown">Policy Decision Breakdown</div>
+              <table class="rule-table" style="font-size:0.8rem;">
+                <thead><tr><th data-i18n="gui_snap_col_decision">Decision</th><th data-i18n="gui_snap_col_flows">Flows</th></tr></thead>
+                <tbody id="snap-policy-body">
+                  <tr><td colspan="2" style="text-align:center;color:var(--dim);">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_snap_top_ports">Top 10 Ports (by Flow Count)</div>
+              <table class="rule-table" style="font-size:0.8rem;">
+                <thead><tr><th data-i18n="gui_snap_col_port">Port</th><th data-i18n="gui_snap_col_flow_count">Flow Count</th></tr></thead>
+                <tbody id="snap-ports-body">
+                  <tr><td colspan="2" style="text-align:center;color:var(--dim);">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Top Uncovered Flows -->
+          <div id="snap-uncovered-wrap" style="margin-bottom:16px;">
+            <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);"><span data-i18n="gui_snap_uncovered_flows">Top Uncovered Flows</span> <span id="snap-uncovered-pct" style="font-weight:400;color:var(--dim);font-size:0.8rem;"></span></div>
+            <table class="rule-table" style="font-size:0.8rem;">
+              <thead><tr><th>Flow</th><th data-i18n="gui_snap_col_decision">Decision</th><th data-i18n="gui_snap_col_connections">Connections</th><th data-i18n="gui_snap_col_recommendation">Recommendation</th></tr></thead>
+              <tbody id="snap-uncovered-body">
+                <tr><td colspan="4" style="text-align:center;color:var(--dim);padding:12px;">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Top Bandwidth (shown only if byte data available) -->
+          <div id="snap-bw-wrap" style="display:none;margin-bottom:8px;">
+            <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_snap_bw_title">Top Connections by Data Volume</div>
+            <table class="rule-table" style="font-size:0.8rem;">
+              <thead><tr><th data-i18n="gui_snap_col_src_ip">Src IP</th><th data-i18n="gui_snap_col_dst_ip">Dst IP</th><th data-i18n="gui_snap_col_port">Port</th><th data-i18n="gui_snap_col_bytes">Bytes Total</th><th data-i18n="gui_snap_col_decision">Decision</th></tr></thead>
+              <tbody id="snap-bw-body">
+                <tr><td colspan="5" style="text-align:center;color:var(--dim);padding:12px;">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </fieldset>
+
       <fieldset style="margin-bottom:14px;">
         <legend><span data-i18n="gui_top10_title" style="font-size:1.05rem;">Top 10 Query Report</span></legend>
         <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;">
@@ -1450,6 +1562,160 @@
   </div>
 
   <!-- ═══ Settings ═══ -->
+  <!-- ═══ Reports ═══ -->
+  <div class="panel" id="p-reports">
+    <div class="toolbar" style="gap:8px;flex-wrap:wrap;">
+      <span style="font-size:1.1rem;font-weight:700;color:var(--accent2)" data-i18n="gui_reports">Reports</span>
+      <div class="spacer"></div>
+      <button class="btn btn-primary btn-sm" id="btn-gen-report" onclick="openReportGenModal('traffic')">
+        <svg class="icon"><use href="#icon-play"></use></svg> <span data-i18n="gui_btn_traffic_report">Traffic Report</span>
+      </button>
+      <button class="btn btn-primary btn-sm" id="btn-gen-audit" onclick="openReportGenModal('audit')" style="background:var(--accent2);">
+        <svg class="icon"><use href="#icon-shield"></use></svg> <span data-i18n="gui_btn_audit_report">Audit Summary</span>
+      </button>
+      <button class="btn btn-primary btn-sm" id="btn-gen-ven" onclick="openReportGenModal('ven')" style="background:var(--accent);">
+        <svg class="icon"><use href="#icon-cpu"></use></svg> <span data-i18n="gui_btn_ven_report">VEN Status</span>
+      </button>
+    </div>
+
+    <div class="table-container">
+      <table class="rule-table">
+        <thead>
+          <tr>
+            <th data-i18n="gui_col_filename">Filename</th>
+            <th data-i18n="gui_col_date_created">Date Created</th>
+            <th data-i18n="gui_col_size">Size</th>
+            <th width="160" data-i18n="gui_actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rt-body">
+          <tr><td colspan="4" style="text-align:center;color:var(--dim)" data-i18n="gui_reports_loading">Loading reports...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ Report Schedules ═══ -->
+  <div class="panel" id="p-report-schedules">
+    <div class="toolbar" style="gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <span style="font-size:1.1rem;font-weight:700;color:var(--accent2)" data-i18n="gui_tab_report_schedules">Report Schedules</span>
+      <div class="spacer"></div>
+      <button class="btn btn-primary btn-sm" onclick="openSchedModal()">
+        <svg class="icon"><use href="#icon-plus"></use></svg>
+        <span data-i18n="gui_sched_add">+ Add Schedule</span>
+      </button>
+    </div>
+
+    <div class="table-container">
+      <table class="rule-table">
+        <thead>
+          <tr>
+            <th data-i18n="gui_sched_col_name">Name</th>
+            <th data-i18n="gui_sched_col_type">Type</th>
+            <th data-i18n="gui_sched_col_freq">Frequency</th>
+            <th data-i18n="gui_sched_col_last">Last Run</th>
+            <th data-i18n="gui_sched_col_status">Status</th>
+            <th data-i18n="gui_sched_col_enabled">Enabled</th>
+            <th width="200" data-i18n="gui_sched_col_actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="sched-body">
+          <tr><td colspan="7" style="text-align:center;color:var(--dim)" data-i18n="gui_sched_empty">No report schedules configured.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Report Schedule Modal -->
+  <div class="modal-bg" id="m-sched">
+    <div class="modal" style="max-width:560px;">
+      <h2><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg> <span id="sched-modal-title" data-i18n="gui_sched_modal_add">Add Report Schedule</span></h2>
+      <input type="hidden" id="sched-id" value="">
+
+      <div class="form-group">
+        <label data-i18n="gui_sched_name">Schedule Name</label>
+        <input type="text" id="sched-name" placeholder="e.g.: Weekly Traffic Report" style="width:100%;">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="gui_sched_report_type">Report Type</label>
+          <select id="sched-report-type" style="width:100%;">
+            <option value="traffic" data-i18n="gui_sched_rt_traffic">Traffic Flow Report</option>
+            <option value="audit" data-i18n="gui_sched_rt_audit">Audit Report</option>
+            <option value="ven_status" data-i18n="gui_sched_rt_ven">VEN Status Report</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label data-i18n="gui_sched_format">Output Format</label>
+          <select id="sched-format" style="width:100%;">
+            <option value="excel" data-i18n="gui_sched_fmt_excel">Excel</option>
+            <option value="html" data-i18n="gui_sched_fmt_html">HTML</option>
+            <option value="all" data-i18n="gui_sched_fmt_all">Excel + HTML</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="gui_sched_freq">Frequency</label>
+          <select id="sched-freq" style="width:100%;" onchange="onSchedFreqChange()">
+            <option value="daily" data-i18n="gui_sched_freq_daily">Daily</option>
+            <option value="weekly" data-i18n="gui_sched_freq_weekly">Weekly</option>
+            <option value="monthly" data-i18n="gui_sched_freq_monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="form-group" id="row-day-of-week" style="display:none;">
+          <label data-i18n="gui_sched_day_of_week">Day of Week</label>
+          <select id="sched-dow" style="width:100%;">
+            <option value="monday">Monday</option>
+            <option value="tuesday">Tuesday</option>
+            <option value="wednesday">Wednesday</option>
+            <option value="thursday">Thursday</option>
+            <option value="friday">Friday</option>
+            <option value="saturday">Saturday</option>
+            <option value="sunday">Sunday</option>
+          </select>
+        </div>
+        <div class="form-group" id="row-day-of-month" style="display:none;">
+          <label data-i18n="gui_sched_day_of_month">Day of Month</label>
+          <input type="number" id="sched-dom" min="1" max="28" value="1" style="width:100%;">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label><span data-i18n="gui_sched_hour_prefix">Hour</span> (<span id="sched-tz-label">UTC</span>, 0-23)</label>
+          <input type="number" id="sched-hour" min="0" max="23" value="8" style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label data-i18n="gui_sched_minute">Minute (0-59)</label>
+          <input type="number" id="sched-minute" min="0" max="59" value="0" style="width:100%;">
+        </div>
+        <div class="form-group">
+          <label data-i18n="gui_sched_lookback">Lookback Days</label>
+          <input type="number" id="sched-lookback" min="1" max="365" value="7" style="width:100%;">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="chk"><label><input type="checkbox" id="sched-email" onchange="onSchedEmailChange()"> <span data-i18n="gui_sched_email">Send by Email</span></label></div>
+      </div>
+
+      <div id="row-recipients" style="display:none;" class="form-group">
+        <label data-i18n="gui_sched_recipients">Custom Recipients (leave blank to use default)</label>
+        <textarea id="sched-recipients" rows="3" style="width:100%;resize:vertical;"
+          placeholder="one@example.com&#10;two@example.com"></textarea>
+        <small style="color:var(--dim)" data-i18n="gui_sched_recipients_hint">One email per line.</small>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('m-sched')" data-i18n="gui_gen_cancel">Cancel</button>
+        <button class="btn btn-success" onclick="saveSchedule()"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> <span data-i18n="gui_save">Save</span></button>
+      </div>
+    </div>
+  </div>
+
   <div class="panel" id="p-settings">
     <div class="cards" style="margin-bottom:14px;">
       <div class="card">
@@ -1815,6 +2081,34 @@
     </div>
   </div>
 
+  <!-- Report Generation Modal -->
+  <div class="modal-bg" id="m-gen-report">
+    <div class="modal" style="max-width:440px;">
+      <h2 id="m-gen-title"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> <span data-i18n="gui_gen_traffic_title">Generate Report</span></h2>
+      <div id="m-gen-dates">
+        <div class="form-row">
+          <div class="form-group">
+            <label data-i18n="gui_gen_start_date">Start Date</label>
+            <input type="date" id="m-gen-start">
+          </div>
+          <div class="form-group">
+            <label data-i18n="gui_gen_end_date">End Date</label>
+            <input type="date" id="m-gen-end">
+          </div>
+        </div>
+      </div>
+      <p id="m-gen-note" style="display:none;font-size:0.85rem;color:var(--dim);margin-top:8px;" data-i18n="gui_gen_snapshot_note">
+        Live snapshot — queries all managed VENs' current status, no date range needed.
+      </p>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeModal('m-gen-report')" data-i18n="gui_gen_cancel">Cancel</button>
+        <button class="btn btn-success" id="m-gen-confirm" onclick="confirmReportGen()">
+          <svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> <span data-i18n="gui_gen_generate">Generate</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Help / Parameter Guide -->
   <div class="modal-bg" id="m-help">
     <div class="modal" style="max-width:600px;">
@@ -1905,6 +2199,25 @@
 
     let _translations = {};
     let _timezone = 'local';
+
+    function _tzOffsetHours() {
+      const tz = _timezone || 'UTC';
+      if (!tz || tz === 'local' || tz === 'UTC') return 0;
+      const m = tz.match(/^UTC([+-])(\d+(?:\.\d+)?)$/);
+      if (!m) return 0;
+      return parseFloat(m[1] + m[2]);
+    }
+    function _utcToLocal(utcHour) {
+      const off = _tzOffsetHours();
+      return Math.floor(((utcHour + off) % 24 + 24) % 24);
+    }
+    function _localToUtc(localHour) {
+      const off = _tzOffsetHours();
+      return Math.floor(((localHour - off) % 24 + 24) % 24);
+    }
+    function _tzDisplayLabel() {
+      return (_timezone && _timezone !== 'local') ? _timezone : 'Local';
+    }
 
     const UI_PREF_KEYS = {
       themeMode: 'illumio_gui_theme_mode',
@@ -2166,10 +2479,306 @@
       if (id === 'rules') loadRules();
       if (id === 'settings') loadSettings();
       if (id === 'dashboard') loadDashboard();
+      if (id === 'reports') loadReports();
+      if (id === 'report-schedules') loadSchedules();
       if (updateUrl) updateUrlState('tab', id);
     }
 
     /* ─── Dashboard ───────────────────────────────────────────────────── */
+    /* ─── Reports Logic ─────────────────────────────────────────────── */
+    async function loadReports() {
+      const r = await api('/api/reports');
+      if(!r||!r.reports) return;
+      const tbody = $('rt-body');
+      tbody.innerHTML = '';
+      if(r.reports.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--dim)">${_translations['gui_reports_empty'] || 'No reports generated yet.'}</td></tr>`;
+        return;
+      }
+      r.reports.forEach(rp => {
+        const d = new Date(rp.mtime*1000).toLocaleString();
+        const sz = (rp.size/1024).toFixed(1)+' KB';
+        let actionBtn = '';
+        if(rp.filename.endsWith('.html')) {
+          actionBtn = `<a href="/reports/${escapeHtml(rp.filename)}" target="_blank" class="btn btn-sm btn-secondary">${_translations['gui_btn_view'] || 'View'}</a>`;
+        } else {
+          actionBtn = `<a href="/reports/${escapeHtml(rp.filename)}" download class="btn btn-sm btn-primary">${_translations['gui_btn_download'] || 'Download'}</a>`;
+        }
+        const delBtn = `<button class="btn btn-sm btn-danger" onclick="deleteReport('${escapeHtml(rp.filename)}')" title="Delete" style="padding:4px 8px;line-height:1;">✕</button>`;
+        tbody.innerHTML += `<tr>
+          <td>${escapeHtml(rp.filename)}</td>
+          <td>${d}</td>
+          <td>${sz}</td>
+          <td><div style="display:flex;gap:6px;align-items:center;">${actionBtn}${delBtn}</div></td>
+        </tr>`;
+      });
+    }
+
+    async function deleteReport(filename) {
+      const confirmMsg = (_translations['gui_delete_confirm'] || 'Delete "{filename}"?').replace('{filename}', filename);
+      if (!confirm(confirmMsg)) return;
+      const r = await window.fetch(`/api/reports/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      const j = await r.json().catch(() => ({}));
+      if (j.ok) {
+        toast((_translations['gui_deleted_ok'] || 'Deleted: {filename}').replace('{filename}', filename));
+        loadReports();
+      } else {
+        toast((_translations['gui_delete_failed'] || 'Delete failed: {error}').replace('{error}', j.error || '?'), true);
+      }
+    }
+
+    /* ─── Report Schedules Logic ────────────────────────────────────────── */
+    let _schedules = [];
+    let _editSchedId = null;
+
+    async function loadSchedules() {
+      const r = await api('/api/report-schedules');
+      if (!r || !r.schedules) return;
+      _schedules = r.schedules;
+      renderSchedules();
+    }
+
+    function renderSchedules() {
+      const tbody = $('sched-body');
+      if (_schedules.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--dim)">${_translations['gui_sched_empty'] || 'No report schedules.'}</td></tr>`;
+        return;
+      }
+      const typeLabels = { traffic: 'Traffic', audit: 'Audit', ven_status: 'VEN Status' };
+      tbody.innerHTML = _schedules.map(s => {
+        const typeLabel = typeLabels[s.report_type] || s.report_type;
+        let freq = s.schedule_type;
+        if (s.schedule_type === 'weekly') freq += ` (${(s.day_of_week||'').slice(0,3)})`;
+        else if (s.schedule_type === 'monthly') freq += ` (day ${s.day_of_month||1})`;
+        const _localH = _utcToLocal(s.hour || 0);
+        freq += ` ${String(_localH).padStart(2,'0')}:${String(s.minute||0).padStart(2,'0')} ${_tzDisplayLabel()}`;
+
+        const lastRun = s.last_run ? s.last_run.slice(0,16).replace('T',' ') : (_translations['gui_sched_status_never'] || 'Never run');
+        let statusBadge = '';
+        if (s.last_status === 'success') statusBadge = `<span style="color:var(--green);font-weight:700;">${_translations['gui_sched_status_success']||'Success'}</span>`;
+        else if (s.last_status === 'failed') statusBadge = `<span style="color:var(--red);font-weight:700;" title="${escapeHtml(s.last_error||'')}">${_translations['gui_sched_status_failed']||'Failed'}</span>`;
+        else statusBadge = `<span style="color:var(--dim);">${_translations['gui_sched_status_never']||'Never run'}</span>`;
+
+        const enabledBadge = s.enabled
+          ? `<span style="color:var(--green);font-weight:700;">ON</span>`
+          : `<span style="color:var(--dim);">OFF</span>`;
+
+        const toggleLabel = s.enabled ? (_translations['gui_sched_disable']||'Disable') : (_translations['gui_sched_enable']||'Enable');
+        return `<tr>
+          <td style="font-weight:600;">${escapeHtml(s.name||'')}</td>
+          <td>${escapeHtml(typeLabel)}</td>
+          <td style="font-size:0.85rem;">${escapeHtml(freq)}</td>
+          <td style="font-size:0.85rem;">${escapeHtml(lastRun)}</td>
+          <td>${statusBadge}</td>
+          <td>${enabledBadge}</td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-primary" onclick="runScheduleNow(${s.id})" style="padding:3px 7px;font-size:0.8rem;" title="${_translations['gui_sched_run']||'Run'}">${_translations['gui_sched_run']||'Run'}</button>
+              <button class="btn btn-sm btn-secondary" onclick="editSchedule(${s.id})" style="padding:3px 7px;font-size:0.8rem;">${_translations['gui_sched_edit']||'Edit'}</button>
+              <button class="btn btn-sm" onclick="toggleSchedule(${s.id})" style="padding:3px 7px;font-size:0.8rem;background:var(--accent2);color:var(--bg);">${escapeHtml(toggleLabel)}</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${s.id},'${escapeHtml(s.name||'')}')" style="padding:3px 7px;font-size:0.8rem;">✕</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function onSchedFreqChange() {
+      const f = $('sched-freq').value;
+      $('row-day-of-week').style.display  = (f === 'weekly')  ? '' : 'none';
+      $('row-day-of-month').style.display = (f === 'monthly') ? '' : 'none';
+    }
+
+    function onSchedEmailChange() {
+      $('row-recipients').style.display = $('sched-email').checked ? '' : 'none';
+    }
+
+    function openSchedModal(sched) {
+      _editSchedId = sched ? sched.id : null;
+      $('sched-modal-title').textContent = sched
+        ? (_translations['gui_sched_modal_edit'] || 'Edit Report Schedule')
+        : (_translations['gui_sched_modal_add'] || 'Add Report Schedule');
+      $('sched-id').value       = sched ? sched.id : '';
+      $('sched-name').value     = sched ? (sched.name || '') : '';
+      $('sched-report-type').value = sched ? (sched.report_type || 'traffic') : 'traffic';
+      $('sched-freq').value     = sched ? (sched.schedule_type || 'weekly') : 'weekly';
+      $('sched-dow').value      = sched ? (sched.day_of_week || 'monday') : 'monday';
+      $('sched-dom').value      = sched ? (sched.day_of_month || 1) : 1;
+      $('sched-hour').value     = sched ? _utcToLocal(sched.hour !== undefined ? sched.hour : 8) : 8;
+      $('sched-tz-label').textContent = _tzDisplayLabel();
+      $('sched-minute').value   = sched ? (sched.minute !== undefined ? sched.minute : 0) : 0;
+      $('sched-lookback').value = sched ? (sched.lookback_days || 7) : 7;
+
+      const fmt = sched ? (sched.format || ['excel']) : ['excel'];
+      $('sched-format').value = fmt.length > 1 ? 'all' : (fmt[0] || 'excel');
+
+      const emailOn = sched ? !!sched.email_report : false;
+      $('sched-email').checked = emailOn;
+      const recips = sched && sched.email_recipients ? sched.email_recipients.join('\n') : '';
+      $('sched-recipients').value = recips;
+      $('row-recipients').style.display = emailOn ? '' : 'none';
+      onSchedFreqChange();
+      $('m-sched').classList.add('show');
+    }
+
+    function editSchedule(id) {
+      const s = _schedules.find(x => x.id === id);
+      if (s) openSchedModal(s);
+    }
+
+    async function saveSchedule() {
+      const name = $('sched-name').value.trim();
+      if (!name) { toast(_translations['gui_msg_name_required'] || 'Name is required.', true); return; }
+
+      const fmt_val = $('sched-format').value;
+      const fmt = fmt_val === 'all' ? ['excel', 'html'] : [fmt_val];
+      const recipsRaw = $('sched-recipients').value.trim();
+      const recipients = recipsRaw ? recipsRaw.split('\n').map(r => r.trim()).filter(Boolean) : [];
+
+      const payload = {
+        name,
+        report_type: $('sched-report-type').value,
+        schedule_type: $('sched-freq').value,
+        day_of_week: $('sched-dow').value,
+        day_of_month: parseInt($('sched-dom').value) || 1,
+        hour: _localToUtc(parseInt($('sched-hour').value) || 8),
+        minute: parseInt($('sched-minute').value) || 0,
+        lookback_days: parseInt($('sched-lookback').value) || 7,
+        format: fmt,
+        email_report: $('sched-email').checked,
+        email_recipients: recipients,
+        enabled: true,
+      };
+
+      let r;
+      if (_editSchedId) {
+        r = await api(`/api/report-schedules/${_editSchedId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      } else {
+        r = await api('/api/report-schedules', { method: 'POST', body: JSON.stringify(payload) });
+      }
+      if (r && r.ok) {
+        closeModal('m-sched');
+        toast(_translations['gui_sched_saved'] || 'Schedule saved.');
+        loadSchedules();
+      } else {
+        toast((r && r.error) || 'Failed to save schedule.', true);
+      }
+    }
+
+    async function toggleSchedule(id) {
+      const r = await api(`/api/report-schedules/${id}/toggle`, { method: 'POST' });
+      if (r && r.ok) {
+        toast(_translations['gui_sched_toggled'] || 'Schedule updated.');
+        loadSchedules();
+      }
+    }
+
+    async function deleteSchedule(id, name) {
+      const msg = (_translations['gui_sched_confirm_delete'] || 'Delete schedule "{name}"?').replace('{name}', name);
+      if (!confirm(msg)) return;
+      const r = await api(`/api/report-schedules/${id}`, { method: 'DELETE' });
+      if (r && r.ok) {
+        toast(_translations['gui_sched_deleted'] || 'Schedule deleted.');
+        loadSchedules();
+      }
+    }
+
+    async function runScheduleNow(id) {
+      const r = await api(`/api/report-schedules/${id}/run`, { method: 'POST' });
+      if (r && r.ok) {
+        toast(_translations['gui_sched_run_ok'] || 'Schedule started.');
+        setTimeout(loadSchedules, 3000);
+      } else {
+        toast((_translations['gui_sched_run_failed'] || 'Schedule failed: {error}').replace('{error}', (r && r.error) || '?'), true);
+      }
+    }
+
+    /* ─── Report Generation Modal ──────────────────────────────────────── */
+    let _genReportType = null;
+
+    function openReportGenModal(type) {
+      _genReportType = type;
+      const meta = {
+        traffic: { titleKey: 'gui_gen_traffic_title', title: 'Generate Traffic Report',  icon: '#icon-play',   dates: true  },
+        audit:   { titleKey: 'gui_gen_audit_title',   title: 'Generate Audit Summary',   icon: '#icon-shield', dates: true  },
+        ven:     { titleKey: 'gui_gen_ven_title',     title: 'Generate VEN Status Report', icon: '#icon-cpu',  dates: false },
+      };
+      const m = meta[type] || meta.traffic;
+      $('m-gen-title').innerHTML =
+        `<svg class="icon" aria-hidden="true"><use href="${m.icon}"></use></svg> ${_translations[m.titleKey] || m.title}`;
+      $('m-gen-dates').style.display = m.dates ? '' : 'none';
+      $('m-gen-note').style.display  = m.dates ? 'none' : '';
+
+      if (m.dates) {
+        const now = new Date();
+        const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+        const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        if (!$('m-gen-start').value) $('m-gen-start').value = fmt(weekAgo);
+        if (!$('m-gen-end').value)   $('m-gen-end').value   = fmt(now);
+      }
+      $('m-gen-report').classList.add('show');
+    }
+
+    async function confirmReportGen() {
+      closeModal('m-gen-report');
+      if      (_genReportType === 'traffic') await _doGenerateTraffic();
+      else if (_genReportType === 'audit')   await _doGenerateAudit();
+      else if (_genReportType === 'ven')     await _doGenerateVen();
+    }
+
+    async function _doGenerateTraffic() {
+      const btn = $('btn-gen-report');
+      const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
+      if (!startVal || !endVal || startVal > endVal) {
+        toast('Invalid date range.', 'err'); return;
+      }
+      const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
+      const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
+      btn.disabled = true;
+      btn.innerHTML = 'Generating…';
+      try {
+        const r = await post('/api/reports/generate', {source:'api', format:'all', start_date:startDate, end_date:endDate});
+        if (r.ok) { toast(`Traffic Report generated! ${r.record_count} flows.`); loadReports(); }
+        else toast(r.error || 'Generation failed', 'err');
+      } catch(e) { toast('Error: ' + e, 'err'); }
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="icon"><use href="#icon-play"></use></svg> Traffic Report`;
+    }
+
+    async function _doGenerateAudit() {
+      const btn = $('btn-gen-audit');
+      const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
+      if (!startVal || !endVal || startVal > endVal) {
+        toast('Invalid date range.', 'err'); return;
+      }
+      const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
+      const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
+      btn.disabled = true;
+      btn.innerHTML = 'Generating…';
+      try {
+        const r = await post('/api/audit_report/generate', {start_date:startDate, end_date:endDate});
+        if (r.ok) { toast(`Audit Report generated! ${r.record_count} events.`); loadReports(); }
+        else toast(r.error || 'Generation failed', 'err');
+      } catch(e) { toast('Error: ' + e, 'err'); }
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="icon"><use href="#icon-shield"></use></svg> Audit Summary`;
+    }
+
+    async function _doGenerateVen() {
+      const btn = $('btn-gen-ven');
+      btn.disabled = true;
+      btn.innerHTML = 'Generating…';
+      try {
+        const r = await post('/api/ven_status_report/generate', {});
+        if (r.ok) {
+          const kpiText = (r.kpis || []).map(k => `${k.label}: ${k.value}`).join(' | ');
+          toast(`VEN Status Report generated! ${kpiText}`); loadReports();
+        } else toast(r.error || 'Generation failed', 'err');
+      } catch(e) { toast('Error: ' + e, 'err'); }
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="icon"><use href="#icon-cpu"></use></svg> VEN Status`;
+    }
+
     async function loadDashboard() {
       const d = await api('/api/status');
       $('hdr-meta').textContent = `v${d.version} | ${d.api_url}`;
@@ -2196,6 +2805,145 @@
 
       await loadTranslations();
       await loadDashboardQueries();
+      await loadDashboardSnapshot();
+    }
+
+    async function loadDashboardSnapshot() {
+      try {
+        const r = await api('/api/dashboard/snapshot');
+        if (!r || !r.ok || !r.snapshot) return;
+        const s = r.snapshot;
+
+        // ── Legacy header cards ───────────────────────────────────────────
+        const kpis = s.kpis || [];
+        const tk = kpis.find(k => k.label === 'Total Flows');
+        const rk = kpis.find(k => k.label && k.label.toLowerCase().includes('ransomware'));
+        if (tk) { $('card-flows').style.display = 'block'; $('d-flows').textContent = tk.value; }
+        if (rk) {
+          $('card-ransom').style.display = 'block'; $('d-ransom').textContent = rk.value;
+          let rc = 'var(--success)';
+          if (rk.value.includes('High') || rk.value.includes('Critical')) rc = 'var(--danger)';
+          else if (rk.value.includes('Medium')) rc = 'var(--warn)';
+          $('d-ransom').style.color = rc;
+        }
+
+        // ── Traffic Report Summary section ────────────────────────────────
+        if (!s.generated_at) return;  // snapshot has no traffic report data
+        $('snap-placeholder').style.display = 'none';
+        $('snap-content').style.display = 'block';
+        $('snap-generated-at').textContent = s.generated_at;
+        $('snap-date-range').textContent   = s.date_range || '—';
+
+        // KPI cards
+        const kpiGrid = $('snap-kpi-grid');
+        kpiGrid.innerHTML = '';
+        (s.kpis || []).forEach(k => {
+          const card = document.createElement('div');
+          card.style.cssText = 'background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;';
+          card.innerHTML = `<div style="font-size:0.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;">${escapeHtml(k.label)}</div>`
+                         + `<div style="font-size:1.1rem;font-weight:700;margin-top:4px;color:var(--fg);">${escapeHtml(k.value)}</div>`;
+          kpiGrid.appendChild(card);
+        });
+
+        // KPI card labels are already translated server-side (mod12 generates them in English)
+        // Dynamic text uses _translations for i18n
+
+        // Key Findings
+        const fb = $('snap-findings-body');
+        const findings = s.key_findings || [];
+        if (findings.length) {
+          fb.innerHTML = findings.map(f => {
+            const sev = f.severity || '';
+            let sevColor = 'var(--dim)';
+            if (sev === 'CRITICAL') sevColor = '#c0392b';
+            else if (sev === 'HIGH') sevColor = 'var(--danger)';
+            else if (sev === 'MEDIUM') sevColor = 'var(--warn)';
+            else if (sev === 'INFO') sevColor = 'var(--success)';
+            return `<tr>
+              <td><span style="background:${sevColor};color:#fff;padding:2px 6px;border-radius:4px;font-size:0.75rem;font-weight:700;">${escapeHtml(sev)}</span></td>
+              <td>${escapeHtml(f.finding || '')}</td>
+              <td style="color:var(--dim);font-style:italic;">${escapeHtml(f.action || '')}</td>
+            </tr>`;
+          }).join('');
+        } else {
+          fb.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">${_translations['gui_snap_no_findings'] || 'No findings.'}</td></tr>`;
+        }
+
+        // Policy Breakdown
+        const pb = $('snap-policy-body');
+        const psum = s.policy_summary || [];
+        if (psum.length) {
+          pb.innerHTML = psum.map(row => {
+            const dec = row['Decision'] || '';
+            let dColor = 'var(--fg)';
+            if (dec === 'allowed') dColor = 'var(--success)';
+            else if (dec === 'blocked') dColor = 'var(--danger)';
+            else if (dec === 'potentially_blocked') dColor = 'var(--warn)';
+            return `<tr><td style="color:${dColor};font-weight:600;">${escapeHtml(dec)}</td><td>${escapeHtml(String(row['Flows'] ?? ''))}</td></tr>`;
+          }).join('');
+        } else {
+          pb.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--dim);">—</td></tr>';
+        }
+
+        // Top Ports
+        const portsB = $('snap-ports-body');
+        const ports = s.top_ports || [];
+        if (ports.length) {
+          portsB.innerHTML = ports.map(row =>
+            `<tr><td>${escapeHtml(String(row['Port'] ?? ''))}</td><td>${escapeHtml(String(row['Flow Count'] ?? ''))}</td></tr>`
+          ).join('');
+        } else {
+          portsB.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--dim);">—</td></tr>';
+        }
+
+        // Top Uncovered Flows
+        const uncovB = $('snap-uncovered-body');
+        const uncovered = s.top_uncovered || [];
+        if (s.uncovered_pct != null) {
+          $('snap-uncovered-pct').textContent = `(${(+s.uncovered_pct).toFixed(1)}% uncovered)`;
+        }
+        if (uncovered.length) {
+          uncovB.innerHTML = uncovered.map(row => {
+            const dec = row['Decision'] || '';
+            let dColor = dec === 'blocked' ? 'var(--danger)' : 'var(--warn)';
+            return `<tr>
+              <td style="font-size:0.78rem;">${escapeHtml(row['Flow'] || '')}</td>
+              <td><span style="color:${dColor};font-weight:600;">${escapeHtml(dec)}</span></td>
+              <td>${escapeHtml(String(row['Connections'] ?? ''))}</td>
+              <td style="color:var(--dim);font-size:0.78rem;">${escapeHtml(row['recommendation'] || row['Recommendation'] || '')}</td>
+            </tr>`;
+          }).join('');
+        } else {
+          uncovB.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:12px;">${_translations['gui_snap_no_uncovered'] || 'No uncovered flows.'}</td></tr>`;
+        }
+
+        // Top Bandwidth / Bytes
+        if (s.bw_data_available) {
+          $('snap-bw-wrap').style.display = 'block';
+          const bwB = $('snap-bw-body');
+          const bwRows = s.top_by_bytes || [];
+          if (bwRows.length) {
+            bwB.innerHTML = bwRows.map(row => {
+              const bytes = row['Bytes Total'] ?? row['bytes_total'] ?? 0;
+              const bytesStr = bytes >= 1048576 ? (bytes/1048576).toFixed(1)+' MB' : bytes >= 1024 ? (bytes/1024).toFixed(1)+' KB' : bytes+' B';
+              const dec = row['Decision'] || row['policy_decision'] || '';
+              let dColor = dec === 'allowed' ? 'var(--success)' : dec === 'blocked' ? 'var(--danger)' : 'var(--warn)';
+              return `<tr>
+                <td>${escapeHtml(row['Src IP'] || '')}</td>
+                <td>${escapeHtml(row['Dst IP'] || '')}</td>
+                <td>${escapeHtml(String(row['Port'] ?? ''))}</td>
+                <td>${escapeHtml(bytesStr)}</td>
+                <td><span style="color:${dColor};font-weight:600;">${escapeHtml(dec)}</span></td>
+              </tr>`;
+            }).join('');
+          } else {
+            bwB.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:12px;">—</td></tr>';
+          }
+        }
+
+      } catch(e) {
+        console.warn('Dashboard Snapshot Error:', e);
+      }
     }
     async function testConn() {
       slog('Testing PCE connection...');

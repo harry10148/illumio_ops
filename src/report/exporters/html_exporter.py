@@ -1,0 +1,808 @@
+"""
+src/report/exporters/html_exporter.py
+Exports a report results dict to a single self-contained HTML file.
+
+Features:
+- Embedded CSS (no external dependencies)
+- Navigation sidebar linking to all 15 sections + Findings
+- Tables with alternating row colours and severity colour coding
+- Inline JavaScript for basic table sorting
+- Embedded EN ↔ 繁體中文 language toggle (via report_i18n)
+- Suitable for direct email attachment or browser viewing
+"""
+from __future__ import annotations
+
+import datetime
+import os
+import logging
+import pandas as pd
+
+from .report_i18n import make_i18n_js, lang_btn_html
+
+logger = logging.getLogger(__name__)
+
+_CSS = """
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Illumio Brand Palette */
+  :root {
+    --cyan-120:#1A2C32; --cyan-110:#24393F; --cyan-100:#2D454C; --cyan-90:#325158;
+    --orange:#FF5500;   --gold:#FFA22F;     --gold-110:#F97607;
+    --green:#166644;    --green-80:#299B65;
+    --red:#BE122F;      --red-80:#F43F51;
+    --slate:#313638;    --slate-10:#EAEBEB; --slate-20:#D6D7D7; --slate-50:#989A9B;
+    --tan:#F7F4EE;      --tan-120:#E3D8C5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Montserrat', -apple-system, sans-serif;
+         background: var(--tan); color: var(--slate); }
+  nav { position: fixed; top: 0; left: 0; width: 210px; height: 100vh;
+        background: var(--cyan-120); overflow-y: auto; padding: 60px 0 20px; z-index: 100; }
+  nav .nav-brand { position:absolute; top:0; left:0; width:100%; padding:14px 16px;
+                   background:var(--orange); color:#fff; font-weight:700; font-size:13px; }
+  nav a { display: block; color: var(--slate-20); text-decoration: none;
+          padding: 7px 16px; font-size: 12px; border-left: 3px solid transparent; }
+  nav a:hover, nav a.active { background: var(--cyan-100); border-left-color: var(--orange); color: #fff; }
+  main { margin-left: 210px; padding: 24px; }
+  h1 { color: var(--orange); font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  h2 { color: var(--cyan-120); font-size: 16px; font-weight: 600; margin: 24px 0 10px;
+       border-bottom: 2px solid var(--orange); padding-bottom: 6px; }
+  h3 { color: var(--slate); font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+  h4 { color: var(--slate-50); font-size: 12px; font-weight: 600; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .kpi-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border-radius: 8px; padding: 14px 18px;
+               box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 160px;
+               border-top: 3px solid var(--orange); }
+  .kpi-label { font-size: 11px; color: var(--slate-50); text-transform:uppercase; letter-spacing:.04em; }
+  .kpi-value { font-size: 22px; font-weight: 700; color: var(--cyan-120); }
+  .card { background: #fff; border-radius: 8px; padding: 20px;
+          box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--cyan-110); color: #fff; padding: 8px 10px; text-align: left;
+       cursor: pointer; user-select: none; font-weight: 600; }
+  th:hover { background: var(--cyan-100); }
+  td { padding: 6px 10px; border-bottom: 1px solid var(--slate-20); }
+  tr:nth-child(even) td { background: var(--tan); }
+  tr:hover td { background: var(--tan-120); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
+           font-size: 11px; font-weight: 700; color: #fff; }
+  .badge-CRITICAL { background: var(--red); }
+  .badge-HIGH     { background: var(--red-80); }
+  .badge-MEDIUM   { background: var(--gold-110); }
+  .badge-LOW      { background: var(--green); }
+  .badge-INFO     { background: var(--cyan-100); }
+  .note { background: var(--tan); border-left: 4px solid var(--orange);
+          padding: 12px; border-radius: 4px; color: var(--cyan-120); font-size: 13px; }
+  footer { text-align: center; color: var(--slate-50); font-size: 11px; margin: 40px 0 20px; }
+  /* Security Findings Cards */
+  .finding-card { border: 1px solid var(--slate-20); border-radius: 8px;
+    padding: 16px; margin-bottom: 16px; background: #fff; }
+  .finding-card.sev-CRITICAL { border-left: 5px solid var(--red); }
+  .finding-card.sev-HIGH     { border-left: 5px solid var(--red-80); }
+  .finding-card.sev-MEDIUM   { border-left: 5px solid var(--gold-110); }
+  .finding-card.sev-LOW      { border-left: 5px solid var(--green); }
+  .finding-card.sev-INFO     { border-left: 5px solid var(--cyan-100); }
+  .finding-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .finding-title  { font-weight: 600; font-size: 14px; color: var(--cyan-120); }
+  .finding-rule-id { font-size: 11px; color: var(--slate-50); font-family: monospace;
+    background: var(--slate-10); padding: 2px 6px; border-radius: 3px; }
+  .finding-desc   { font-size: 13px; margin-bottom: 10px; color: var(--slate); line-height: 1.5; }
+  .finding-evidence { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .ev-pill { background: var(--tan); border: 1px solid var(--tan-120); border-radius: 4px;
+    padding: 4px 10px; font-size: 12px; }
+  .ev-pill span.ev-label { color: var(--slate-50); font-size: 10px; display: block;
+    text-transform: uppercase; letter-spacing: .04em; }
+  .ev-pill b { color: var(--cyan-110); }
+  .finding-rec { background: var(--tan); border-left: 3px solid var(--orange);
+    padding: 10px 12px; border-radius: 4px; font-size: 12px; color: var(--cyan-120); }
+  .finding-rec::before { content: "→ "; font-weight: 700; }
+  .cat-group { margin-bottom: 6px; }
+  .sev-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+  .sev-box { text-align: center; padding: 10px 18px; border-radius: 8px; background: #fff;
+    border: 1px solid var(--slate-20); min-width: 80px; }
+  .sev-box .sev-count { font-size: 24px; font-weight: 700; color: var(--cyan-120); }
+  .progress-bar { background: var(--slate-20); border-radius: 4px; height: 8px; margin: 6px 0 14px; }
+  .progress-fill { height: 100%; border-radius: 4px; background: var(--orange); }
+  .coverage-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .cov-stat { background: #fff; border-radius: 6px; padding: 10px 16px;
+    border: 1px solid var(--slate-20); min-width: 140px; }
+  .cov-stat .cov-label { font-size: 11px; color: var(--slate-50); text-transform: uppercase;
+    letter-spacing: .04em; }
+  .cov-stat .cov-value { font-size: 18px; font-weight: 700; color: var(--cyan-120); }
+</style>
+"""
+
+_SORT_JS = """
+<script>
+function sortTable(table, col) {
+  var rows = Array.from(table.rows).slice(1);
+  var asc = table.dataset.sortCol === String(col) && table.dataset.sortDir === 'asc';
+  rows.sort((a, b) => {
+    var av = a.cells[col].innerText, bv = b.cells[col].innerText;
+    var an = parseFloat(av.replace(/,/g, '')), bn = parseFloat(bv.replace(/,/g, ''));
+    if (!isNaN(an) && !isNaN(bn)) return asc ? bn - an : an - bn;
+    return asc ? bv.localeCompare(av) : av.localeCompare(bv);
+  });
+  rows.forEach(r => table.appendChild(r));
+  table.dataset.sortCol = col; table.dataset.sortDir = asc ? 'desc' : 'asc';
+}
+document.querySelectorAll('th').forEach((th, i) => {
+  th.addEventListener('click', () => sortTable(th.closest('table'), i));
+});
+</script>
+"""
+
+
+def _fmt_bytes(b) -> str:
+    """Convert raw byte count to human-readable string (B / KB / MB / GB / TB)."""
+    try:
+        b = float(b)
+    except (TypeError, ValueError):
+        return str(b) if b is not None else '—'
+    if b < 0:
+        return '—'
+    if b >= 1024 ** 4:
+        return f'{b / 1024 ** 4:.2f} TB'
+    if b >= 1024 ** 3:
+        return f'{b / 1024 ** 3:.2f} GB'
+    if b >= 1024 ** 2:
+        return f'{b / 1024 ** 2:.1f} MB'
+    if b >= 1024:
+        return f'{b / 1024:.1f} KB'
+    return f'{int(b)} B'
+
+
+# Column name fragments that contain raw byte values and should be auto-formatted
+_BYTE_COL_KEYWORDS = {'byte', 'bytes', 'total bytes', 'bytes total', 'bytes/conn'}
+
+
+def _cov_stat(label: str, value: str) -> str:
+    return (
+        '<div class="cov-stat">'
+        f'<div class="cov-label">{label}</div>'
+        f'<div class="cov-value">{value}</div>'
+        '</div>'
+    )
+
+
+def _progress_bar(pct: float) -> str:
+    pct = max(0.0, min(100.0, float(pct or 0)))
+    color = 'var(--green-80)' if pct >= 80 else ('var(--gold-110)' if pct >= 50 else 'var(--red-80)')
+    return (
+        f'<div class="progress-bar">'
+        f'<div class="progress-fill" style="width:{pct}%;background:{color};"></div>'
+        f'</div>'
+    )
+
+
+def _format_evidence(evidence: dict) -> str:
+    """Convert evidence dict to readable pills, parsing Python literal strings where possible."""
+    if not evidence:
+        return ''
+    import ast
+    pills = []
+    for k, v in evidence.items():
+        label = k.replace('_', ' ').title()
+        v_str = str(v)
+        # Try to parse Python-literal dicts/lists for nicer display
+        try:
+            parsed = ast.literal_eval(v_str)
+            if isinstance(parsed, dict):
+                v_display = ', '.join(f'{pk}:{pv}' for pk, pv in list(parsed.items())[:5])
+            elif isinstance(parsed, list):
+                v_display = ', '.join(str(x)[:40] for x in parsed[:3])
+                if len(parsed) > 3:
+                    v_display += f' …+{len(parsed)-3}'
+            else:
+                v_display = v_str
+        except (ValueError, SyntaxError):
+            v_display = v_str
+        pills.append(
+            f'<div class="ev-pill">'
+            f'<span class="ev-label">{label}</span>'
+            f'<b>{v_display}</b>'
+            f'</div>'
+        )
+    return '<div class="finding-evidence">' + ''.join(pills) + '</div>'
+
+
+# Rule descriptions: human-readable explanation of what each built-in rule checks
+_RULE_DESCRIPTIONS = {
+    # ── Ransomware exposure ────────────────────────────────────────────────────
+    'B001': ('Ransomware Critical Ports Not Blocked',
+             'Checks for traffic on ransomware\'s primary attack ports (SMB 445, RPC 135, RDP 3389, WinRM 5985/5986) that is NOT blocked. These are the exact ports used in EternalBlue, NotPetya, and WannaCry-class attacks for network-wide lateral spread.'),
+    'B002': ('Ransomware High-Risk Remote Access Allowed',
+             'Detects allowed flows on secondary remote-access ports (TeamViewer 5938, VNC 5900, NetBIOS 137-139). Ransomware operators and APT groups use these for C2 persistence and remote control after initial compromise.'),
+    'B003': ('Ransomware Ports in Test Mode — Block Not Active',
+             'Detects medium-risk ports (SSH 22, NFS 2049, FTP 20/21, HTTP 80) showing as potentially_blocked. This means the segmentation rule exists but the workload is in visibility/test mode — the block is NOT enforced and traffic flows freely.'),
+    # ── Policy & coverage gaps ─────────────────────────────────────────────────
+    'B004': ('Unmanaged Source High Activity',
+             'Counts flows from hosts not enrolled in the PCE. Unmanaged hosts have no VEN and therefore no micro-segmentation enforcement — they are outside the zero-trust boundary and represent uncontrolled attack surface.'),
+    'B005': ('Low Policy Coverage',
+             'Measures the percentage of observed flows with an active allow policy. Coverage below 30% means most traffic is uncontrolled — a sign that segmentation is in early stages and large attack surface remains exposed.'),
+    'B009': ('Cross-Environment Flow Volume',
+             'Tracks the number of flows crossing environment boundaries (e.g. Production → Development). Excessive cross-env traffic may indicate lateral movement from a compromised lower-security zone into production.'),
+    # ── Anomalous behaviour ────────────────────────────────────────────────────
+    'B006': ('Lateral Movement Fan-Out',
+             'Detects source IPs that connect to an abnormally high number of distinct destinations on lateral movement ports. This fan-out pattern (one source → many destinations) is the hallmark of worm propagation and attacker pivoting after initial compromise.'),
+    'B007': ('User Account Reaching Many Destinations',
+             'Detects individual user accounts connecting to unusually many unique destination IPs. This may indicate a compromised account being used for automated reconnaissance, credential stuffing, or data staging before exfiltration.'),
+    'B008': ('High Bandwidth Anomaly',
+             'Flags individual flows exceeding the 95th percentile of byte volume in the dataset. Sudden high-volume transfers from unexpected sources are a key indicator of data staging, exfiltration, or unsanctioned large-scale backups.'),
+    # ── Lateral movement — cleartext & legacy protocols ────────────────────────
+    'L001': ('Cleartext Protocol in Use (Telnet / FTP)',
+             'Detects any traffic on Telnet (23) or FTP (20/21). These protocols transmit credentials and data without encryption. Any attacker with network access can perform a man-in-the-middle or ARP poisoning attack to harvest passwords in plaintext — enabling instant credential reuse for lateral movement.'),
+    'L002': ('Network Discovery Protocol Exposure',
+             'Detects unblocked flows on broadcast/discovery protocols: NetBIOS (137/138), mDNS (5353), LLMNR (5355), SSDP (1900). Tools like Responder and Inveigh exploit these to perform hostname poisoning and capture NTLMv2 hashes without any authentication — then crack or relay those hashes for lateral movement.'),
+    # ── Lateral movement — database exposure ───────────────────────────────────
+    'L003': ('Database Port Accessible from Many App Tiers',
+             'Checks whether database ports (MSSQL 1433, MySQL 3306, PostgreSQL 5432, Oracle 1521, MongoDB 27017, Redis 6379, Elasticsearch 9200) are reachable from many distinct application labels. Databases should only be reachable from their direct app tier. Wide exposure provides direct data access after a single lateral move.'),
+    'L004': ('Cross-Environment Database Access',
+             'Detects allowed database flows crossing environment boundaries (e.g. Dev app → Production database). Environment boundaries are the macro-segmentation layer. Breaching them allows an attacker in a low-security Dev environment to directly access Production data stores.'),
+    # ── Lateral movement — identity infrastructure ──────────────────────────────
+    'L005': ('Identity Infrastructure Wide Exposure',
+             'Detects Kerberos (88), LDAP (389/636), and Global Catalog (3268/3269) traffic from many source applications. Active Directory is the domain\'s authentication authority. Excessive access enables domain enumeration (BloodHound), Kerberoasting, Golden/Silver Ticket attacks, and full domain takeover.'),
+    # ── Lateral movement — graph-based blast radius ─────────────────────────────
+    'L006': ('High Blast-Radius Lateral Path (Graph BFS)',
+             'Uses BFS graph traversal on allowed lateral-port connections to find apps that can reach many others through a chain of pivots. High reachability = high blast radius. An attacker who compromises a top-ranked app can traverse the entire reachable subgraph — this is the MCP detect-lateral-movement-paths methodology.'),
+    # ── Lateral movement — unmanaged pivot ──────────────────────────────────────
+    'L007': ('Unmanaged Host Accessing Critical Services',
+             'Detects unmanaged (non-PCE) hosts communicating on database, identity (Kerberos/LDAP), or Windows management ports to managed workloads. Unmanaged hosts have no VEN enforcement — they are outside zero-trust. If they can reach critical services, they represent uncontrolled lateral movement entry points.'),
+    # ── Lateral movement — enforcement gap ──────────────────────────────────────
+    'L008': ('Lateral Ports in Test Mode — Policy Not Enforced',
+             'Identifies \'potentially_blocked\' flows on lateral movement ports. This means the policy rule exists but the destination workload is in visibility/test mode — the block is not active. These are live, traversable attack paths right now. The most common cause of "we had policies but still got breached" incidents.'),
+    # ── Lateral movement — exfiltration pattern ─────────────────────────────────
+    'L009': ('Data Exfiltration Pattern — Outbound to Unmanaged',
+             'Detects managed workloads transferring significant data volume to unmanaged (external/unknown) destinations. This is the post-lateral-movement exfiltration phase: attacker has pivoted to a high-value host and is now staging or exfiltrating data to an external C2 or drop server outside PCE visibility.'),
+    # ── Lateral movement — cross-env boundary break ──────────────────────────────
+    'L010': ('Cross-Environment Lateral Port Access — Boundary Break',
+             'CRITICAL: Detects lateral movement ports (SMB 445, RDP 3389, WinRM 5985/5986, RPC 135) allowed between different environments. Environment segmentation is the macro-security boundary. If lateral ports cross it, an attacker who compromises Dev/Test can directly pivot into Production using exactly the same techniques, bypassing all environment-level controls.'),
+}
+
+
+def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
+                no_data_key: str = "rpt_no_data") -> str:
+    if df is None or (hasattr(df, 'empty') and df.empty):
+        return f'<p class="note" data-i18n="{no_data_key}">— No data —</p>'
+
+    # Determine which columns contain raw byte values (auto-format them)
+    byte_cols = {col for col in df.columns
+                 if any(kw in col.lower() for kw in _BYTE_COL_KEYWORDS)}
+
+    html = '<table><thead><tr>'
+    for col in df.columns:
+        html += f'<th>{col}</th>'
+    html += '</tr></thead><tbody>'
+    for _, row in df.iterrows():
+        html += '<tr>'
+        for col, val in zip(df.columns, row.values):
+            if severity_col and col == severity_col and str(val).upper() in (
+                    'CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'):
+                html += f'<td><span class="badge badge-{str(val).upper()}">{val}</span></td>'
+            elif col in byte_cols:
+                html += f'<td>{_fmt_bytes(val)}</td>'
+            else:
+                html += f'<td>{val}</td>'
+        html += '</tr>'
+    html += '</tbody></table>'
+    return html
+
+
+class HtmlExporter:
+    """Export report results to a single self-contained HTML file."""
+
+    def __init__(self, results: dict):
+        self._r = results
+
+    def export(self, output_dir: str = 'reports') -> str:
+        """Write HTML file and return full path."""
+        os.makedirs(output_dir, exist_ok=True)
+        ts = datetime.datetime.now().strftime('%Y-%m-%d_%H%M')
+        filename = f'Illumio_Traffic_Report_{ts}.html'
+        filepath = os.path.join(output_dir, filename)
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(self._build())
+        logger.info(f"[HtmlExporter] Saved: {filepath}")
+        return filepath
+
+    def _build(self) -> str:
+        mod12 = self._r.get('mod12', {})
+        findings = self._r.get('findings', [])
+        n_findings = str(len(findings))
+
+        nav_html = (
+            '<nav>'
+            '<a href="#summary"><span data-i18n="rpt_tr_nav_summary">📊 Executive Summary</span></a>'
+            '<a href="#overview"><span data-i18n="rpt_tr_nav_overview">1 Traffic Overview</span></a>'
+            '<a href="#policy"><span data-i18n="rpt_tr_nav_policy">2 Policy Decisions</span></a>'
+            '<a href="#uncovered"><span data-i18n="rpt_tr_nav_uncovered">3 Uncovered Flows</span></a>'
+            '<a href="#ransomware"><span data-i18n="rpt_tr_nav_ransomware">4 Ransomware Exposure</span></a>'
+            '<a href="#remote"><span data-i18n="rpt_tr_nav_remote">5 Remote Access</span></a>'
+            '<a href="#user"><span data-i18n="rpt_tr_nav_user">6 User &amp; Process</span></a>'
+            '<a href="#matrix"><span data-i18n="rpt_tr_nav_matrix">7 Cross-Label Matrix</span></a>'
+            '<a href="#unmanaged"><span data-i18n="rpt_tr_nav_unmanaged">8 Unmanaged Hosts</span></a>'
+            '<a href="#distribution"><span data-i18n="rpt_tr_nav_distribution">9 Traffic Distribution</span></a>'
+            '<a href="#allowed"><span data-i18n="rpt_tr_nav_allowed">10 Allowed Traffic</span></a>'
+            '<a href="#bandwidth"><span data-i18n="rpt_tr_nav_bandwidth">11 Bandwidth &amp; Volume</span></a>'
+            '<a href="#readiness"><span data-i18n="rpt_tr_nav_readiness">13 Enforcement Readiness</span></a>'
+            '<a href="#infrastructure"><span data-i18n="rpt_tr_nav_infrastructure">14 Infrastructure Scoring</span></a>'
+            '<a href="#lateral"><span data-i18n="rpt_tr_nav_lateral">15 Lateral Movement</span></a>'
+            '<a href="#findings"><span data-i18n="rpt_tr_nav_findings">🔍 Findings</span> (' + n_findings + ')</a>'
+            '</nav>'
+        )
+
+        # Pre-compute nested blocks to avoid f-string quote conflicts
+        kpi_cards = ''.join(
+            '<div class="kpi-card"><div class="kpi-label">' + str(k['label']) + '</div>'
+            '<div class="kpi-value">' + str(k['value']) + '</div></div>'
+            for k in mod12.get('kpis', [])
+        )
+        key_findings_html = ''.join(
+            '<p style="margin-bottom:8px"><span class="badge badge-' +
+            kf.get('severity', 'INFO') + '">' + kf.get('severity', '') + '</span>&nbsp;' +
+            kf.get('finding', '') + ' <em style="color:#718096">&rarr; ' +
+            kf.get('action', '') + '</em></p>'
+            for kf in mod12.get('key_findings', [])
+        ) or '<p class="note" data-i18n="rpt_no_findings">No key findings.</p>'
+
+        generated_at = mod12.get('generated_at', '')
+        today_str = str(datetime.date.today())
+
+        body = (
+            '<section id="summary" class="card">'
+            '<h1 data-i18n="rpt_tr_title">Illumio Traffic Flow Report</h1>'
+            '<p style="color:#718096; margin-top:4px">'
+            '<span data-i18n="rpt_generated">Generated:</span> ' + generated_at + '</p>'
+            '<h2 data-i18n="rpt_key_metrics">Key Metrics</h2>'
+            '<div class="kpi-grid">' + kpi_cards + '</div>'
+            '<h2 data-i18n="rpt_key_findings">Key Findings</h2>' + key_findings_html +
+            '</section>\n' +
+            self._section('overview',     'rpt_tr_sec_overview',    '1 \u00b7 Traffic Overview',     self._mod01_html()) + '\n' +
+            self._section('policy',       'rpt_tr_sec_policy',      '2 \u00b7 Policy Decisions',     self._mod02_html()) + '\n' +
+            self._section('uncovered',    'rpt_tr_sec_uncovered',   '3 \u00b7 Uncovered Flows',      self._mod03_html()) + '\n' +
+            self._section('ransomware',   'rpt_tr_sec_ransomware',  '4 \u00b7 Ransomware Exposure',  self._mod04_html()) + '\n' +
+            self._section('remote',       'rpt_tr_sec_remote',      '5 \u00b7 Remote Access',        self._mod05_html()) + '\n' +
+            self._section('user',         'rpt_tr_sec_user',        '6 \u00b7 User &amp; Process',   self._mod06_html()) + '\n' +
+            self._section('matrix',       'rpt_tr_sec_matrix',      '7 \u00b7 Cross-Label Matrix',   self._mod07_html()) + '\n' +
+            self._section('unmanaged',    'rpt_tr_sec_unmanaged',   '8 \u00b7 Unmanaged Hosts',      self._mod08_html()) + '\n' +
+            self._section('distribution', 'rpt_tr_sec_distribution','9 \u00b7 Traffic Distribution', self._mod09_html()) + '\n' +
+            self._section('allowed',      'rpt_tr_sec_allowed',     '10 \u00b7 Allowed Traffic',     self._mod10_html()) + '\n' +
+            self._section('bandwidth',    'rpt_tr_sec_bandwidth',   '11 \u00b7 Bandwidth &amp; Volume', self._mod11_html()) + '\n' +
+            self._section('readiness',    'rpt_tr_sec_readiness',   '13 \u00b7 Enforcement Readiness', self._mod13_html()) + '\n' +
+            self._section('infrastructure','rpt_tr_sec_infrastructure','14 \u00b7 Infrastructure Scoring', self._mod14_html()) + '\n' +
+            self._section('lateral',      'rpt_tr_sec_lateral',     '15 \u00b7 Lateral Movement',     self._mod15_html()) + '\n' +
+            '<section id="findings" class="card">'
+            '<h2><span data-i18n="rpt_tr_sec_findings">🔍 Security Findings</span> (' + n_findings + ')</h2>'
+            + self._findings_html() +
+            '</section>\n' +
+            '<footer><span data-i18n="rpt_tr_footer">Illumio PCE Monitor — Traffic Flow Report</span>'
+            ' &middot; ' + today_str + '</footer>'
+        )
+        return (
+            '<!DOCTYPE html><html lang="en"><head>\n'
+            '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
+            '<title>Illumio Traffic Report</title>' + _CSS + '</head>\n'
+            '<body>' + lang_btn_html() + nav_html + '<main>' + body + '</main>'
+            + _SORT_JS + make_i18n_js() + '</body></html>'
+        )
+
+    def _section(self, id_: str, i18n_key: str, title: str, content: str) -> str:
+        return (
+            f'<section id="{id_}" class="card">'
+            f'<h2 data-i18n="{i18n_key}">{title}</h2>'
+            f'{content}</section>'
+        )
+
+    def _mod01_html(self):
+        m = self._r.get('mod01', {})
+        kv_html = (
+            '<tr><td><b><span data-i18n="rpt_tr_policy_coverage">Policy Coverage</span></b></td>'
+            '<td>' + str(m.get('policy_coverage_pct', 0)) + '%</td></tr>'
+            '<tr><td><b><span data-i18n="rpt_tr_flow_breakdown">Allowed / Blocked / Potential</span></b></td>'
+            '<td>' + str(m.get('allowed_flows', 0)) + ' / ' + str(m.get('blocked_flows', 0)) + ' / ' +
+            str(m.get('potentially_blocked_flows', 0)) + '</td></tr>'
+            '<tr><td><b><span data-i18n="rpt_tr_total_data">Total Data</span></b></td>'
+            '<td>' + _fmt_bytes(m.get('total_mb', 0) * 1024 * 1024) + '</td></tr>'
+            '<tr><td><b><span data-i18n="rpt_tr_date_range">Date Range</span></b></td>'
+            '<td>' + str(m.get('date_range', '')) + '</td></tr>'
+        )
+        return (
+            '<table><tbody>' + kv_html + '</tbody></table>'
+            '<h3 data-i18n="rpt_tr_top_ports">Top Ports</h3>'
+            + _df_to_html(m.get('top_ports'))
+        )
+
+    def _mod02_html(self):
+        m = self._r.get('mod02', {})
+        out = _df_to_html(m.get('summary'))
+        # Per-port coverage table
+        pc = m.get('port_coverage')
+        if pc is not None and hasattr(pc, 'empty') and not pc.empty:
+            out += '<h3 data-i18n="rpt_tr_port_coverage">Per-Port Coverage</h3>' + _df_to_html(pc)
+        for d in ('allowed', 'blocked', 'potentially_blocked'):
+            dm = m.get(d, {})
+            if not isinstance(dm, dict) or dm.get('count', 0) == 0:
+                continue
+            inb = dm.get('inbound_count', 0)
+            outb = dm.get('outbound_count', 0)
+            pct = dm.get('pct_of_total', 0)
+            out += (
+                '<h3>' + d.replace('_', ' ').upper() + f' ({pct}% of total)'
+                f' &nbsp;·&nbsp; ↓ Inbound: {inb} &nbsp;·&nbsp; ↑ Outbound: {outb}</h3>'
+                '<h4 data-i18n="rpt_tr_top_app_flows">Top App Flows</h4>'
+                + _df_to_html(dm.get('top_app_flows'))
+            )
+            if inb > 0:
+                out += '<h4>Top Inbound Ports</h4>' + _df_to_html(dm.get('top_inbound_ports'))
+            if outb > 0:
+                out += '<h4>Top Outbound Ports</h4>' + _df_to_html(dm.get('top_outbound_ports'))
+        return out
+
+    def _mod03_html(self):
+        m = self._r.get('mod03', {})
+        cov = m.get('coverage_pct', 0)
+        inb_cov = m.get('inbound_coverage_pct')
+        outb_cov = m.get('outbound_coverage_pct')
+        stats = (
+            '<div class="coverage-grid">'
+            + _cov_stat('Overall Coverage', str(cov) + '%')
+            + (_cov_stat('Inbound Coverage', str(inb_cov) + '%') if inb_cov is not None else '')
+            + (_cov_stat('Outbound Coverage', str(outb_cov) + '%') if outb_cov is not None else '')
+            + _cov_stat('Uncovered Flows', str(m.get('total_uncovered', 0)))
+            + '</div>'
+            + _progress_bar(cov)
+        )
+        out = (
+            stats
+            + '<h3 data-i18n="rpt_tr_top_uncovered">Top Uncovered Flows</h3>'
+            + _df_to_html(m.get('top_flows'))
+        )
+        up = m.get('uncovered_ports')
+        if up is not None and hasattr(up, 'empty') and not up.empty:
+            out += '<h3 data-i18n="rpt_tr_port_gaps">Port Gap Ranking</h3>' + _df_to_html(up)
+        us = m.get('uncovered_services')
+        if us is not None and hasattr(us, 'empty') and not us.empty:
+            out += '<h3 data-i18n="rpt_tr_service_gaps">Uncovered Services (App + Port)</h3>' + _df_to_html(us)
+        out += '<h3 data-i18n="rpt_tr_by_rec">By Recommendation Category</h3>' + _df_to_html(m.get('by_recommendation'))
+        return out
+
+    def _mod04_html(self):
+        m = self._r.get('mod04', {})
+        if 'error' in m:
+            return f'<p class="note">{m["error"]}</p>'
+
+        out = ('<p><span data-i18n="rpt_tr_risk_flows">Total risk flows:</span> <b>'
+               + str(m.get('risk_flows_total', 0)) + '</b></p>')
+
+        # Part E — Investigation targets (allowed traffic on critical/high ports)
+        part_e = m.get('part_e_investigation')
+        if part_e is not None and hasattr(part_e, 'empty') and not part_e.empty:
+            out += (
+                '<div style="background:#fff3cd;border-left:4px solid var(--gold);'
+                'padding:12px 16px;margin:12px 0;border-radius:4px">'
+                '<b><span data-i18n="rpt_tr_investigation_title">⚠ 需要調查的目標主機</span></b><br>'
+                '<span style="font-size:12px" data-i18n="rpt_tr_investigation_desc">'
+                '以下目標主機在重大或高風險通訊埠上有被允許的流量，應進行驗證或考慮封鎖。'
+                '</span>'
+                '</div>'
+                + _df_to_html(part_e, 'Risk Level')
+            )
+        else:
+            out += (
+                '<div style="background:#d4edda;border-left:4px solid var(--green-80);'
+                'padding:12px 16px;margin:12px 0;border-radius:4px">'
+                '<b data-i18n="rpt_tr_no_investigation">✅ 未發現重大/高風險通訊埠上的允許流量。</b>'
+                '</div>'
+            )
+
+        out += (
+            '<h3 data-i18n="rpt_tr_risk_summary">Risk Level Summary</h3>'
+            + _df_to_html(m.get('part_a_summary'), 'Risk Level') +
+            '<h3 data-i18n="rpt_tr_per_port">Per-Port Detail</h3>'
+            + _df_to_html(m.get('part_b_per_port'), 'Risk Level') +
+            '<h3 data-i18n="rpt_tr_host_exposure">Host Exposure Ranking</h3>'
+            + '<p class="note" style="font-size:11px" data-i18n="rpt_tr_host_exposure_note">'
+            '依接觸風險通訊埠數量排序的目標主機，包含所有決策（含阻斷）。</p>'
+            + _df_to_html(m.get('part_d_host_exposure'))
+        )
+        return out
+
+    def _mod05_html(self):
+        m = self._r.get('mod05', {})
+        if not isinstance(m, dict) or m.get('total_lateral_flows', 0) == 0:
+            return '<p class="note" data-i18n="rpt_no_lateral">No lateral movement traffic found.</p>'
+        return (
+            _df_to_html(m.get('by_service')) +
+            '<h3 data-i18n="rpt_tr_top_talkers">Top Talkers</h3>'
+            + _df_to_html(m.get('top_talkers'))
+        )
+
+    def _mod06_html(self):
+        m = self._r.get('mod06', {})
+        if m.get('note'):
+            return f'<p class="note">{m["note"]}</p>'
+        out = ''
+        if m.get('user_data_available'):
+            out += '<h3 data-i18n="rpt_tr_top_users">Top Users</h3>' + _df_to_html(m.get('top_users'))
+        if m.get('process_data_available'):
+            out += '<h3 data-i18n="rpt_tr_top_processes">Top Processes</h3>' + _df_to_html(m.get('top_processes'))
+        return out or '<p class="note" data-i18n="rpt_no_user_proc">No user/process data.</p>'
+
+    def _mod07_html(self):
+        m = self._r.get('mod07', {})
+        out = ''
+        for key, data in m.get('matrices', {}).items():
+            out += '<h3><span data-i18n="rpt_tr_label_key">Label Key:</span> ' + key.upper() + '</h3>'
+            if 'note' in data:
+                out += f'<p class="note">{data["note"]}</p>'
+            else:
+                kv = (f'Same-value: {data.get("same_value_flows",0)} · '
+                      f'Cross-value: {data.get("cross_value_flows",0)}')
+                out += f'<p>{kv}</p>{_df_to_html(data.get("top_cross_pairs"))}'
+        return out or '<p class="note" data-i18n="rpt_no_matrix">No label matrix data.</p>'
+
+    def _mod08_html(self):
+        m = self._r.get('mod08', {})
+        out = (
+            '<div class="coverage-grid">'
+            + _cov_stat('Unmanaged Flows', str(m.get('unmanaged_flow_count', 0)) + ' (' + str(m.get('unmanaged_pct', 0)) + '%)')
+            + _cov_stat('Unique Unmanaged Src', str(m.get('unique_unmanaged_src', 0)))
+            + _cov_stat('Unique Unmanaged Dst', str(m.get('unique_unmanaged_dst', 0)))
+            + '</div>'
+            '<h3 data-i18n="rpt_tr_top_unmanaged">Top Unmanaged Sources</h3>'
+            + _df_to_html(m.get('top_unmanaged_src'))
+        )
+        pa = m.get('per_dst_app')
+        if pa is not None and hasattr(pa, 'empty') and not pa.empty:
+            out += '<h3>Managed Apps Receiving Unmanaged Traffic</h3>' + _df_to_html(pa)
+        pp = m.get('per_port_proto')
+        if pp is not None and hasattr(pp, 'empty') and not pp.empty:
+            out += '<h3>Exposed Ports / Protocols</h3>' + _df_to_html(pp)
+        sp = m.get('src_port_detail')
+        if sp is not None and hasattr(sp, 'empty') and not sp.empty:
+            out += '<h3>Unmanaged Source × Port Detail</h3>' + _df_to_html(sp)
+        mh = m.get('managed_hosts_targeted_by_unmanaged')
+        if mh is not None and hasattr(mh, 'empty') and not mh.empty:
+            out += '<h3>Managed Hosts Targeted by Unmanaged Sources</h3>' + _df_to_html(mh)
+        return out
+
+    def _mod09_html(self):
+        m = self._r.get('mod09', {})
+        return (
+            '<h3 data-i18n="rpt_tr_port_dist">Port Distribution</h3>'
+            + _df_to_html(m.get('port_distribution')) +
+            '<h3 data-i18n="rpt_tr_proto_dist">Protocol Distribution</h3>'
+            + _df_to_html(m.get('proto_distribution'))
+        )
+
+    def _mod10_html(self):
+        m = self._r.get('mod10', {})
+        if m.get('note'):
+            return f'<p class="note">{m["note"]}</p>'
+        return (
+            _df_to_html(m.get('top_app_flows')) +
+            '<h3><span data-i18n="rpt_tr_audit_flags">Audit Flags</span> (' +
+            str(m.get('audit_flag_count', 0)) + ')</h3>'
+            + _df_to_html(m.get('audit_flags'))
+        )
+
+    def _mod11_html(self):
+        m = self._r.get('mod11', {})
+        if not m.get('bytes_data_available', False):
+            return f'<p class="note">{m.get("note","No byte data.")}</p>'
+
+        max_bw = m.get('max_bandwidth_mbps')
+        avg_bw = m.get('avg_bandwidth_mbps')
+        p95_bw = m.get('p95_bandwidth_mbps')
+
+        out = '<div class="coverage-grid">'
+        out += _cov_stat('<span data-i18n="rpt_tr_total_volume">Total Volume</span>',
+                         _fmt_bytes(m.get('total_bytes', 0)))
+        if max_bw is not None:
+            out += _cov_stat('<span data-i18n="rpt_tr_max_bw">Max Bandwidth</span>',
+                             f'{max_bw} Mbps')
+        if avg_bw is not None:
+            out += _cov_stat('<span data-i18n="rpt_tr_avg_bw">Avg Bandwidth</span>',
+                             f'{avg_bw} Mbps')
+        if p95_bw is not None:
+            out += _cov_stat('P95 Bandwidth', f'{p95_bw} Mbps')
+        out += '</div>'
+
+        out += ('<h3 data-i18n="rpt_tr_top_by_bytes">Top by Total Bytes</h3>'
+                + _df_to_html(m.get('top_by_bytes')))
+
+        tb = m.get('top_bandwidth')
+        if tb is not None and hasattr(tb, 'empty') and not tb.empty:
+            out += ('<h3 data-i18n="rpt_tr_top_by_bw">Top by Bandwidth (Mbps)</h3>'
+                    + _df_to_html(tb))
+
+        anom = m.get('byte_ratio_anomalies')
+        if anom is not None and hasattr(anom, 'empty') and not anom.empty:
+            threshold = m.get('anomaly_threshold_bytes_per_conn')
+            thresh_str = (f' &nbsp;<span style="font-weight:400;font-size:11px;color:var(--slate-50)">'
+                          f'P95 ≥ {_fmt_bytes(threshold)}/conn</span>'
+                          if threshold else '')
+            out += (
+                f'<h3><span data-i18n="rpt_tr_anomalies">Anomalies (High Bytes/Conn)</span>'
+                f'{thresh_str}</h3>'
+                '<p class="note" style="font-size:11px" data-i18n="rpt_tr_anomalies_note">'
+                '每連線傳輸量高於 P95 的流量（僅計算連線數 &gt; 1），可能為大量傳輸或資料外洩候選項目。'
+                '</p>'
+                + _df_to_html(anom)
+            )
+
+        return out
+
+    def _findings_html(self):
+        findings = self._r.get('findings', [])
+        if not findings:
+            return '<p class="note" data-i18n="rpt_no_findings_detail">No security findings were triggered for this dataset. This may indicate good policy coverage or that thresholds need tuning.</p>'
+
+        from collections import Counter, defaultdict
+        counts = Counter(f.severity for f in findings)
+        sev_order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']
+
+        # ── Severity summary bar ──────────────────────────────────────────────
+        sev_html = '<div class="sev-summary">'
+        for sev in sev_order:
+            n = counts.get(sev, 0)
+            sev_html += (
+                f'<div class="sev-box">'
+                f'<div><span class="badge badge-{sev}">{sev}</span></div>'
+                f'<div class="sev-count">{n}</div>'
+                f'</div>'
+            )
+        sev_html += '</div>'
+
+        # ── Group by category ─────────────────────────────────────────────────
+        by_cat: dict[str, list] = defaultdict(list)
+        for f in sorted(findings, key=lambda x: (x.severity_rank, x.rule_id)):
+            by_cat[f.category].append(f)
+
+        # Category display names and descriptions
+        _cat_labels = {
+            'Ransomware': (
+                '🦠 Ransomware Exposure',
+                'Rules detecting traffic patterns associated with ransomware attack chains: '
+                'critical lateral-spread ports (SMB, RDP, WinRM, RPC), remote-access persistence tools, '
+                'and policy gaps that leave high-risk ports unblocked or only in test mode.'
+            ),
+            'LateralMovement': (
+                '↔ Lateral Movement',
+                'Rules targeting attacker pivoting techniques inside the network. Covers: '
+                'cleartext credential exposure (Telnet/FTP), network discovery poisoning (LLMNR/NetBIOS), '
+                'database over-exposure, identity infrastructure (Kerberos/LDAP) access, '
+                'graph-based blast-radius analysis, enforcement gaps, exfiltration patterns, '
+                'and cross-environment boundary breaks — the full lateral movement kill-chain.'
+            ),
+            'UnmanagedHost': (
+                '🖥 Unmanaged Hosts',
+                'Rules triggered by traffic from hosts not enrolled in the PCE. '
+                'These hosts operate outside your zero-trust boundary with no VEN enforcement — '
+                'they are blind spots that cannot be protected by Illumio micro-segmentation rules.'
+            ),
+            'Policy': (
+                '📋 Policy Coverage',
+                'Rules evaluating the completeness of your segmentation policy: '
+                'overall coverage percentage, cross-environment traffic volume, '
+                'and gaps in rule-set coverage that leave workloads unprotected.'
+            ),
+            'UserActivity': (
+                '👤 User Activity',
+                'Rules detecting anomalous user account behaviour — a single account reaching '
+                'an unusually high number of distinct destinations, which may indicate '
+                'credential abuse, a compromised account, or data staging before exfiltration.'
+            ),
+            'Bandwidth': (
+                '📶 Bandwidth Anomaly',
+                'Rules flagging flows with abnormally high byte volume relative to the dataset baseline. '
+                'Sudden large transfers from unexpected sources are a key indicator of '
+                'data exfiltration, unauthorised backups, or attacker data staging.'
+            ),
+        }
+
+        cards_html = ''
+        for cat, cat_findings in by_cat.items():
+            cat_label, cat_desc = _cat_labels.get(cat, (cat, ''))
+            cards_html += (
+                f'<div class="cat-group">'
+                f'<h3 style="margin-bottom:6px;">{cat_label}</h3>'
+                f'<p style="font-size:12px;color:var(--slate-50);margin-bottom:14px;">{cat_desc}</p>'
+            )
+            for f in cat_findings:
+                rule_title, rule_how = _RULE_DESCRIPTIONS.get(f.rule_id, (f.rule_name, ''))
+                evidence_html = _format_evidence(f.evidence)
+                cards_html += (
+                    f'<div class="finding-card sev-{f.severity}">'
+                    f'<div class="finding-header">'
+                    f'<span class="badge badge-{f.severity}">{f.severity}</span>'
+                    f'<span class="finding-rule-id">{f.rule_id}</span>'
+                    f'<span class="finding-title">{f.rule_name}</span>'
+                    f'</div>'
+                )
+                if rule_how:
+                    cards_html += (
+                        f'<p style="font-size:11px;color:var(--slate-50);margin-bottom:8px;">'
+                        f'<b>What this rule checks:</b> {rule_how}</p>'
+                    )
+                cards_html += (
+                    f'<p class="finding-desc">{f.description}</p>'
+                    + evidence_html
+                    + f'<div class="finding-rec">{f.recommendation}</div>'
+                    f'</div>'
+                )
+            cards_html += '</div>'
+
+        return sev_html + cards_html
+
+    def _mod13_html(self):
+        m = self._r.get('mod13', {})
+        if 'error' in m:
+            return f'<p class="note">{m["error"]}</p>'
+        score = m.get('total_score', 0)
+        grade = m.get('grade', '?')
+        grade_color = {'A': '#22C55E', 'B': '#84CC16', 'C': '#EAB308',
+                       'D': '#F97316', 'F': '#EF4444'}.get(grade, '#6B7280')
+        factor_table = m.get('factor_table')
+        recommendations = m.get('recommendations')
+        score_bar = _progress_bar(score)
+        html = (
+            f'<div style="display:flex;align-items:center;gap:24px;margin-bottom:16px;">'
+            f'<div style="font-size:48px;font-weight:700;color:{grade_color};">{grade}</div>'
+            f'<div style="flex:1;">'
+            f'<div style="font-size:13px;color:var(--slate-50);margin-bottom:4px;">Enforcement Readiness Score: <b>{score}/100</b></div>'
+            f'{score_bar}'
+            f'</div></div>'
+            + '<h4>Score Breakdown by Factor</h4>'
+            + _df_to_html(factor_table)
+        )
+        if recommendations is not None and not recommendations.empty:
+            html += '<h4>Remediation Recommendations</h4>' + _df_to_html(recommendations)
+        return html
+
+    def _mod14_html(self):
+        m = self._r.get('mod14', {})
+        if 'error' in m:
+            return f'<p class="note">{m["error"]}</p>'
+        html = (
+            f'<p>Applications analysed: <b>{m.get("total_apps", 0)}</b> · '
+            f'Communication edges: <b>{m.get("total_edges", 0)}</b></p>'
+        )
+        role_summary = m.get('role_summary')
+        if role_summary is not None and not role_summary.empty:
+            html += '<h4>Role Distribution</h4>' + _df_to_html(role_summary)
+        hub_apps = m.get('hub_apps')
+        if hub_apps is not None and not hub_apps.empty:
+            html += '<h4>Hub Applications (High Blast Radius)</h4>' + _df_to_html(hub_apps)
+        top_apps = m.get('top_apps')
+        if top_apps is not None and not top_apps.empty:
+            html += '<h4>Top Applications by Infrastructure Score</h4>' + _df_to_html(top_apps)
+        top_edges = m.get('top_edges')
+        if top_edges is not None and not top_edges.empty:
+            html += '<h4>Top Communication Paths (by Volume)</h4>' + _df_to_html(top_edges)
+        return html
+
+    def _mod15_html(self):
+        m = self._r.get('mod15', {})
+        if 'error' in m:
+            return f'<p class="note">{m["error"]}</p>'
+        total = m.get('total_lateral_flows', 0)
+        pct = m.get('lateral_pct', 0)
+        html = f'<p>Lateral movement port flows: <b>{total:,}</b> ({pct}% of all flows)</p>'
+        service_summary = m.get('service_summary')
+        if service_summary is not None and not service_summary.empty:
+            html += '<h4>Lateral Port Activity by Service</h4>' + _df_to_html(service_summary)
+        fan_out = m.get('fan_out_sources')
+        if fan_out is not None and not fan_out.empty:
+            html += '<h4>Fan-out Sources (Potential Scanner / Worm)</h4>' + _df_to_html(fan_out)
+        allowed_lateral = m.get('allowed_lateral_flows')
+        if allowed_lateral is not None and not allowed_lateral.empty:
+            html += '<h4>Explicitly Allowed Lateral Flows (Highest Risk)</h4>' + _df_to_html(allowed_lateral)
+        source_risk = m.get('source_risk_scores')
+        if source_risk is not None and not source_risk.empty:
+            html += '<h4>Top High-Risk Sources</h4>' + _df_to_html(source_risk)
+        app_chains = m.get('app_chains')
+        if app_chains is not None and not app_chains.empty:
+            html += '<h4>Lateral Movement App Chains (BFS Paths)</h4>' + _df_to_html(app_chains)
+        return html

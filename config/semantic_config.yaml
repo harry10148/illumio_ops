@@ -1,0 +1,40 @@
+# semantic_config.yaml
+# OPTIONAL: Custom semantic rules for Traffic Flow Report.
+# Leave this file empty (or delete it) to use built-in structural rules only.
+#
+# Semantic rules allow you to define environment-specific labels and thresholds.
+# The system will run correctly without this file.
+#
+# Example configuration (uncomment and edit to activate):
+
+# label_semantics:
+#   # Define which label values represent production environments
+#   env_production_values: []         # e.g. ["prod", "production", "PRD"]
+#   env_development_values: []        # e.g. ["dev", "development", "DEV"]
+#   env_staging_values: []            # e.g. ["staging", "stg", "UAT"]
+#
+#   # Define which role values represent database tiers
+#   role_database_values: []          # e.g. ["db", "database", "DB", "mysql"]
+#   role_web_values: []               # e.g. ["web", "frontend", "www"]
+#   role_app_values: []               # e.g. ["app", "backend", "api"]
+#
+# semantic_rules:
+#   # Alert on direct internet-to-database flows
+#   - id: S001
+#     name: "Direct External-to-DB Access"
+#     description: "Traffic from unmanaged source directly to database role"
+#     severity: CRITICAL
+#     condition:
+#       src_managed: false
+#       dst_role: {in: role_database_values}
+#     recommendation: "Verify if database exposure is intentional. Consider network segmentation."
+#
+#   # Alert on prod-to-dev data flows (potential data leakage)
+#   - id: S002
+#     name: "Production to Development Data Flow"
+#     description: "Traffic from production environment to development environment"
+#     severity: HIGH
+#     condition:
+#       src_env: {in: env_production_values}
+#       dst_env: {in: env_development_values}
+#     recommendation: "Review if production data should flow to development environment."

@@ -1,0 +1,63 @@
+# csv_column_mapping.yaml
+# Maps PCE UI CSV export column names → Unified DataFrame column names.
+# Edit these if your PCE version uses different column headers.
+
+column_mapping:
+  # Source endpoint
+  "Source IP":                src_ip
+  "Source Hostname":          src_hostname
+  "Source Name":              src_hostname       # alternate header
+  "Source Application":       src_app
+  "Source Environment":       src_env
+  "Source Location":          src_loc
+  "Source Role":              src_role
+  "Source Managed":           src_managed
+
+  # Destination endpoint
+  "Destination IP":           dst_ip
+  "Destination Hostname":     dst_hostname
+  "Destination Name":         dst_hostname       # alternate header
+  "Destination Application":  dst_app
+  "Destination Environment":  dst_env
+  "Destination Location":     dst_loc
+  "Destination Role":         dst_role
+  "Destination FQDN":         dst_fqdn
+  "Destination Managed":      dst_managed
+
+  # Connection info
+  "Port":                     port
+  "Protocol":                 proto
+  "Process":                  process_name
+  "User":                     user_name
+  "Connections":              num_connections
+  "State":                    state
+  "Policy Decision":          policy_decision
+
+  # Timestamps
+  "First Detected":           first_detected
+  "Last Detected":            last_detected
+
+  # Bytes (will be parsed via parse_bytes_string)
+  "Bytes In":                 bytes_in_raw
+  "Bytes Out":                bytes_out_raw
+  "Bytes":                    bytes_total_raw
+
+# Protocol string normalisation
+proto_map:
+  "TCP": "TCP"
+  "UDP": "UDP"
+  "ICMP": "ICMP"
+  "6": "TCP"
+  "17": "UDP"
+  "1": "ICMP"
+
+# Policy decision normalisation
+policy_decision_map:
+  "allowed":            "allowed"
+  "Allowed":            "allowed"
+  "blocked":            "blocked"
+  "Blocked":            "blocked"
+  "potentially_blocked": "potentially_blocked"
+  "Potentially Blocked": "potentially_blocked"
+  "unknown":            "unknown"
+  "Unknown":            "unknown"

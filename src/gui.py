@@ -15,7 +15,7 @@ import threading
 import logging
 
 try:
-    from flask import Flask, request, jsonify, render_template
+    from flask import Flask, request, jsonify, render_template, send_from_directory
     HAS_FLASK = True
 except ImportError:
     HAS_FLASK = False
@@ -446,6 +446,311 @@ def _create_app(cm: ConfigManager) -> 'Flask':
                 cm.save()
                 return jsonify({"ok": True})
         return jsonify({"error": "not found"}), 404
+
+    @app.route('/api/dashboard/snapshot', methods=['GET'])
+    def api_dashboard_snapshot():
+        cm.load()
+        PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR = os.path.dirname(PKG_DIR)
+        reports_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+        if not os.path.isabs(reports_dir):
+            reports_dir = os.path.join(ROOT_DIR, reports_dir)
+        
+        snapshot_path = os.path.join(reports_dir, 'latest_snapshot.json')
+        if not os.path.exists(snapshot_path):
+            return jsonify({"ok": False, "error": "No recent snapshot found"})
+            
+        try:
+            import json
+            with open(snapshot_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify({"ok": True, "snapshot": data})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)})
+
+    # ─── API: Reports ──────────────────────────────────────────────────────
+    @app.route('/api/reports', methods=['GET'])
+    def api_list_reports():
+        cm.load()
+        PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR = os.path.dirname(PKG_DIR)
+        reports_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+        if not os.path.isabs(reports_dir):
+            reports_dir = os.path.join(ROOT_DIR, reports_dir)
+        
+        if not os.path.exists(reports_dir):
+            return jsonify({"ok": True, "reports": []})
+        
+        reports = []
+        for f in os.listdir(reports_dir):
+            if f.endswith('.html') or f.endswith('.xlsx'):
+                stat = os.stat(os.path.join(reports_dir, f))
+                reports.append({
+                    "filename": f,
+                    "mtime": stat.st_mtime,
+                    "size": stat.st_size
+                })
+        
+        reports.sort(key=lambda x: x['mtime'], reverse=True)
+        return jsonify({"ok": True, "reports": reports})
+
+    @app.route('/api/reports/<path:filename>', methods=['DELETE'])
+    def api_delete_report(filename):
+        cm.load()
+        PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR = os.path.dirname(PKG_DIR)
+        reports_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+        if not os.path.isabs(reports_dir):
+            reports_dir = os.path.join(ROOT_DIR, reports_dir)
+        # Prevent path traversal
+        target = os.path.realpath(os.path.join(reports_dir, filename))
+        if not target.startswith(os.path.realpath(reports_dir) + os.sep):
+            return jsonify({"ok": False, "error": "Invalid filename"}), 400
+        if not os.path.isfile(target):
+            return jsonify({"ok": False, "error": "File not found"}), 404
+        os.remove(target)
+        return jsonify({"ok": True})
+
+    @app.route('/reports/<path:filename>', methods=['GET'])
+    def api_serve_report(filename):
+        cm.load()
+        PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR = os.path.dirname(PKG_DIR)
+        reports_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+        if not os.path.isabs(reports_dir):
+            reports_dir = os.path.join(ROOT_DIR, reports_dir)
+        return send_from_directory(reports_dir, filename)
+
+    @app.route('/api/reports/generate', methods=['POST'])
+    def api_generate_report():
+        d = request.json or {}
+        try:
+            from src.report.report_generator import ReportGenerator
+            from src.api_client import ApiClient
+            from src.reporter import Reporter
+            
+            PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+            ROOT_DIR = os.path.dirname(PKG_DIR)
+            config_dir = os.path.join(ROOT_DIR, 'config')
+            
+            cm.load()
+            api = ApiClient(cm)
+            reporter = Reporter(cm)
+            
+            gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
+            
+            # Can be 'api' or 'csv'
+            source = d.get('source', 'api')
+            if source == 'csv':
+                return jsonify({"ok": False, "error": "CSV upload via Web UI is not implemented yet."}), 400
+            
+            start_date = d.get('start_date')
+            end_date = d.get('end_date')
+            
+            result = gen.generate_from_api(start_date, end_date)
+            
+            if result.record_count == 0:
+                return jsonify({"ok": False, "error": "No traffic data returned by API."})
+            
+            fmt = d.get('format', 'all')
+            output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+            if not os.path.isabs(output_dir):
+                output_dir = os.path.join(ROOT_DIR, output_dir)
+                
+            paths = gen.export(result, fmt=fmt, output_dir=output_dir, send_email=d.get('send_email', False), reporter=reporter)
+            
+            filenames = [os.path.basename(p) for p in paths]
+            return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
+        except Exception as e:
+            logger.error(f"Report generation failed: {e}", exc_info=True)
+            return jsonify({"ok": False, "error": str(e)})
+
+    @app.route('/api/audit_report/generate', methods=['POST'])
+    def api_generate_audit_report():
+        d = request.json or {}
+        try:
+            from src.report.audit_generator import AuditGenerator
+            from src.api_client import ApiClient
+            
+            PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+            ROOT_DIR = os.path.dirname(PKG_DIR)
+            config_dir = os.path.join(ROOT_DIR, 'config')
+            
+            cm.load()
+            api = ApiClient(cm)
+            gen = AuditGenerator(cm, api_client=api, config_dir=config_dir)
+            
+            start_date = d.get('start_date')
+            end_date = d.get('end_date')
+            
+            result = gen.generate_from_api(start_date, end_date)
+            
+            if result.record_count == 0:
+                return jsonify({"ok": False, "error": "No audit tracking data returned by API."})
+            
+            output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+            if not os.path.isabs(output_dir):
+                output_dir = os.path.join(ROOT_DIR, output_dir)
+                
+            paths = gen.export(result, fmt='all', output_dir=output_dir)
+            filenames = [os.path.basename(p) for p in paths]
+
+            return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
+        except Exception as e:
+            logger.error(f"Audit generation failed: {e}", exc_info=True)
+            return jsonify({"ok": False, "error": str(e)})
+
+    # ─── API: VEN Status Report ────────────────────────────────────────────
+    @app.route('/api/ven_status_report/generate', methods=['POST'])
+    def api_generate_ven_status_report():
+        try:
+            from src.report.ven_status_generator import VenStatusGenerator
+            from src.api_client import ApiClient
+
+            PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+            ROOT_DIR = os.path.dirname(PKG_DIR)
+
+            cm.load()
+            api = ApiClient(cm)
+            gen = VenStatusGenerator(cm, api_client=api)
+
+            result = gen.generate()
+
+            if result.record_count == 0:
+                return jsonify({"ok": False, "error": "No managed workloads returned by API."})
+
+            output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+            if not os.path.isabs(output_dir):
+                output_dir = os.path.join(ROOT_DIR, output_dir)
+
+            paths = gen.export(result, fmt='all', output_dir=output_dir)
+            filenames = [os.path.basename(p) for p in paths]
+            kpis = result.module_results.get('kpis', [])
+
+            return jsonify({"ok": True, "files": filenames, "record_count": result.record_count, "kpis": kpis})
+        except Exception as e:
+            logger.error(f"VEN status report failed: {e}", exc_info=True)
+            return jsonify({"ok": False, "error": str(e)})
+
+    # ─── API: Report Schedules ─────────────────────────────────────────────
+
+    @app.route('/api/report-schedules', methods=['GET'])
+    def api_list_report_schedules():
+        cm.load()
+        schedules = cm.get_report_schedules()
+        # Enrich with last-run state from state.json
+        PKG_DIR_L = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR_L = os.path.dirname(PKG_DIR_L)
+        state_file = os.path.join(ROOT_DIR_L, "state.json")
+        states = {}
+        if os.path.exists(state_file):
+            try:
+                with open(state_file, "r", encoding="utf-8") as f:
+                    states = json.load(f).get("report_schedule_states", {})
+            except Exception:
+                pass
+        result = []
+        for s in schedules:
+            sid = str(s.get("id", ""))
+            state = states.get(sid, {})
+            entry = dict(s)
+            entry["last_run"] = state.get("last_run")
+            entry["last_status"] = state.get("status")
+            entry["last_error"] = state.get("error", "")
+            result.append(entry)
+        return jsonify({"ok": True, "schedules": result})
+
+    @app.route('/api/report-schedules', methods=['POST'])
+    def api_create_report_schedule():
+        d = request.json or {}
+        try:
+            cm.load()
+            sched = cm.add_report_schedule(d)
+            return jsonify({"ok": True, "schedule": sched})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    @app.route('/api/report-schedules/<int:schedule_id>', methods=['PUT'])
+    def api_update_report_schedule(schedule_id):
+        d = request.json or {}
+        try:
+            cm.load()
+            ok = cm.update_report_schedule(schedule_id, d)
+            if not ok:
+                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    @app.route('/api/report-schedules/<int:schedule_id>', methods=['DELETE'])
+    def api_delete_report_schedule(schedule_id):
+        try:
+            cm.load()
+            ok = cm.remove_report_schedule(schedule_id)
+            if not ok:
+                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    @app.route('/api/report-schedules/<int:schedule_id>/toggle', methods=['POST'])
+    def api_toggle_report_schedule(schedule_id):
+        try:
+            cm.load()
+            schedules = cm.get_report_schedules()
+            sched = next((s for s in schedules if s.get("id") == schedule_id), None)
+            if not sched:
+                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+            new_enabled = not sched.get("enabled", False)
+            cm.update_report_schedule(schedule_id, {"enabled": new_enabled})
+            return jsonify({"ok": True, "enabled": new_enabled})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    @app.route('/api/report-schedules/<int:schedule_id>/run', methods=['POST'])
+    def api_run_report_schedule(schedule_id):
+        try:
+            cm.load()
+            schedules = cm.get_report_schedules()
+            sched = next((s for s in schedules if s.get("id") == schedule_id), None)
+            if not sched:
+                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+
+            from src.report_scheduler import ReportScheduler
+            from src.reporter import Reporter
+            reporter = Reporter(cm)
+            scheduler = ReportScheduler(cm, reporter)
+
+            def _run():
+                try:
+                    scheduler.run_schedule(sched)
+                    now_str = datetime.datetime.utcnow().isoformat()
+                    scheduler._save_state(schedule_id, now_str, "success")
+                except Exception as e:
+                    now_str = datetime.datetime.utcnow().isoformat()
+                    scheduler._save_state(schedule_id, now_str, "failed", str(e))
+                    logger.error(f"GUI-triggered schedule {schedule_id} failed: {e}", exc_info=True)
+
+            t_thread = threading.Thread(target=_run, daemon=True)
+            t_thread.start()
+            return jsonify({"ok": True, "message": "Schedule started in background."})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
+    @app.route('/api/report-schedules/<int:schedule_id>/history', methods=['GET'])
+    def api_report_schedule_history(schedule_id):
+        PKG_DIR_L = os.path.dirname(os.path.abspath(__file__))
+        ROOT_DIR_L = os.path.dirname(PKG_DIR_L)
+        state_file = os.path.join(ROOT_DIR_L, "state.json")
+        try:
+            if not os.path.exists(state_file):
+                return jsonify({"ok": True, "history": []})
+            with open(state_file, "r", encoding="utf-8") as f:
+                states = json.load(f).get("report_schedule_states", {})
+            entry = states.get(str(schedule_id), {})
+            return jsonify({"ok": True, "history": [entry] if entry else []})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
 
     # ─── API: Traffic & Quarantine ─────────────────────────────────────────
     @app.route('/api/quarantine/search', methods=['POST'])
