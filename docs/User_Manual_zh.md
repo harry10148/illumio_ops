@@ -13,10 +13,45 @@
 
 ### 1.2 安裝步驟
 
+#### Red Hat / CentOS（RHEL 8+）
+
 ```bash
 git clone <repo-url>
 cd illumio_monitor
-pip install -r requirements.txt    # 安裝 Flask（選用相依套件）
+cp config/config.json.example config/config.json
+
+# 從 AppStream 安裝選用相依套件（無需 EPEL）
+sudo dnf install python3-flask python3-pandas python3-pyyaml
+```
+
+#### Ubuntu / Debian
+
+現代 Ubuntu（22.04+）與 Debian（12+）實施 **PEP 668** 機制，直接執行 `pip install` 會被系統阻擋以保護系統 Python 環境。請使用虛擬環境：
+
+```bash
+# 若尚未安裝 venv 支援，先執行
+sudo apt install python3-venv
+
+git clone <repo-url>
+cd illumio_monitor
+cp config/config.json.example config/config.json
+
+# 在專案目錄內建立並啟動虛擬環境
+python3 -m venv venv
+source venv/bin/activate          # bash/zsh
+# source venv/bin/activate.fish   # Fish shell
+
+pip install -r requirements.txt
+```
+
+> **注意**：每次開啟新的終端機視窗後，執行程式前需先重新啟動虛擬環境（`source venv/bin/activate`）。
+
+#### macOS / 其他（pip）
+
+```bash
+git clone <repo-url>
+cd illumio_monitor
+pip install -r requirements.txt
 ```
 
 ### 1.3 設定檔 (`config.json`)
@@ -217,6 +252,8 @@ nssm start IllumioMonitor
 
 ### 6.2 Linux systemd
 
+#### RHEL / CentOS（系統 Python）
+
 ```ini
 # /etc/systemd/system/illumio-monitor.service
 [Unit]
@@ -228,6 +265,33 @@ Type=simple
 User=illumio
 WorkingDirectory=/opt/illumio_monitor
 ExecStart=/usr/bin/python3 illumio_monitor.py --monitor --interval 5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### Ubuntu / Debian（venv）
+
+先建立虛擬環境，再將 `ExecStart` 指向 venv 內的 Python 直譯器：
+
+```bash
+cd /opt/illumio_monitor
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+```
+
+```ini
+# /etc/systemd/system/illumio-monitor.service
+[Unit]
+Description=Illumio PCE Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=illumio
+WorkingDirectory=/opt/illumio_monitor
+ExecStart=/opt/illumio_monitor/venv/bin/python illumio_monitor.py --monitor --interval 5
 Restart=on-failure
 
 [Install]

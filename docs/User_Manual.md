@@ -13,10 +13,45 @@
 
 ### 1.2 Installation
 
+#### Red Hat / CentOS (RHEL 8+)
+
 ```bash
 git clone <repo-url>
 cd illumio_monitor
-pip install -r requirements.txt    # Installs Flask (optional dependencies)
+cp config/config.json.example config/config.json
+
+# Install optional dependencies from AppStream (no EPEL required)
+sudo dnf install python3-flask python3-pandas python3-pyyaml
+```
+
+#### Ubuntu / Debian
+
+Modern Ubuntu (22.04+) and Debian (12+) enforce **PEP 668** — direct `pip install` is blocked to protect the system Python. Use a virtual environment:
+
+```bash
+# Install venv support if not already present
+sudo apt install python3-venv
+
+git clone <repo-url>
+cd illumio_monitor
+cp config/config.json.example config/config.json
+
+# Create and activate a virtual environment inside the project directory
+python3 -m venv venv
+source venv/bin/activate          # bash/zsh
+# source venv/bin/activate.fish   # Fish shell
+
+pip install -r requirements.txt
+```
+
+> **Note**: You must re-activate the venv (`source venv/bin/activate`) each time you open a new terminal session before running the application.
+
+#### macOS / Other (pip)
+
+```bash
+git clone <repo-url>
+cd illumio_monitor
+pip install -r requirements.txt
 ```
 
 ### 1.3 Configuration (`config.json`)
@@ -217,6 +252,8 @@ nssm start IllumioMonitor
 
 ### 6.2 Linux systemd
 
+#### RHEL / CentOS (system Python)
+
 ```ini
 # /etc/systemd/system/illumio-monitor.service
 [Unit]
@@ -228,6 +265,33 @@ Type=simple
 User=illumio
 WorkingDirectory=/opt/illumio_monitor
 ExecStart=/usr/bin/python3 illumio_monitor.py --monitor --interval 5
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### Ubuntu / Debian (venv)
+
+Create the venv first, then point `ExecStart` at the venv interpreter:
+
+```bash
+cd /opt/illumio_monitor
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+```
+
+```ini
+# /etc/systemd/system/illumio-monitor.service
+[Unit]
+Description=Illumio PCE Monitor
+After=network.target
+
+[Service]
+Type=simple
+User=illumio
+WorkingDirectory=/opt/illumio_monitor
+ExecStart=/opt/illumio_monitor/venv/bin/python illumio_monitor.py --monitor --interval 5
 Restart=on-failure
 
 [Install]
