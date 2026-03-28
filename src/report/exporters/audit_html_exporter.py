@@ -9,9 +9,17 @@ import os
 import logging
 import pandas as pd
 
-from .report_i18n import make_i18n_js, lang_btn_html
+from .report_i18n import make_i18n_js, lang_btn_html, STRINGS as _RPT_STRINGS
 
 logger = logging.getLogger(__name__)
+
+# Auto-build column name → i18n key mapping from report_i18n STRINGS
+_COL_I18N: dict[str, str] = {}
+for _k, _v in _RPT_STRINGS.items():
+    if _k.startswith("rpt_col_"):
+        _en = _v.get("en", "")
+        if _en:
+            _COL_I18N[_en] = _k
 
 _CSS = """
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -41,7 +49,7 @@ _CSS = """
   h3 { color: var(--slate); font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
   .kpi-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
   .kpi-card { background: #fff; border-radius: 8px; padding: 14px 18px;
-               box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 160px;
+               box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 140px;
                border-top: 3px solid var(--orange); }
   .kpi-label { font-size: 11px; color: var(--slate-50); text-transform:uppercase; letter-spacing:.04em; }
   .kpi-value { font-size: 22px; font-weight: 700; color: var(--cyan-120); }
@@ -55,7 +63,18 @@ _CSS = """
   tr:nth-child(even) td { background: var(--tan); }
   tr:hover td { background: var(--tan-120); }
   .note { background: var(--tan); border-left: 4px solid var(--orange);
-          padding: 12px; border-radius: 4px; color: var(--cyan-120); font-size: 13px; }
+          padding: 12px; border-radius: 4px; color: var(--cyan-120); font-size: 13px;
+          margin: 10px 0; }
+  .note-warn { border-left-color: var(--red); }
+  .note-info { border-left-color: var(--green-80); }
+  .bp-box { background: #f0f7f4; border-left: 4px solid var(--green-80);
+            padding: 12px 14px; border-radius: 4px; margin: 12px 0; font-size: 12px; }
+  .bp-box b { color: var(--green); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px;
+           font-size: 11px; font-weight: 600; color: #fff; }
+  .badge-red { background: var(--red); }
+  .badge-orange { background: var(--gold-110); }
+  .badge-green { background: var(--green-80); }
   footer { text-align: center; color: var(--slate-50); font-size: 11px; margin: 40px 0 20px; }
 </style>
 """
@@ -86,7 +105,11 @@ def _df_to_html(df, no_data_key: str = "rpt_no_data") -> str:
         return f'<p class="note" data-i18n="{no_data_key}">— No data —</p>'
     html = '<table><thead><tr>'
     for col in df.columns:
-        html += f'<th>{col}</th>'
+        i18n_key = _COL_I18N.get(col)
+        if i18n_key:
+            html += f'<th data-i18n="{i18n_key}">{col}</th>'
+        else:
+            html += f'<th>{col}</th>'
     html += '</tr></thead><tbody>'
     for _, row in df.iterrows():
         html += '<tr>' + ''.join(f'<td>{str(v)}</td>' for v in row.values) + '</tr>'
@@ -115,7 +138,8 @@ class AuditHtmlExporter:
         mod00 = self._r.get('mod00', {})
         nav_html = (
             '<nav>'
-            '<a href="#summary"><span data-i18n="rpt_au_nav_summary">📊 Executive Summary</span></a>'
+            '<div class="nav-brand">Illumio PCE Monitor</div>'
+            '<a href="#summary"><span data-i18n="rpt_au_nav_summary">Executive Summary</span></a>'
             '<a href="#health"><span data-i18n="rpt_au_nav_health">1 System Health</span></a>'
             '<a href="#users"><span data-i18n="rpt_au_nav_users">2 User Activity</span></a>'
             '<a href="#policy"><span data-i18n="rpt_au_nav_policy">3 Policy Changes</span></a>'
@@ -142,12 +166,13 @@ class AuditHtmlExporter:
             period_part + '</p>'
             '<h2 data-i18n="rpt_key_metrics">Key Metrics</h2>'
             '<div class="kpi-grid">' + kpi_cards + '</div>'
+            + self._severity_dist_html(mod00) +
             '<h2 data-i18n="rpt_au_top_events">Top Event Types</h2>'
             + _df_to_html(mod00.get('top_events_overall')) +
             '</section>\n' +
-            self._section('health',  'rpt_au_sec_health',  '1 · System Health &amp; Agent',          self._mod01_html()) + '\n' +
-            self._section('users',   'rpt_au_sec_users',   '2 · User Activity &amp; Authentication', self._mod02_html()) + '\n' +
-            self._section('policy',  'rpt_au_sec_policy',  '3 · Policy Modifications',               self._mod03_html()) + '\n' +
+            self._section('health', 'rpt_au_sec_health', '1 · System Health &amp; Agent', self._mod01_html()) + '\n' +
+            self._section('users',  'rpt_au_sec_users',  '2 · User Activity &amp; Authentication', self._mod02_html()) + '\n' +
+            self._section('policy', 'rpt_au_sec_policy', '3 · Policy Modifications', self._mod03_html()) + '\n' +
             '<footer><span data-i18n="rpt_au_footer">Illumio PCE Monitor — Audit Report</span>'
             ' &middot; ' + today_str + '</footer>'
         )
@@ -166,44 +191,182 @@ class AuditHtmlExporter:
             f'{content}</section>'
         )
 
+    def _severity_dist_html(self, mod00: dict) -> str:
+        sev_df = mod00.get('severity_distribution')
+        if sev_df is None or (hasattr(sev_df, 'empty') and sev_df.empty):
+            return ''
+        return (
+            '<h2 data-i18n="rpt_au_severity_dist">Severity Distribution</h2>'
+            + _df_to_html(sev_df)
+        )
+
     def _mod01_html(self):
         m = self._r.get('mod01', {})
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
-        return (
+
+        sec_count = m.get('security_concern_count', 0)
+        conn_count = m.get('connectivity_event_count', 0)
+
+        html = (
             '<p><span data-i18n="rpt_au_total_health">Total Health Events:</span>'
-            ' <b>' + str(m.get('total_health_events', 0)) + '</b></p>'
+            ' <b>' + str(m.get('total_health_events', 0)) + '</b>'
+            ' &nbsp;|&nbsp; '
+            '<span data-i18n="rpt_au_security_concerns">Security Concerns:</span>'
+            ' <b style="color:' + ('#c0392b' if sec_count > 0 else '#313638') + '">' + str(sec_count) + '</b>'
+            ' &nbsp;|&nbsp; '
+            '<span data-i18n="rpt_au_connectivity_issues">Agent Connectivity:</span>'
+            ' <b>' + str(conn_count) + '</b></p>'
+        )
+
+        # Best practice note
+        html += (
+            '<div class="bp-box" data-i18n-html="rpt_au_bp_health">'
+            '<b>Illumio Best Practice:</b> Monitor system_health events for severity changes '
+            '(Warning → Error → Fatal). Investigate agent.tampering and agent.suspend events '
+            'immediately — unintended suspensions or firewall tampering may indicate workload compromise. '
+            'Track agent_missed_heartbeats_check (3+ missed = 15 min) and agent_offline_check '
+            '(12 missed = removed from policy).'
+            '</div>'
+        )
+
+        # Security concerns (tampering, suspend, clone)
+        sec_df = m.get('security_concerns')
+        if sec_df is not None and not sec_df.empty:
+            html += (
+                '<h3 data-i18n="rpt_au_sec_concern_title">⚠ Security Concern Events</h3>'
+                '<p class="note note-warn" data-i18n="rpt_au_sec_concern_desc">'
+                'agent.tampering, agent.suspend, and agent.clone_detected events may indicate '
+                'compromised workloads or unauthorized changes. Investigate immediately.</p>'
+                + _df_to_html(sec_df)
+            )
+
+        # Agent connectivity
+        conn_df = m.get('connectivity_events')
+        if conn_df is not None and not conn_df.empty:
+            html += (
+                '<h3 data-i18n="rpt_au_connectivity_title">Agent Connectivity Events</h3>'
+                + _df_to_html(conn_df)
+            )
+
+        # Severity breakdown
+        html += (
+            '<h3 data-i18n="rpt_au_severity_breakdown">Severity Breakdown</h3>'
+            + _df_to_html(m.get('severity_breakdown'))
+        )
+
+        html += (
             '<h3 data-i18n="rpt_au_summary_type">Summary by Event Type</h3>'
-            + _df_to_html(m.get('summary')) +
+            + _df_to_html(m.get('summary'))
+        )
+
+        html += (
             '<h3 data-i18n="rpt_au_recent">Recent Events (up to 50)</h3>'
             + _df_to_html(m.get('recent'))
         )
+
+        return html
 
     def _mod02_html(self):
         m = self._r.get('mod02', {})
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
-        return (
+
+        failed = m.get('failed_logins', 0)
+
+        html = (
             '<p><span data-i18n="rpt_au_total_user">Total User Events:</span>'
             ' <b>' + str(m.get('total_user_events', 0)) + '</b>'
             ' &nbsp;|&nbsp; '
             '<span data-i18n="rpt_au_failed_logins">Failed Logins:</span>'
-            ' <b style="color:#c0392b">' + str(m.get('failed_logins', 0)) + '</b></p>'
+            ' <b style="color:' + ('#c0392b' if failed > 0 else '#313638') + '">' + str(failed) + '</b></p>'
+        )
+
+        # Best practice note
+        html += (
+            '<div class="bp-box" data-i18n-html="rpt_au_bp_users">'
+            '<b>Illumio Best Practice:</b> Monitor login failures for patterns indicating '
+            'brute-force or credential stuffing attacks. Investigate repeated failures from '
+            'the same user or sudden spikes in authentication events.'
+            '</div>'
+        )
+
+        # Per-user breakdown
+        per_user = m.get('per_user')
+        if per_user is not None and not per_user.empty:
+            html += (
+                '<h3 data-i18n="rpt_au_per_user">Activity by User</h3>'
+                + _df_to_html(per_user)
+            )
+
+        html += (
             '<h3 data-i18n="rpt_au_summary_type">Summary by Event Type</h3>'
-            + _df_to_html(m.get('summary')) +
+            + _df_to_html(m.get('summary'))
+        )
+
+        html += (
             '<h3 data-i18n="rpt_au_recent">Recent Events (up to 50)</h3>'
             + _df_to_html(m.get('recent'))
         )
+
+        return html
 
     def _mod03_html(self):
         m = self._r.get('mod03', {})
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
-        return (
+
+        prov_count = m.get('provision_count', 0)
+        rule_count = m.get('rule_change_count', 0)
+
+        html = (
             '<p><span data-i18n="rpt_au_total_policy">Total Policy Events:</span>'
-            ' <b>' + str(m.get('total_policy_events', 0)) + '</b></p>'
+            ' <b>' + str(m.get('total_policy_events', 0)) + '</b>'
+            ' &nbsp;|&nbsp; '
+            '<span data-i18n="rpt_au_provisions">Provisions:</span>'
+            ' <b>' + str(prov_count) + '</b>'
+            ' &nbsp;|&nbsp; '
+            '<span data-i18n="rpt_au_rule_changes">Rule Changes:</span>'
+            ' <b>' + str(rule_count) + '</b></p>'
+        )
+
+        # Best practice note
+        html += (
+            '<div class="bp-box" data-i18n-html="rpt_au_bp_policy">'
+            '<b>Illumio Best Practice:</b> Review rule_set and sec_rule changes for overly broad scopes '
+            '(null HREF = All Applications/Environments/Locations). When sec_policy.create (provision) '
+            'events occur, check workloads_affected — a high number may indicate unintended policy impact. '
+            'Monitor sec_rule.delete events to detect unauthorized policy weakening.'
+            '</div>'
+        )
+
+        # Provision events
+        provisions = m.get('provisions')
+        if provisions is not None and not provisions.empty:
+            html += (
+                '<h3 data-i18n="rpt_au_provision_title">Policy Provision Events</h3>'
+                '<p class="note note-warn" data-i18n="rpt_au_provision_desc">'
+                'Policy provisions push draft changes to active enforcement. '
+                'Review for unintended scope or excessive workload impact.</p>'
+                + _df_to_html(provisions)
+            )
+
+        # Per-user breakdown
+        per_user = m.get('per_user')
+        if per_user is not None and not per_user.empty:
+            html += (
+                '<h3 data-i18n="rpt_au_per_user_policy">Changes by User</h3>'
+                + _df_to_html(per_user)
+            )
+
+        html += (
             '<h3 data-i18n="rpt_au_summary_type">Summary by Event Type</h3>'
-            + _df_to_html(m.get('summary')) +
+            + _df_to_html(m.get('summary'))
+        )
+
+        html += (
             '<h3 data-i18n="rpt_au_recent">Recent Events (up to 50)</h3>'
             + _df_to_html(m.get('recent'))
         )
+
+        return html

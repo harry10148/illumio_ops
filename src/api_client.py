@@ -116,12 +116,12 @@ class ApiClient:
             if status != 200:
                 err_msg = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
                 logger.error(f"Get Events Failed: {status} - {err_msg}")
-                print(f"{Colors.FAIL}Get Events Failed: {status} | Error: {err_msg[:500]}{Colors.ENDC}")
+                print(f"{Colors.FAIL}{t('api_get_events_failed', status=status, error=err_msg[:500])}{Colors.ENDC}")
                 return []
             return json.loads(body)
         except Exception as e:
             logger.error(f"Fetch Events Error: {e}")
-            print(f"{Colors.FAIL}Fetch Events Error: {e}{Colors.ENDC}")
+            print(f"{Colors.FAIL}{t('api_fetch_events_error', error=str(e))}{Colors.ENDC}")
             return []
 
     def execute_traffic_query_stream(self, start_time_str, end_time_str, policy_decisions):
@@ -149,7 +149,7 @@ class ApiClient:
             if status not in (201, 202):
                 text = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
                 logger.error(f"API Error {status}: {text}")
-                print(f"API Error {status}: {text}")
+                print(t("api_error_status", status=status, text=text))
                 return
 
             result = json.loads(body)
@@ -175,7 +175,7 @@ class ApiClient:
                     return
                 print(".", end="", flush=True)
             else:
-                print(" Timeout.")
+                print(f" {t('api_timeout')}")
                 logger.error("Traffic query timed out.")
                 return
 
@@ -227,7 +227,7 @@ class ApiClient:
 
         except Exception as e:
             logger.error(f"Query Exception: {e}")
-            print(f"Query Exception: {e}")
+            print(t("api_query_exception", error=str(e)))
             return
 
     def fetch_traffic_for_report(self, start_time_str, end_time_str,

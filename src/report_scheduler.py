@@ -12,6 +12,8 @@ import json
 import logging
 import os
 
+from src.i18n import t
+
 logger = logging.getLogger(__name__)
 
 # State key written to state.json
@@ -193,8 +195,8 @@ class ReportScheduler:
 
         # Build HTML body
         esc = lambda s: _html.escape(str(s), quote=True)
-        type_label = {"traffic": "Traffic Flow Report", "audit": "Audit Report",
-                      "ven_status": "VEN Status Report"}.get(report_type, "Report")
+        type_label = {"traffic": t("rpt_email_traffic_subject"), "audit": t("rpt_email_audit_subject"),
+                      "ven_status": t("rpt_email_ven_subject")}.get(report_type, "Report")
         start_disp = start_date[:10] if start_date else "N/A"
         end_disp = end_date[:10] if end_date else "N/A"
 
@@ -205,14 +207,14 @@ class ReportScheduler:
         # Header
         body += "<div style='padding:18px 20px;background:#1A2C32;color:#fff;border-left:4px solid #FF5500;'>"
         body += f"<div style='font-size:20px;font-weight:700;margin-bottom:4px;'>{esc(type_label)}</div>"
-        body += f"<div style='font-size:12px;color:#989A9B;'>{esc(name)} — Scheduled Report</div>"
+        body += f"<div style='font-size:12px;color:#989A9B;'>{esc(name)} — {t('rpt_email_scheduled_report')}</div>"
         body += "</div>"
 
         # KPI bar
         body += "<div style='padding:14px 20px;border-bottom:1px solid #E3D8C5;background:#F7F4EE;display:flex;flex-wrap:wrap;gap:8px;'>"
-        body += f"<span style='background:#FF5500;color:#fff;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;'>Records: {esc(result.record_count)}</span>"
-        body += f"<span style='background:#1A2C32;color:#D6D7D7;padding:4px 10px;border-radius:999px;font-size:12px;'>Period: {esc(start_disp)} → {esc(end_disp)}</span>"
-        body += f"<span style='background:#E3D8C5;color:#313638;padding:4px 10px;border-radius:999px;font-size:12px;'>Source: API</span>"
+        body += f"<span style='background:#FF5500;color:#fff;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;'>{t('rpt_email_records', count=esc(result.record_count))}</span>"
+        body += f"<span style='background:#1A2C32;color:#D6D7D7;padding:4px 10px;border-radius:999px;font-size:12px;'>{t('rpt_email_period', start=esc(start_disp), end=esc(end_disp))}</span>"
+        body += f"<span style='background:#E3D8C5;color:#313638;padding:4px 10px;border-radius:999px;font-size:12px;'>{t('rpt_email_source_api')}</span>"
         body += "</div>"
 
         body += "<div style='padding:16px 20px;'>"
@@ -226,7 +228,7 @@ class ReportScheduler:
 
         if kpis:
             body += "<div style='margin-bottom:16px;'>"
-            body += "<div style='font-size:14px;font-weight:700;color:#1A2C32;margin-bottom:10px;border-bottom:2px solid #FF5500;padding-bottom:4px;'>Key Performance Indicators</div>"
+            body += f"<div style='font-size:14px;font-weight:700;color:#1A2C32;margin-bottom:10px;border-bottom:2px solid #FF5500;padding-bottom:4px;'>{t('rpt_email_kpi_title')}</div>"
             body += "<div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;'>"
             for kpi in kpis[:8]:
                 label = esc(kpi.get("label", ""))
@@ -242,7 +244,7 @@ class ReportScheduler:
         findings = getattr(result, "findings", []) or []
         if findings:
             body += "<div style='margin-bottom:16px;'>"
-            body += "<div style='font-size:14px;font-weight:700;color:#1A2C32;margin-bottom:10px;border-bottom:2px solid #BE122F;padding-bottom:4px;'>Security Findings</div>"
+            body += f"<div style='font-size:14px;font-weight:700;color:#1A2C32;margin-bottom:10px;border-bottom:2px solid #BE122F;padding-bottom:4px;'>{t('rpt_email_security_findings')}</div>"
             body += "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
             body += "<tr style='background:#24393F;color:#D6D7D7;'>"
             body += "<th style='padding:8px;text-align:left;'>ID</th><th style='padding:8px;text-align:left;'>Finding</th><th style='padding:8px;text-align:left;'>Severity</th>"
@@ -272,7 +274,7 @@ class ReportScheduler:
         # Attachments note
         if paths:
             body += "<div style='background:#F7F4EE;border:1px solid #E3D8C5;border-radius:8px;padding:12px;margin-bottom:16px;'>"
-            body += "<div style='font-size:13px;font-weight:700;color:#1A2C32;margin-bottom:6px;'>Attached Files</div>"
+            body += f"<div style='font-size:13px;font-weight:700;color:#1A2C32;margin-bottom:6px;'>{t('rpt_email_attached_files')}</div>"
             for p in paths:
                 body += f"<div style='font-size:12px;color:#313638;padding:2px 0;'>📎 {esc(os.path.basename(p))}</div>"
             body += "</div>"

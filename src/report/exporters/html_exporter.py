@@ -17,9 +17,19 @@ import os
 import logging
 import pandas as pd
 
-from .report_i18n import make_i18n_js, lang_btn_html
+from .report_i18n import make_i18n_js, lang_btn_html, STRINGS as _RPT_STRINGS
 
 logger = logging.getLogger(__name__)
+
+# ── Column name → i18n key mapping (for _df_to_html <th> translation) ────────
+_COL_I18N: dict[str, str] = {}
+# Auto-build from report_i18n.py STRINGS: any key starting with "rpt_col_"
+# maps its English value to the key.  E.g. "Port" → "rpt_col_port"
+for _k, _v in _RPT_STRINGS.items():
+    if _k.startswith("rpt_col_"):
+        _en = _v.get("en", "")
+        if _en:
+            _COL_I18N[_en] = _k
 
 _CSS = """
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -271,7 +281,11 @@ def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
 
     html = '<table><thead><tr>'
     for col in df.columns:
-        html += f'<th>{col}</th>'
+        i18n_key = _COL_I18N.get(col)
+        if i18n_key:
+            html += f'<th data-i18n="{i18n_key}">{col}</th>'
+        else:
+            html += f'<th>{col}</th>'
     html += '</tr></thead><tbody>'
     for _, row in df.iterrows():
         html += '<tr>'
@@ -434,9 +448,9 @@ class HtmlExporter:
                 + _df_to_html(dm.get('top_app_flows'))
             )
             if inb > 0:
-                out += '<h4>Top Inbound Ports</h4>' + _df_to_html(dm.get('top_inbound_ports'))
+                out += '<h4 data-i18n="rpt_tr_top_inbound_ports">Top Inbound Ports</h4>' + _df_to_html(dm.get('top_inbound_ports'))
             if outb > 0:
-                out += '<h4>Top Outbound Ports</h4>' + _df_to_html(dm.get('top_outbound_ports'))
+                out += '<h4 data-i18n="rpt_tr_top_outbound_ports">Top Outbound Ports</h4>' + _df_to_html(dm.get('top_outbound_ports'))
         return out
 
     def _mod03_html(self):
@@ -446,10 +460,10 @@ class HtmlExporter:
         outb_cov = m.get('outbound_coverage_pct')
         stats = (
             '<div class="coverage-grid">'
-            + _cov_stat('Overall Coverage', str(cov) + '%')
-            + (_cov_stat('Inbound Coverage', str(inb_cov) + '%') if inb_cov is not None else '')
-            + (_cov_stat('Outbound Coverage', str(outb_cov) + '%') if outb_cov is not None else '')
-            + _cov_stat('Uncovered Flows', str(m.get('total_uncovered', 0)))
+            + _cov_stat('<span data-i18n="rpt_tr_overall_coverage">Overall Coverage</span>', str(cov) + '%')
+            + (_cov_stat('<span data-i18n="rpt_tr_inbound_coverage">Inbound Coverage</span>', str(inb_cov) + '%') if inb_cov is not None else '')
+            + (_cov_stat('<span data-i18n="rpt_tr_outbound_coverage">Outbound Coverage</span>', str(outb_cov) + '%') if outb_cov is not None else '')
+            + _cov_stat('<span data-i18n="rpt_col_uncovered_flows">Uncovered Flows</span>', str(m.get('total_uncovered', 0)))
             + '</div>'
             + _progress_bar(cov)
         )
@@ -537,8 +551,8 @@ class HtmlExporter:
             if 'note' in data:
                 out += f'<p class="note">{data["note"]}</p>'
             else:
-                kv = (f'Same-value: {data.get("same_value_flows",0)} · '
-                      f'Cross-value: {data.get("cross_value_flows",0)}')
+                kv = (f'<span data-i18n="rpt_tr_same_value">Same-value:</span> {data.get("same_value_flows",0)} · '
+                      f'<span data-i18n="rpt_tr_cross_value">Cross-value:</span> {data.get("cross_value_flows",0)}')
                 out += f'<p>{kv}</p>{_df_to_html(data.get("top_cross_pairs"))}'
         return out or '<p class="note" data-i18n="rpt_no_matrix">No label matrix data.</p>'
 
@@ -546,25 +560,25 @@ class HtmlExporter:
         m = self._r.get('mod08', {})
         out = (
             '<div class="coverage-grid">'
-            + _cov_stat('Unmanaged Flows', str(m.get('unmanaged_flow_count', 0)) + ' (' + str(m.get('unmanaged_pct', 0)) + '%)')
-            + _cov_stat('Unique Unmanaged Src', str(m.get('unique_unmanaged_src', 0)))
-            + _cov_stat('Unique Unmanaged Dst', str(m.get('unique_unmanaged_dst', 0)))
+            + _cov_stat('<span data-i18n="rpt_tr_unmanaged_flow_stat">Unmanaged Flows</span>', str(m.get('unmanaged_flow_count', 0)) + ' (' + str(m.get('unmanaged_pct', 0)) + '%)')
+            + _cov_stat('<span data-i18n="rpt_tr_unique_unmanaged_src">Unique Unmanaged Src</span>', str(m.get('unique_unmanaged_src', 0)))
+            + _cov_stat('<span data-i18n="rpt_tr_unique_unmanaged_dst">Unique Unmanaged Dst</span>', str(m.get('unique_unmanaged_dst', 0)))
             + '</div>'
             '<h3 data-i18n="rpt_tr_top_unmanaged">Top Unmanaged Sources</h3>'
             + _df_to_html(m.get('top_unmanaged_src'))
         )
         pa = m.get('per_dst_app')
         if pa is not None and hasattr(pa, 'empty') and not pa.empty:
-            out += '<h3>Managed Apps Receiving Unmanaged Traffic</h3>' + _df_to_html(pa)
+            out += '<h3 data-i18n="rpt_tr_managed_apps_unmanaged">Managed Apps Receiving Unmanaged Traffic</h3>' + _df_to_html(pa)
         pp = m.get('per_port_proto')
         if pp is not None and hasattr(pp, 'empty') and not pp.empty:
-            out += '<h3>Exposed Ports / Protocols</h3>' + _df_to_html(pp)
+            out += '<h3 data-i18n="rpt_tr_exposed_ports_proto">Exposed Ports / Protocols</h3>' + _df_to_html(pp)
         sp = m.get('src_port_detail')
         if sp is not None and hasattr(sp, 'empty') and not sp.empty:
-            out += '<h3>Unmanaged Source × Port Detail</h3>' + _df_to_html(sp)
+            out += '<h3 data-i18n="rpt_tr_unmanaged_src_port">Unmanaged Source × Port Detail</h3>' + _df_to_html(sp)
         mh = m.get('managed_hosts_targeted_by_unmanaged')
         if mh is not None and hasattr(mh, 'empty') and not mh.empty:
-            out += '<h3>Managed Hosts Targeted by Unmanaged Sources</h3>' + _df_to_html(mh)
+            out += '<h3 data-i18n="rpt_tr_managed_targeted">Managed Hosts Targeted by Unmanaged Sources</h3>' + _df_to_html(mh)
         return out
 
     def _mod09_html(self):
@@ -606,7 +620,7 @@ class HtmlExporter:
             out += _cov_stat('<span data-i18n="rpt_tr_avg_bw">Avg Bandwidth</span>',
                              f'{avg_bw} Mbps')
         if p95_bw is not None:
-            out += _cov_stat('P95 Bandwidth', f'{p95_bw} Mbps')
+            out += _cov_stat('<span data-i18n="rpt_tr_p95_bw">P95 Bandwidth</span>', f'{p95_bw} Mbps')
         out += '</div>'
 
         out += ('<h3 data-i18n="rpt_tr_top_by_bytes">Top by Total Bytes</h3>'
@@ -721,14 +735,14 @@ class HtmlExporter:
             f'<div style="display:flex;align-items:center;gap:24px;margin-bottom:16px;">'
             f'<div style="font-size:48px;font-weight:700;color:{grade_color};">{grade}</div>'
             f'<div style="flex:1;">'
-            f'<div style="font-size:13px;color:var(--slate-50);margin-bottom:4px;">Enforcement Readiness Score: <b>{score}/100</b></div>'
+            f'<div style="font-size:13px;color:var(--slate-50);margin-bottom:4px;"><span data-i18n="rpt_tr_readiness_score">Enforcement Readiness Score:</span> <b>{score}/100</b></div>'
             f'{score_bar}'
             f'</div></div>'
-            + '<h4>Score Breakdown by Factor</h4>'
+            + '<h4 data-i18n="rpt_tr_score_breakdown">Score Breakdown by Factor</h4>'
             + _df_to_html(factor_table)
         )
         if recommendations is not None and not recommendations.empty:
-            html += '<h4>Remediation Recommendations</h4>' + _df_to_html(recommendations)
+            html += '<h4 data-i18n="rpt_tr_remediation_rec">Remediation Recommendations</h4>' + _df_to_html(recommendations)
         return html
 
     def _mod14_html(self):
@@ -736,21 +750,21 @@ class HtmlExporter:
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
         html = (
-            f'<p>Applications analysed: <b>{m.get("total_apps", 0)}</b> · '
-            f'Communication edges: <b>{m.get("total_edges", 0)}</b></p>'
+            f'<p><span data-i18n="rpt_tr_apps_analysed">Applications analysed:</span> <b>{m.get("total_apps", 0)}</b> · '
+            f'<span data-i18n="rpt_tr_comm_edges">Communication edges:</span> <b>{m.get("total_edges", 0)}</b></p>'
         )
         role_summary = m.get('role_summary')
         if role_summary is not None and not role_summary.empty:
-            html += '<h4>Role Distribution</h4>' + _df_to_html(role_summary)
+            html += '<h4 data-i18n="rpt_tr_role_distribution">Role Distribution</h4>' + _df_to_html(role_summary)
         hub_apps = m.get('hub_apps')
         if hub_apps is not None and not hub_apps.empty:
-            html += '<h4>Hub Applications (High Blast Radius)</h4>' + _df_to_html(hub_apps)
+            html += '<h4 data-i18n="rpt_tr_hub_apps">Hub Applications (High Blast Radius)</h4>' + _df_to_html(hub_apps)
         top_apps = m.get('top_apps')
         if top_apps is not None and not top_apps.empty:
-            html += '<h4>Top Applications by Infrastructure Score</h4>' + _df_to_html(top_apps)
+            html += '<h4 data-i18n="rpt_tr_top_apps_infra">Top Applications by Infrastructure Score</h4>' + _df_to_html(top_apps)
         top_edges = m.get('top_edges')
         if top_edges is not None and not top_edges.empty:
-            html += '<h4>Top Communication Paths (by Volume)</h4>' + _df_to_html(top_edges)
+            html += '<h4 data-i18n="rpt_tr_top_comm_paths">Top Communication Paths (by Volume)</h4>' + _df_to_html(top_edges)
         return html
 
     def _mod15_html(self):
@@ -759,20 +773,21 @@ class HtmlExporter:
             return f'<p class="note">{m["error"]}</p>'
         total = m.get('total_lateral_flows', 0)
         pct = m.get('lateral_pct', 0)
-        html = f'<p>Lateral movement port flows: <b>{total:,}</b> ({pct}% of all flows)</p>'
+        html = (f'<p><span data-i18n="rpt_tr_lateral_flows">Lateral movement port flows:</span> '
+                f'<b>{total:,}</b> ({pct}% <span data-i18n="rpt_tr_lateral_pct">of all flows</span>)</p>')
         service_summary = m.get('service_summary')
         if service_summary is not None and not service_summary.empty:
-            html += '<h4>Lateral Port Activity by Service</h4>' + _df_to_html(service_summary)
+            html += '<h4 data-i18n="rpt_tr_lateral_by_service">Lateral Port Activity by Service</h4>' + _df_to_html(service_summary)
         fan_out = m.get('fan_out_sources')
         if fan_out is not None and not fan_out.empty:
-            html += '<h4>Fan-out Sources (Potential Scanner / Worm)</h4>' + _df_to_html(fan_out)
+            html += '<h4 data-i18n="rpt_tr_fan_out">Fan-out Sources (Potential Scanner / Worm)</h4>' + _df_to_html(fan_out)
         allowed_lateral = m.get('allowed_lateral_flows')
         if allowed_lateral is not None and not allowed_lateral.empty:
-            html += '<h4>Explicitly Allowed Lateral Flows (Highest Risk)</h4>' + _df_to_html(allowed_lateral)
+            html += '<h4 data-i18n="rpt_tr_allowed_lateral">Explicitly Allowed Lateral Flows (Highest Risk)</h4>' + _df_to_html(allowed_lateral)
         source_risk = m.get('source_risk_scores')
         if source_risk is not None and not source_risk.empty:
-            html += '<h4>Top High-Risk Sources</h4>' + _df_to_html(source_risk)
+            html += '<h4 data-i18n="rpt_tr_top_risk_sources">Top High-Risk Sources</h4>' + _df_to_html(source_risk)
         app_chains = m.get('app_chains')
         if app_chains is not None and not app_chains.empty:
-            html += '<h4>Lateral Movement App Chains (BFS Paths)</h4>' + _df_to_html(app_chains)
+            html += '<h4 data-i18n="rpt_tr_app_chains">Lateral Movement App Chains (BFS Paths)</h4>' + _df_to_html(app_chains)
         return html

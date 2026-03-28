@@ -90,20 +90,14 @@ def _menu_hints(path):
 
 
 def _wizard_step(step, total, title):
-    if get_language() == "zh_TW":
-        print(f"\n{Colors.BOLD}{Colors.CYAN}[步驟 {step}/{total}] {title}{Colors.ENDC}")
-    else:
-        print(f"\n{Colors.BOLD}{Colors.CYAN}[Step {step}/{total}] {title}{Colors.ENDC}")
+    step_label = t("wiz_step")
+    print(f"\n{Colors.BOLD}{Colors.CYAN}[{step_label} {step}/{total}] {title}{Colors.ENDC}")
 
 
 def _wizard_confirm(summary_lines):
-    title = "確認設定" if get_language() == "zh_TW" else "Review Configuration"
+    title = t("wiz_review_config")
     draw_panel(title, summary_lines, width=90)
-    prompt = (
-        "是否儲存此規則? (Y/n)"
-        if get_language() == "zh_TW"
-        else "Save this rule? (Y/n)"
-    )
+    prompt = t("wiz_save_rule_confirm")
     answer = (
         input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {prompt} {Colors.GREEN}❯{Colors.ENDC} ")
         .strip()
@@ -157,7 +151,7 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         title = (
             t("menu_add_event_title")
             if not edit_rule
-            else f"=== Modify Event Rule: {edit_rule.get('name', '')} ==="
+            else t("modify_event_rule", name=edit_rule.get('name', ''))
         )
         draw_panel(
             title,
@@ -198,17 +192,17 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         if not sel.isdigit() or not (1 <= int(sel) <= len(cats)):
             continue
         _wizard_step(
-            1, 4, "選擇事件類型" if get_language() == "zh_TW" else "Select Event Type"
+            1, 4, t("wiz_select_event_type")
         )
         cat = cats[int(sel) - 1]
         evts = FULL_EVENT_CATALOG[cat]
         evt_keys = list(evts.keys())
         print(f"\n{Colors.BOLD}{Colors.CYAN}--- {cat} ---{Colors.ENDC}")
-        headers = ["No.", "Event Type", "Description"]
+        headers = [t("th_no"), t("th_event_type"), t("th_description")]
         rows = []
         for i, k in enumerate(evt_keys):
             desc = t(FULL_EVENT_CATALOG[cat][k])
-            display_k = k if k != "*" else "* (All Events)"
+            display_k = k if k != "*" else t("all_events")
             rows.append([str(i + 1), display_k, desc])
         draw_table(headers, rows)
 
@@ -233,7 +227,7 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         _wizard_step(
             2,
             4,
-            "設定觸發條件" if get_language() == "zh_TW" else "Set Trigger Conditions",
+            t("wiz_set_trigger"),
         )
         print(f"\n{t('selected')}: {k}")
         pmpt = f"{t('rule_trigger_type_1')}  {t('rule_trigger_type_2')}"
@@ -289,7 +283,7 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
 
         if show_status or show_severity:
             _wizard_step(
-                3, 4, "進階過濾" if get_language() == "zh_TW" else "Advanced Filters"
+                3, 4, t("wiz_advanced_filters")
             )
             print(f"\n{Colors.CYAN}--- {t('advanced_filters')} ---{Colors.ENDC}")
             print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
@@ -339,15 +333,15 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
                 sel_sev = v_map.get(vi, def_sev)
 
         _wizard_step(
-            4, 4, "確認並儲存" if get_language() == "zh_TW" else "Review and Save"
+            4, 4, t("wiz_review_save")
         )
         summary = [
-            f"Type: event",
-            f"Event: {k}",
-            f"Trigger: {ttype}",
-            f"Threshold: {cnt}",
-            f"Window/Cooldown: {win}m / {cd}m",
-            f"Status/Severity: {sel_status} / {sel_sev}",
+            f"{t('sum_type')}: event",
+            f"{t('sum_event')}: {k}",
+            f"{t('sum_trigger')}: {ttype}",
+            f"{t('sum_threshold')}: {cnt}",
+            f"{t('sum_window_cooldown')}: {win}m / {cd}m",
+            f"{t('sum_status_severity')}: {sel_status} / {sel_sev}",
         ]
         if not _wizard_confirm(summary):
             continue
@@ -362,7 +356,7 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
                 "filter_status": sel_status,
                 "filter_severity": sel_sev,
                 "desc": t(evts[k]),
-                "rec": "Check Logs",
+                "rec": t("check_logs"),
                 "threshold_type": ttype,
                 "threshold_count": cnt,
                 "threshold_window": win,
@@ -384,14 +378,14 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     title = (
         t("menu_add_traffic_title")
         if not edit_rule
-        else f"=== Modify Traffic Rule: {edit_rule.get('name', '')} ==="
+        else t("modify_traffic_rule", name=edit_rule.get('name', ''))
     )
     draw_panel(
         title,
         _menu_hints("Rules > Traffic"),
         width=80,
     )
-    _wizard_step(1, 5, "基本設定" if get_language() == "zh_TW" else "Basic Setup")
+    _wizard_step(1, 5, t("wiz_basic_setup"))
     print("")
 
     def_name = edit_rule.get("name", "") if edit_rule else ""
@@ -443,7 +437,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     else:
         target_pd = -1
 
-    _wizard_step(2, 5, "流量過濾" if get_language() == "zh_TW" else "Traffic Filters")
+    _wizard_step(2, 5, t("wiz_traffic_filters"))
     print(f"\n{Colors.CYAN}{t('advanced_filters')}{Colors.ENDC}")
     print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
 
@@ -500,7 +494,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     if dst_in == "":
         dst_in = def_dst
 
-    _wizard_step(3, 5, "觸發閾值" if get_language() == "zh_TW" else "Trigger Threshold")
+    _wizard_step(3, 5, t("wiz_trigger_threshold"))
     def_win = edit_rule.get("threshold_window", 10) if edit_rule else 10
     win_in = safe_input(
         t("time_window_mins")
@@ -548,7 +542,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         (dst_in, None) if dst_in and "=" in dst_in else (None, dst_in)
     )
 
-    _wizard_step(4, 5, "排除條件" if get_language() == "zh_TW" else "Exclusions")
+    _wizard_step(4, 5, t("wiz_exclusions"))
     print(f"\n{Colors.CYAN}{t('excludes_optional')}{Colors.ENDC}")
     def_ex_port = edit_rule.get("ex_port", "") if edit_rule else ""
     ex_port_in = safe_input(
@@ -594,18 +588,18 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         else int(datetime.datetime.now().timestamp())
     )
 
-    _wizard_step(5, 5, "確認並儲存" if get_language() == "zh_TW" else "Review and Save")
+    _wizard_step(5, 5, t("wiz_review_save"))
     pd_text = {2: "Blocked", 0: "Potential", 1: "Allowed", -1: "All"}.get(
         target_pd, "All"
     )
     summary = [
-        f"Type: traffic",
-        f"Name: {name}",
-        f"Policy: {pd_text}",
-        f"Port/Proto: {port_in or '-'} / {proto_in or 'both'}",
-        f"Src/Dst: {src_in or '-'} -> {dst_in or '-'}",
-        f"Threshold: {cnt} in {win}m (cooldown {cd}m)",
-        f"Exclude: port={ex_port_in or '-'}, src={ex_src_in or '-'}, dst={ex_dst_in or '-'}",
+        f"{t('sum_type')}: traffic",
+        f"{t('sum_name')}: {name}",
+        f"{t('sum_policy')}: {pd_text}",
+        f"{t('sum_port_proto')}: {port_in or '-'} / {proto_in or 'both'}",
+        f"{t('sum_src_dst')}: {src_in or '-'} -> {dst_in or '-'}",
+        f"{t('sum_threshold')}: {cnt} in {win}m (cooldown {cd}m)",
+        f"{t('sum_exclude')}: port={ex_port_in or '-'}, src={ex_src_in or '-'}, dst={ex_dst_in or '-'}",
     ]
     if not _wizard_confirm(summary):
         return
@@ -628,7 +622,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
             "ex_src_ip": ex_src_ip_val,
             "ex_dst_ip": ex_dst_ip_val,
             "desc": name,
-            "rec": "Check Policy",
+            "rec": t("check_policy"),
             "threshold_type": "count",
             "threshold_count": cnt,
             "threshold_window": win,
@@ -649,14 +643,14 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     title = (
         t("menu_add_bw_vol_title")
         if not edit_rule
-        else f"=== Modify Rule: {edit_rule.get('name', '')} ==="
+        else t("modify_rule", name=edit_rule.get('name', ''))
     )
     draw_panel(
         title,
         _menu_hints("Rules > Bandwidth/Volume"),
         width=80,
     )
-    _wizard_step(1, 5, "基本設定" if get_language() == "zh_TW" else "Basic Setup")
+    _wizard_step(1, 5, t("wiz_basic_setup"))
     print("")
 
     def_name = edit_rule.get("name", "") if edit_rule else ""
@@ -670,7 +664,7 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     if not name:
         return
 
-    _wizard_step(2, 5, "選擇監控指標" if get_language() == "zh_TW" else "Select Metric")
+    _wizard_step(2, 5, t("wiz_select_metric"))
     print(f"\n{Colors.CYAN}{t('step_1_metric')}{Colors.ENDC}")
     print(t("metric_1"))
     print(t("metric_2"))
@@ -695,7 +689,7 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     rtype = "bandwidth" if m_sel == 1 else "volume"
     unit_prompt = "Mbps" if m_sel == 1 else "MB"
 
-    _wizard_step(3, 5, "過濾條件" if get_language() == "zh_TW" else "Filters")
+    _wizard_step(3, 5, t("wiz_filters"))
     print(f"\n{Colors.CYAN}{t('step_2_filters')}{Colors.ENDC}")
     print(f"{Colors.DARK_GRAY}{t('hint_return')}{Colors.ENDC}")
 
@@ -756,7 +750,7 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         (dst_in, None) if dst_in and "=" in dst_in else (None, dst_in)
     )
 
-    _wizard_step(4, 5, "閾值設定" if get_language() == "zh_TW" else "Threshold")
+    _wizard_step(4, 5, t("wiz_threshold"))
     print(f"\n{Colors.CYAN}{t('step_3_threshold')}{Colors.ENDC}")
     def_th = edit_rule.get("threshold_count", "") if edit_rule else ""
     th_in = safe_input(
@@ -849,15 +843,15 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         else int(datetime.datetime.now().timestamp())
     )
 
-    _wizard_step(5, 5, "確認並儲存" if get_language() == "zh_TW" else "Review and Save")
+    _wizard_step(5, 5, t("wiz_review_save"))
     summary = [
-        f"Type: {rtype}",
-        f"Name: {name}",
-        f"Unit/Threshold: {unit_prompt} / {th}",
-        f"Port/Proto: {port_in or '-'} / {proto_in or 'both'}",
-        f"Src/Dst: {src_in or '-'} -> {dst_in or '-'}",
-        f"Window/Cooldown: {win}m / {cd}m",
-        f"Exclude: port={ex_port_in or '-'}, src={ex_src_in or '-'}, dst={ex_dst_in or '-'}",
+        f"{t('sum_type')}: {rtype}",
+        f"{t('sum_name')}: {name}",
+        f"{t('sum_unit_threshold')}: {unit_prompt} / {th}",
+        f"{t('sum_port_proto')}: {port_in or '-'} / {proto_in or 'both'}",
+        f"{t('sum_src_dst')}: {src_in or '-'} -> {dst_in or '-'}",
+        f"{t('sum_window_cooldown')}: {win}m / {cd}m",
+        f"{t('sum_exclude')}: port={ex_port_in or '-'}, src={ex_src_in or '-'}, dst={ex_dst_in or '-'}",
     ]
     if not _wizard_confirm(summary):
         return
@@ -883,8 +877,8 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
             "threshold_count": th,
             "threshold_window": win,
             "cooldown_minutes": cd,
-            "desc": f"Alert when {rtype} > {th} {unit_prompt}",
-            "rec": "Check network activity",
+            "desc": t("alert_desc", type=rtype, threshold=th, unit=unit_prompt),
+            "rec": t("check_network"),
         }
     )
     input(
@@ -905,7 +899,7 @@ def manage_rules_menu(cm: ConfigManager):
         if not cm.config["rules"]:
             print(t("no_rules"))
         else:
-            headers = ["No.", "Name", "Type", "Condition", "Filters / Excludes"]
+            headers = [t("th_no"), t("th_name"), t("th_type"), t("th_condition"), t("th_filters_excludes")]
             rows = []
         for i, r in enumerate(cm.config["rules"]):
             rtype = r["type"].capitalize()
@@ -1013,7 +1007,7 @@ def manage_rules_menu(cm: ConfigManager):
                 cm.remove_rules_by_index(indices)
                 print(t("done"))
             except Exception as e:
-                print(f"Error deleting: {e}")
+                print(t("error_deleting", error=str(e)))
         elif val.startswith("m ") or (
             val.startswith("m") and len(val) > 1 and val[1].isdigit()
         ):
@@ -1025,7 +1019,7 @@ def manage_rules_menu(cm: ConfigManager):
                 if 0 <= idx < len(cm.config["rules"]):
                     rule = cm.config["rules"][idx]
                     print(
-                        f"\n{Colors.CYAN}--- Modifying Rule: {rule['name']} ---{Colors.ENDC}"
+                        f"\n{Colors.CYAN}{t('modifying_rule', name=rule['name'])}{Colors.ENDC}"
                     )
                     rtype = rule["type"]
                     cm.remove_rules_by_index([idx])
@@ -1036,7 +1030,7 @@ def manage_rules_menu(cm: ConfigManager):
                     elif rtype in ["bandwidth", "volume"]:
                         add_bandwidth_volume_menu(cm, edit_rule=rule)
             except Exception as e:
-                print(f"Error modifying: {e}")
+                print(t("error_modifying", error=str(e)))
         else:
             print(
                 f"{Colors.FAIL}{t('error_format', default='Invalid format.')}{Colors.ENDC}"
@@ -1060,7 +1054,7 @@ def alert_settings_menu(cm: ConfigManager):
             1,
             "選擇要調整的告警通道"
             if get_language() == "zh_TW"
-            else "Choose Alert Channel to Configure",
+            else t("choose_alert_channel"),
         )
         print("")
 
@@ -1155,7 +1149,7 @@ def settings_menu(cm: ConfigManager):
         _wizard_step(
             1,
             1,
-            "選擇設定項目" if get_language() == "zh_TW" else "Choose Settings Area",
+            t("wiz_choose_settings"),
         )
         print("")
         masked_key = (
@@ -1201,22 +1195,22 @@ def settings_menu(cm: ConfigManager):
             break
         if sel == 1:
             new_url = safe_input(
-                "API URL", str, allow_cancel=True, hint=cm.config["api"]["url"]
+                t("lbl_api_url"), str, allow_cancel=True, hint=cm.config["api"]["url"]
             )
             if new_url:
                 cm.config["api"]["url"] = new_url.strip('"').strip("'")
 
             cm.config["api"]["org_id"] = (
                 safe_input(
-                    "Org ID", str, allow_cancel=True, hint=cm.config["api"]["org_id"]
+                    t("lbl_org_id"), str, allow_cancel=True, hint=cm.config["api"]["org_id"]
                 )
                 or cm.config["api"]["org_id"]
             )
             cm.config["api"]["key"] = (
-                safe_input("API Key", str, allow_cancel=True, hint=masked_key)
+                safe_input(t("lbl_api_key"), str, allow_cancel=True, hint=masked_key)
                 or cm.config["api"]["key"]
             )
-            new_sec = safe_input("API Secret", str, allow_cancel=True, hint="******")
+            new_sec = safe_input(t("lbl_api_secret"), str, allow_cancel=True, hint="******")
             if new_sec:
                 cm.config["api"]["secret"] = new_sec
             cm.save()
@@ -1235,10 +1229,10 @@ def settings_menu(cm: ConfigManager):
             c = cm.config.get("smtp", {})
             print(f"\n{Colors.CYAN}{t('setup_smtp')}{Colors.ENDC}")
             c["host"] = safe_input(
-                "SMTP Host", str, allow_cancel=True, hint=c.get("host", "localhost")
+                t("lbl_smtp_host"), str, allow_cancel=True, hint=c.get("host", "localhost")
             ) or c.get("host", "localhost")
             c["port"] = safe_input(
-                "SMTP Port", int, allow_cancel=True, hint=str(c.get("port", 25))
+                t("lbl_smtp_port"), int, allow_cancel=True, hint=str(c.get("port", 25))
             ) or c.get("port", 25)
 
             enable_tls = safe_input(
@@ -1263,9 +1257,9 @@ def settings_menu(cm: ConfigManager):
 
             if c["enable_auth"]:
                 c["user"] = safe_input(
-                    "Username", str, allow_cancel=True, hint=c.get("user", "")
+                    t("lbl_username"), str, allow_cancel=True, hint=c.get("user", "")
                 ) or c.get("user", "")
-                new_pass = safe_input("Password", str, allow_cancel=True, hint="******")
+                new_pass = safe_input(t("lbl_password"), str, allow_cancel=True, hint="******")
                 if new_pass:
                     c["password"] = new_pass
 
@@ -1336,11 +1330,11 @@ def manage_report_schedules_menu(cm: ConfigManager):
                     status = Colors.DARK_GRAY + t("sched_status_never") + Colors.ENDC
                 enabled = f"{Colors.GREEN}ON{Colors.ENDC}" if s.get("enabled") else f"{Colors.FAIL}OFF{Colors.ENDC}"
 
-                freq_map = {"daily": "Daily", "weekly": f"Weekly ({s.get('day_of_week','')[:3].capitalize()})",
-                            "monthly": f"Monthly (day {s.get('day_of_month', 1)})"}
+                freq_map = {"daily": t("freq_daily"), "weekly": t("freq_weekly", day=s.get('day_of_week','')[:3].capitalize()),
+                            "monthly": t("freq_monthly", day=s.get('day_of_month', 1))}
                 freq = freq_map.get(s.get("schedule_type", "weekly"), s.get("schedule_type", "?"))
 
-                type_map = {"traffic": "Traffic", "audit": "Audit", "ven_status": "VEN"}
+                type_map = {"traffic": t("type_traffic"), "audit": t("type_audit"), "ven_status": t("type_ven")}
                 rtype = type_map.get(s.get("report_type", ""), s.get("report_type", "?"))
                 rows.append([f"[{i+1}] {s.get('name','')}", rtype, freq, last_run, status, enabled])
 
@@ -1358,7 +1352,7 @@ def manage_report_schedules_menu(cm: ConfigManager):
             _add_report_schedule_wizard(cm)
         elif action in ("E", "T", "D", "R"):
             if not schedules:
-                print(f"{Colors.WARNING}No schedules to act on.{Colors.ENDC}")
+                print(f"{Colors.WARNING}{t('no_schedules_to_act')}{Colors.ENDC}")
                 input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
                 continue
             idx_str = safe_input(t("sched_select_index") + f" [1-{len(schedules)}]", str)
@@ -1367,7 +1361,7 @@ def manage_report_schedules_menu(cm: ConfigManager):
                 if not (0 <= idx < len(schedules)):
                     raise ValueError
             except (ValueError, TypeError):
-                print(f"{Colors.FAIL}Invalid selection.{Colors.ENDC}")
+                print(f"{Colors.FAIL}{t('invalid_selection')}{Colors.ENDC}")
                 input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
                 continue
             sched = schedules[idx]
@@ -1381,7 +1375,7 @@ def manage_report_schedules_menu(cm: ConfigManager):
                 print(f"{Colors.GREEN}{msg}{Colors.ENDC}")
                 input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
             elif action == "D":
-                confirm = safe_input(f"Delete '{sched.get('name', '')}' (Y/n)", str).strip().lower()
+                confirm = safe_input(t("confirm_delete_sched", name=sched.get('name', '')), str).strip().lower()
                 if confirm in ("", "y", "yes"):
                     cm.remove_report_schedule(sched["id"])
                     print(f"{Colors.GREEN}{t('sched_deleted')}{Colors.ENDC}")
@@ -1436,7 +1430,7 @@ def _add_report_schedule_wizard(cm: ConfigManager, edit_sched: dict = None):
     type_map = {"1": "traffic", "2": "audit", "3": "ven_status"}
     default_type_k = {"traffic": "1", "audit": "2", "ven_status": "3"}.get(
         edit_sched.get("report_type", "traffic") if is_edit else "traffic", "1")
-    print("  1. Traffic Flow Report\n  2. Audit Report\n  3. VEN Status Report")
+    print(f"  {t('opt_traffic_report')}\n  {t('opt_audit_report')}\n  {t('opt_ven_report')}")
     type_sel = _ask(t("sched_report_type"), default=default_type_k)
     if type_sel is None:
         return
@@ -1447,7 +1441,7 @@ def _add_report_schedule_wizard(cm: ConfigManager, edit_sched: dict = None):
     freq_map = {"1": "daily", "2": "weekly", "3": "monthly"}
     default_freq_k = {"daily": "1", "weekly": "2", "monthly": "3"}.get(
         edit_sched.get("schedule_type", "weekly") if is_edit else "weekly", "2")
-    print("  1. Daily\n  2. Weekly\n  3. Monthly")
+    print(f"  {t('opt_daily')}\n  {t('opt_weekly')}\n  {t('opt_monthly')}")
     freq_sel = _ask(t("sched_schedule_type"), default=default_freq_k)
     if freq_sel is None:
         return
@@ -1468,7 +1462,7 @@ def _add_report_schedule_wizard(cm: ConfigManager, edit_sched: dict = None):
 
     # Step 4: Time (input in configured timezone, stored as UTC)
     tz_label, offset_hours = _tz_offset_info(cm)
-    _wizard_step(4, 7, f"Execution Time ({tz_label})")
+    _wizard_step(4, 7, t("wiz_execution_time", tz=tz_label))
     # When editing, convert stored UTC hour → local display hour
     stored_hour = edit_sched.get("hour", 8) if is_edit else 8
     default_local_hour = str(_utc_to_local_hour(int(stored_hour), offset_hours))
@@ -1497,14 +1491,14 @@ def _add_report_schedule_wizard(cm: ConfigManager, edit_sched: dict = None):
     fmt_map = {"1": ["html"], "2": ["csv"], "3": ["html", "csv"]}
     current_fmt = edit_sched.get("format", ["html"]) if is_edit else ["html"]
     default_fmt_k = "3" if len(current_fmt) > 1 else ("2" if current_fmt == ["csv"] else "1")
-    print("  1. HTML\n  2. CSV (Raw Data ZIP)\n  3. HTML + CSV")
+    print(f"  {t('opt_html')}\n  {t('opt_csv_zip')}\n  {t('opt_html_csv')}")
     fmt_sel = _ask(t("sched_format"), default=default_fmt_k)
     if fmt_sel is None:
         return
     fmt = fmt_map.get(str(fmt_sel), ["html"])
 
     # Step 7: Email
-    _wizard_step(7, 7, "Email Options")
+    _wizard_step(7, 7, t("wiz_email_options"))
     default_email = "Y" if (edit_sched.get("email_report", False) if is_edit else False) else "N"
     email_ans = _ask(t("sched_email_report"), default=default_email)
     if email_ans is None:
@@ -1518,15 +1512,18 @@ def _add_report_schedule_wizard(cm: ConfigManager, edit_sched: dict = None):
         custom_recipients = [r.strip() for r in recips_str.split(",") if r.strip()]
 
     # Confirm
+    _email_val = t('sum_no')
+    if send_email:
+        _email_val = t('sum_yes') + (' → ' + t('sum_custom') + ': ' + ','.join(custom_recipients) if custom_recipients else ' ' + t('sum_default'))
     summary = [
-        f"  Name:       {name}",
-        f"  Type:       {report_type}",
-        f"  Frequency:  {schedule_type}" + (f" ({day_of_week})" if schedule_type == "weekly" else
+        f"  {t('sum_name')}:       {name}",
+        f"  {t('sum_type')}:       {report_type}",
+        f"  {t('sum_frequency')}:  {schedule_type}" + (f" ({day_of_week})" if schedule_type == "weekly" else
                                              f" (day {day_of_month})" if schedule_type == "monthly" else ""),
-        f"  Time:       {local_hour:02d}:{minute:02d} {tz_label}  (= {hour:02d}:{minute:02d} UTC)",
-        f"  Lookback:   {lookback_days} days",
-        f"  Format:     {'+'.join(fmt)}",
-        f"  Email:      {'Yes' + (' → custom: ' + ','.join(custom_recipients) if custom_recipients else ' (default)') if send_email else 'No'}",
+        f"  {t('sum_time')}:       {local_hour:02d}:{minute:02d} {tz_label}  (= {hour:02d}:{minute:02d} UTC)",
+        f"  {t('sum_lookback')}:   {lookback_days} {t('sum_days')}",
+        f"  {t('sum_format')}:     {'+'.join(fmt)}",
+        f"  {t('sum_email')}:      {_email_val}",
     ]
     if not _wizard_confirm(summary):
         return

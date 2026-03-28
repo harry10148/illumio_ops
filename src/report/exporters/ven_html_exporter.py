@@ -9,9 +9,17 @@ import os
 import logging
 import pandas as pd
 
-from .report_i18n import make_i18n_js, lang_btn_html
+from .report_i18n import make_i18n_js, lang_btn_html, STRINGS as _RPT_STRINGS
 
 logger = logging.getLogger(__name__)
+
+# Auto-build column name → i18n key mapping from report_i18n STRINGS
+_COL_I18N: dict[str, str] = {}
+for _k, _v in _RPT_STRINGS.items():
+    if _k.startswith("rpt_col_"):
+        _en = _v.get("en", "")
+        if _en:
+            _COL_I18N[_en] = _k
 
 _CSS = """
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -94,7 +102,11 @@ def _df_to_html(df, status_col: str | None = None,
         return f'<p class="note" data-i18n="{no_data_key}">— No records —</p>'
     html = '<table><thead><tr>'
     for col in df.columns:
-        html += f'<th>{col}</th>'
+        i18n_key = _COL_I18N.get(col)
+        if i18n_key:
+            html += f'<th data-i18n="{i18n_key}">{col}</th>'
+        else:
+            html += f'<th>{col}</th>'
     html += '</tr></thead><tbody>'
     for _, row in df.iterrows():
         html += '<tr>'

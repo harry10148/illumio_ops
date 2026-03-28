@@ -23,6 +23,8 @@ import os
 import pandas as pd
 from dataclasses import dataclass, field
 
+from src.i18n import t
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,17 +60,17 @@ class VenStatusGenerator:
         if not self.api:
             raise RuntimeError("api_client required for VEN status report")
 
-        print("[VEN Report] Fetching managed workloads from PCE…")
+        print(t("rpt_ven_fetching"))
         workloads = self.api.fetch_managed_workloads()
 
         if not workloads:
-            print("[VEN Report] ⚠ No managed workloads returned.")
+            print(t("rpt_ven_no_data"))
             return VenStatusResult(record_count=0)
 
-        print(f"[VEN Report] {len(workloads):,} VENs found — analyzing…")
+        print(t("rpt_ven_found", count=f"{len(workloads):,}"))
         df = self._build_dataframe(workloads)
         results = self._analyze(df)
-        print("[VEN Report] Analysis complete.")
+        print(t("rpt_ven_analysis_done"))
 
         return VenStatusResult(
             record_count=len(df),
@@ -84,11 +86,11 @@ class VenStatusGenerator:
         if fmt in ('html', 'all'):
             path = VenHtmlExporter(result.module_results, df=result.dataframe).export(output_dir)
             paths.append(path)
-            print(f"[VEN Report] ✅ HTML  saved: {path}")
+            print(t("rpt_ven_html_saved", path=path))
         if fmt in ('csv', 'all'):
             path = CsvExporter(result.module_results, report_label='VEN_Status').export(output_dir)
             paths.append(path)
-            print(f"[VEN Report] ✅ CSV (ZIP) saved: {path}")
+            print(t("rpt_ven_csv_saved", path=path))
         return paths
 
     # ── private ──────────────────────────────────────────────────────────────

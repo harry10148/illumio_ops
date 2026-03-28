@@ -23,6 +23,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+from src.i18n import t
+
 logger = logging.getLogger(__name__)
 
 
@@ -187,24 +189,24 @@ class ReportGenerator:
             start_date = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat() + "Z"
 
         logger.info("[ReportGenerator] Starting API-source report generation")
-        print(f"[Report] Querying PCE API for traffic data ({start_date} to {end_date})…")
+        print(t("rpt_querying_traffic", start=start_date, end=end_date))
 
         records = self.api.fetch_traffic_for_report(
             start_time_str=start_date, end_time_str=end_date)
 
         if not records:
             logger.warning("[ReportGenerator] No records returned from API")
-            print("[Report] ⚠ No traffic data returned by API.")
+            print(t("rpt_no_traffic_data"))
             return ReportResult(data_source='api', record_count=0)
 
-        print(f"[Report] {len(records):,} flow records received — parsing…")
+        print(t("rpt_records_received", count=f"{len(records):,}"))
         df = self._parse_api(records)
         return self._run_pipeline(df, source='api')
 
     def generate_from_csv(self, csv_path: str) -> ReportResult:
         """Parse a CSV file from the PCE UI export and run the analysis pipeline."""
         logger.info(f"[ReportGenerator] Starting CSV-source report from: {csv_path}")
-        print(f"[Report] Parsing CSV: {csv_path}")
+        print(t("rpt_parsing_csv", path=csv_path))
         df = self._parse_csv(csv_path)
         return self._run_pipeline(df, source='csv')
 
@@ -233,12 +235,12 @@ class ReportGenerator:
         if fmt in ('html', 'all'):
             path = HtmlExporter(result.module_results).export(output_dir)
             paths.append(path)
-            print(f"[Report] ✅ HTML saved: {path}")
+            print(t("rpt_html_saved", path=path))
 
         if fmt in ('csv', 'all'):
             path = CsvExporter(result.module_results, report_label='Traffic').export(output_dir)
             paths.append(path)
-            print(f"[Report] ✅ CSV (ZIP) saved: {path}")
+            print(t("rpt_csv_saved", path=path))
 
         # Save snapshot for Web UI Dashboard directly
         try:
@@ -252,14 +254,14 @@ class ReportGenerator:
         if send_email and reporter is not None:
             html_path = next((p for p in paths if p.endswith('.html')), None)
             mod12 = result.module_results.get('mod12', {})
-            subject = f"Illumio Traffic Flow Report — {datetime.date.today()}"
+            subject = t("rpt_email_traffic_subject") + f" — {datetime.date.today()}"
             html_body = self._build_email_body(mod12)
             try:
                 reporter.send_report_email(subject, html_body, attachment_path=html_path)
-                print("[Report] ✅ Email sent")
+                print(t("rpt_email_sent"))
             except Exception as e:
                 logger.error(f"[ReportGenerator] Email send failed: {e}")
-                print(f"[Report] ⚠ Email failed: {e}")
+                print(t("rpt_email_failed", error=str(e)))
 
         return paths
 
@@ -277,16 +279,16 @@ class ReportGenerator:
 
         issues = validate(df)
         if issues:
-            print(f"[Report] ⚠ Schema warnings ({len(issues)}) — auto-coercing…")
+            print(t("rpt_schema_warnings", count=len(issues)))
             df = coerce(df)
 
         record_count = len(df)
-        print(f"[Report] Running analysis on {record_count:,} flows…")
+        print(t("rpt_running_analysis", count=f"{record_count:,}"))
 
         # Rules engine
         engine = RulesEngine(self._report_cfg, config_dir=self._config_dir)
         findings = engine.evaluate(df)
-        print(f"[Report] Rules engine: {len(findings)} findings")
+        print(t("rpt_rules_findings", count=len(findings)))
 
         # 15 modules
         results = self._run_modules(df, findings)
@@ -362,7 +364,7 @@ class ReportGenerator:
 
         # Module 12 last (depends on all others)
         results['mod12'] = executive_summary(results)
-        print(f"[Report] All 15 modules complete             ")
+        print(t("rpt_modules_complete") + "             ")
         return results
 
     # ── private — parsers ────────────────────────────────────────────────────
@@ -431,21 +433,21 @@ class ReportGenerator:
 <div style="max-width:700px;margin:0 auto;padding:16px">
   <div style="border-radius:10px;overflow:hidden;border:1px solid #325158">
     <div style="background:#1A2C32;border-left:4px solid #FF5500;padding:18px 20px;color:#fff">
-      <div style="font-size:20px;font-weight:700;margin-bottom:4px">Illumio Traffic Flow Report</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:4px">{t("rpt_email_traffic_subject")}</div>
       <div style="font-size:12px;color:#989A9B">Generated: {mod12.get('generated_at','')}</div>
     </div>
     <div style="background:#fff;padding:20px">
-      <h3 style="color:#1A2C32;font-size:13px;font-weight:600;margin:0 0 8px;border-bottom:2px solid #FF5500;padding-bottom:5px">Key Metrics</h3>
+      <h3 style="color:#1A2C32;font-size:13px;font-weight:600;margin:0 0 8px;border-bottom:2px solid #FF5500;padding-bottom:5px">{t("rpt_email_key_metrics")}</h3>
       <table border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:20px">
         {kpi_rows}
       </table>
-      <h3 style="color:#1A2C32;font-size:13px;font-weight:600;margin:0 0 8px;border-bottom:2px solid #FF5500;padding-bottom:5px">Key Findings</h3>
+      <h3 style="color:#1A2C32;font-size:13px;font-weight:600;margin:0 0 8px;border-bottom:2px solid #FF5500;padding-bottom:5px">{t("rpt_email_key_findings")}</h3>
       <table border="0" cellpadding="0" cellspacing="3" style="border-collapse:separate;border-spacing:0 3px;width:100%">
-        {finding_rows or '<tr><td colspan="3" style="padding:8px;color:#989A9B">No findings.</td></tr>'}
+        {finding_rows or f'<tr><td colspan="3" style="padding:8px;color:#989A9B">{t("rpt_email_no_findings")}</td></tr>'}
       </table>
     </div>
     <div style="background:#F7F4EE;padding:12px 20px;border-top:1px solid #E3D8C5;text-align:center;color:#989A9B;font-size:11px">
-      Full report attached as HTML file. &middot; Illumio PCE Monitor
+      {t("rpt_email_footer")}
     </div>
   </div>
 </div>

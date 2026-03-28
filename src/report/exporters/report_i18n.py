@@ -232,12 +232,43 @@ STRINGS: dict[str, dict[str, str]] = {
     "rpt_au_sec_users":     {"en": "2 · User Activity & Authentication", "zh_TW": "2 · 使用者活動與認證"},
     "rpt_au_sec_policy":    {"en": "3 · Policy Modifications",           "zh_TW": "3 · 策略修改"},
     "rpt_au_top_events":    {"en": "Top Event Types",                    "zh_TW": "主要事件類型"},
+    "rpt_au_severity_dist": {"en": "Severity Distribution",              "zh_TW": "嚴重程度分佈"},
     "rpt_au_total_health":  {"en": "Total Health Events:",               "zh_TW": "系統健康事件總數："},
     "rpt_au_summary_type":  {"en": "Summary by Event Type",              "zh_TW": "依事件類型摘要"},
     "rpt_au_recent":        {"en": "Recent Events (up to 50)",           "zh_TW": "最近事件（最多 50 筆）"},
+    "rpt_au_severity_breakdown": {"en": "Severity Breakdown",            "zh_TW": "嚴重程度細分"},
+    "rpt_au_security_concerns":  {"en": "Security Concerns:",            "zh_TW": "安全疑慮："},
+    "rpt_au_connectivity_issues":{"en": "Agent Connectivity:",           "zh_TW": "Agent 連線："},
+    "rpt_au_connectivity_title": {"en": "Agent Connectivity Events",     "zh_TW": "Agent 連線事件"},
+    "rpt_au_sec_concern_title":  {"en": "⚠ Security Concern Events",     "zh_TW": "⚠ 安全疑慮事件"},
+    "rpt_au_sec_concern_desc": {
+        "en": "agent.tampering, agent.suspend, and agent.clone_detected events may indicate compromised workloads or unauthorized changes. Investigate immediately.",
+        "zh_TW": "agent.tampering、agent.suspend 及 agent.clone_detected 事件可能表示工作負載遭入侵或未經授權的變更，請立即調查。",
+    },
+    "rpt_au_bp_health": {
+        "en": "<b>Illumio Best Practice:</b> Monitor system_health events for severity changes (Warning → Error → Fatal). Investigate agent.tampering and agent.suspend events immediately — unintended suspensions or firewall tampering may indicate workload compromise. Track agent_missed_heartbeats_check (3+ missed = 15 min) and agent_offline_check (12 missed = removed from policy).",
+        "zh_TW": "<b>Illumio 最佳實踐：</b>監控 system_health 事件的嚴重程度變化（Warning → Error → Fatal）。立即調查 agent.tampering 和 agent.suspend 事件 — 非預期的暫停或防火牆篡改可能代表工作負載遭到入侵。追蹤 agent_missed_heartbeats_check（3 次以上未回應 = 15 分鐘）和 agent_offline_check（12 次未回應 = 從策略中移除）。",
+    },
     "rpt_au_total_user":    {"en": "Total User Events:",                 "zh_TW": "使用者事件總數："},
     "rpt_au_failed_logins": {"en": "Failed Logins:",                     "zh_TW": "登入失敗次數："},
+    "rpt_au_per_user":      {"en": "Activity by User",                   "zh_TW": "使用者活動統計"},
+    "rpt_au_bp_users": {
+        "en": "<b>Illumio Best Practice:</b> Monitor login failures for patterns indicating brute-force or credential stuffing attacks. Investigate repeated failures from the same user or sudden spikes in authentication events.",
+        "zh_TW": "<b>Illumio 最佳實踐：</b>監控登入失敗的模式以偵測暴力破解或憑證填充攻擊。調查同一使用者的重複失敗或認證事件的突然激增。",
+    },
     "rpt_au_total_policy":  {"en": "Total Policy Events:",               "zh_TW": "策略事件總數："},
+    "rpt_au_provisions":    {"en": "Provisions:",                        "zh_TW": "策略部署："},
+    "rpt_au_rule_changes":  {"en": "Rule Changes:",                      "zh_TW": "規則變更："},
+    "rpt_au_provision_title":{"en": "Policy Provision Events",           "zh_TW": "策略部署事件"},
+    "rpt_au_provision_desc": {
+        "en": "Policy provisions push draft changes to active enforcement. Review for unintended scope or excessive workload impact.",
+        "zh_TW": "策略部署將草稿變更推送至執行中的策略。請檢視是否有非預期的範圍或過大的工作負載影響。",
+    },
+    "rpt_au_per_user_policy":{"en": "Changes by User",                   "zh_TW": "使用者變更統計"},
+    "rpt_au_bp_policy": {
+        "en": "<b>Illumio Best Practice:</b> Review rule_set and sec_rule changes for overly broad scopes (null HREF = All Applications/Environments/Locations). When sec_policy.create (provision) events occur, check workloads_affected — a high number may indicate unintended policy impact. Monitor sec_rule.delete events to detect unauthorized policy weakening.",
+        "zh_TW": "<b>Illumio 最佳實踐：</b>審查 rule_set 和 sec_rule 變更是否範圍過大（null HREF = 所有應用程式/環境/位置）。當 sec_policy.create（部署）事件發生時，請檢查 workloads_affected — 數量過高可能表示非預期的策略影響。監控 sec_rule.delete 事件以偵測未經授權的策略弱化。",
+    },
     "rpt_au_footer":        {"en": "Illumio PCE Monitor — Audit Report", "zh_TW": "Illumio PCE Monitor — 稽核報表"},
 
     # ── VEN report ───────────────────────────────────────────────────────────
@@ -264,6 +295,143 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Illumio PCE Monitor — VEN Status Report",
         "zh_TW": "Illumio PCE Monitor — VEN 狀態報表",
     },
+
+    # ── Column header translations (used by _df_to_html) ──────────────────────
+    "rpt_col_port":               {"en": "Port",                "zh_TW": "通訊埠"},
+    "rpt_col_protocol":           {"en": "Protocol",            "zh_TW": "協定"},
+    "rpt_col_proto":              {"en": "Proto",               "zh_TW": "協定"},
+    "rpt_col_connections":        {"en": "Connections",         "zh_TW": "連線數"},
+    "rpt_col_flow_count":         {"en": "Flow Count",          "zh_TW": "流量筆數"},
+    "rpt_col_flows":              {"en": "Flows",               "zh_TW": "流量筆數"},
+    "rpt_col_decision":           {"en": "Decision",            "zh_TW": "策略判定"},
+    "rpt_col_risk_level":         {"en": "Risk Level",          "zh_TW": "風險等級"},
+    "rpt_col_service":            {"en": "Service",             "zh_TW": "服務"},
+    "rpt_col_services":           {"en": "Services",            "zh_TW": "服務"},
+    "rpt_col_control":            {"en": "Control",             "zh_TW": "管控狀態"},
+    "rpt_col_total_flows":        {"en": "Total Flows",         "zh_TW": "總流量"},
+    "rpt_col_allowed":            {"en": "Allowed",             "zh_TW": "允許"},
+    "rpt_col_blocked":            {"en": "Blocked",             "zh_TW": "阻斷"},
+    "rpt_col_potentially_blocked": {"en": "Potentially Blocked", "zh_TW": "潛在阻斷"},
+    "rpt_col_pct_of_total":       {"en": "% of Total",          "zh_TW": "佔比 %"},
+    "rpt_col_inbound":            {"en": "Inbound",             "zh_TW": "入站"},
+    "rpt_col_outbound":           {"en": "Outbound",            "zh_TW": "出站"},
+    "rpt_col_coverage_pct":       {"en": "Coverage %",          "zh_TW": "覆蓋率 %"},
+    "rpt_col_gap_pct":            {"en": "Gap %",               "zh_TW": "缺口 %"},
+    "rpt_col_category":           {"en": "Category",            "zh_TW": "分類"},
+    "rpt_col_recommendation":     {"en": "Recommendation",      "zh_TW": "建議"},
+    "rpt_col_flow":               {"en": "Flow",                "zh_TW": "流量"},
+    "rpt_col_flow_app":           {"en": "Flow (src_app→dst_app)", "zh_TW": "流量 (來源→目標應用)"},
+    "rpt_col_unique_ports":       {"en": "Unique Ports",        "zh_TW": "不重複通訊埠"},
+    "rpt_col_unique_dst_hosts":   {"en": "Unique Dst Hosts",    "zh_TW": "不重複目標主機"},
+    "rpt_col_unique_src_ips":     {"en": "Unique Src IPs",      "zh_TW": "不重複來源 IP"},
+    "rpt_col_unique_dst_ips":     {"en": "Unique Dst IPs",      "zh_TW": "不重複目標 IP"},
+    "rpt_col_unique_src":         {"en": "Unique Src",          "zh_TW": "不重複來源"},
+    "rpt_col_unique_dst":         {"en": "Unique Dst",          "zh_TW": "不重複目標"},
+    "rpt_col_unique_destinations": {"en": "Unique Destinations", "zh_TW": "不重複目標數"},
+    "rpt_col_unique_sources":     {"en": "Unique Sources",      "zh_TW": "不重複來源數"},
+    "rpt_col_unique_risk_ports":  {"en": "Unique Risk Ports",   "zh_TW": "不重複風險通訊埠"},
+    "rpt_col_unique_source_apps": {"en": "Unique Source Apps",  "zh_TW": "不重複來源應用"},
+    "rpt_col_unique_unmanaged_src": {"en": "Unique Unmanaged Src", "zh_TW": "不重複非受管來源"},
+    "rpt_col_unique_unmanaged_sources": {"en": "Unique Unmanaged Sources", "zh_TW": "不重複非受管來源"},
+    "rpt_col_destination_ip":     {"en": "Destination IP",      "zh_TW": "目標 IP"},
+    "rpt_col_destination_app":    {"en": "Destination App",     "zh_TW": "目標應用"},
+    "rpt_col_destination":        {"en": "Destination",         "zh_TW": "目標"},
+    "rpt_col_target_ip":          {"en": "Target IP",           "zh_TW": "目標 IP"},
+    "rpt_col_exposed_ports":      {"en": "Exposed Ports",       "zh_TW": "暴露通訊埠"},
+    "rpt_col_exposed_services":   {"en": "Exposed Services",    "zh_TW": "暴露服務"},
+    "rpt_col_allowed_flows":      {"en": "Allowed Flows",       "zh_TW": "允許流量"},
+    "rpt_col_uncovered_flows":    {"en": "Uncovered Flows",     "zh_TW": "未覆蓋流量"},
+    "rpt_col_source_ip":          {"en": "Source IP",           "zh_TW": "來源 IP"},
+    "rpt_col_src_ip":             {"en": "Src IP",              "zh_TW": "來源 IP"},
+    "rpt_col_dst_ip":             {"en": "Dst IP",              "zh_TW": "目標 IP"},
+    "rpt_col_src_host":           {"en": "Src Host",            "zh_TW": "來源主機"},
+    "rpt_col_dst_host":           {"en": "Dst Host",            "zh_TW": "目標主機"},
+    "rpt_col_hostname":           {"en": "Hostname",            "zh_TW": "主機名稱"},
+    "rpt_col_host_pair":          {"en": "Host Pair",           "zh_TW": "主機配對"},
+    "rpt_col_user_name":          {"en": "User Name",           "zh_TW": "使用者名稱"},
+    "rpt_col_process":            {"en": "Process",             "zh_TW": "程序"},
+    "rpt_col_bytes":              {"en": "Bytes",               "zh_TW": "位元組"},
+    "rpt_col_bytes_total":        {"en": "Bytes Total",         "zh_TW": "位元組總量"},
+    "rpt_col_total_bytes":        {"en": "Total Bytes",         "zh_TW": "總位元組"},
+    "rpt_col_bytes_conn":         {"en": "Bytes/Conn",          "zh_TW": "位元組/連線"},
+    "rpt_col_bandwidth_mbps":     {"en": "Bandwidth (Mbps)",    "zh_TW": "頻寬 (Mbps)"},
+    "rpt_col_source_app":         {"en": "Source App",          "zh_TW": "來源應用"},
+    "rpt_col_source_env":         {"en": "Source Env",          "zh_TW": "來源環境"},
+    "rpt_col_enforcement_mode":   {"en": "Enforcement Mode",    "zh_TW": "執行模式"},
+    "rpt_col_decision_types":     {"en": "Decision Types",      "zh_TW": "判定類型"},
+    "rpt_col_dst_apps":           {"en": "Dst Apps",            "zh_TW": "目標應用"},
+    "rpt_col_unmanaged_source_ip": {"en": "Unmanaged Source IP", "zh_TW": "非受管來源 IP"},
+    "rpt_col_unmanaged_dst_ip":   {"en": "Unmanaged Dst IP",    "zh_TW": "非受管目標 IP"},
+    "rpt_col_unmanaged_source":   {"en": "Unmanaged Source",    "zh_TW": "非受管來源"},
+    "rpt_col_managed_dest_ip":    {"en": "Managed Destination IP", "zh_TW": "受管目標 IP"},
+    "rpt_col_conn_from_unmanaged": {"en": "Connections from Unmanaged Src", "zh_TW": "來自非受管來源連線數"},
+    "rpt_col_event_type":         {"en": "Event Type",          "zh_TW": "事件類型"},
+    "rpt_col_count":              {"en": "Count",               "zh_TW": "數量"},
+
+    # ── Dynamic column headers (cross-label matrix, traffic distribution) ─────
+    "rpt_col_src_env":            {"en": "Src Env",             "zh_TW": "來源環境"},
+    "rpt_col_dst_env":            {"en": "Dst Env",             "zh_TW": "目標環境"},
+    "rpt_col_src_app":            {"en": "Src App",             "zh_TW": "來源應用"},
+    "rpt_col_dst_app":            {"en": "Dst App",             "zh_TW": "目標應用"},
+    "rpt_col_src_role":           {"en": "Src Role",            "zh_TW": "來源角色"},
+    "rpt_col_dst_role":           {"en": "Dst Role",            "zh_TW": "目標角色"},
+    "rpt_col_src_loc":            {"en": "Src Loc",             "zh_TW": "來源位置"},
+    "rpt_col_dst_loc":            {"en": "Dst Loc",             "zh_TW": "目標位置"},
+
+    # ── Module subtitles missing data-i18n ────────────────────────────────────
+    # Module 2 (Policy Decisions)
+    "rpt_tr_port_coverage":       {"en": "Per-Port Coverage",                       "zh_TW": "各通訊埠覆蓋率"},
+    "rpt_tr_top_inbound_ports":   {"en": "Top Inbound Ports",                      "zh_TW": "主要入站通訊埠"},
+    "rpt_tr_top_outbound_ports":  {"en": "Top Outbound Ports",                     "zh_TW": "主要出站通訊埠"},
+    # Module 3 (Uncovered Flows)
+    "rpt_tr_overall_coverage":    {"en": "Overall Coverage",                        "zh_TW": "整體覆蓋率"},
+    "rpt_tr_inbound_coverage":    {"en": "Inbound Coverage",                        "zh_TW": "入站覆蓋率"},
+    "rpt_tr_outbound_coverage":   {"en": "Outbound Coverage",                       "zh_TW": "出站覆蓋率"},
+    # Module 7 (Cross-Label Matrix)
+    "rpt_tr_same_value":          {"en": "Same-value:",                             "zh_TW": "同值："},
+    "rpt_tr_cross_value":         {"en": "Cross-value:",                            "zh_TW": "跨值："},
+    # Module 8 (Unmanaged Hosts)
+    "rpt_tr_unmanaged_flow_stat": {"en": "Unmanaged Flows",                         "zh_TW": "非受管流量"},
+    "rpt_tr_unique_unmanaged_src": {"en": "Unique Unmanaged Src",                   "zh_TW": "不重複非受管來源"},
+    "rpt_tr_unique_unmanaged_dst": {"en": "Unique Unmanaged Dst",                   "zh_TW": "不重複非受管目標"},
+    "rpt_tr_managed_apps_unmanaged": {"en": "Managed Apps Receiving Unmanaged Traffic", "zh_TW": "接收非受管流量的受管應用"},
+    "rpt_tr_exposed_ports_proto": {"en": "Exposed Ports / Protocols",               "zh_TW": "暴露通訊埠 / 協定"},
+    "rpt_tr_unmanaged_src_port":  {"en": "Unmanaged Source × Port Detail",          "zh_TW": "非受管來源 × 通訊埠明細"},
+    "rpt_tr_managed_targeted":    {"en": "Managed Hosts Targeted by Unmanaged Sources", "zh_TW": "被非受管來源存取的受管主機"},
+    # Module 11 (Bandwidth)
+    "rpt_tr_p95_bw":              {"en": "P95 Bandwidth",                           "zh_TW": "P95 頻寬"},
+    # Module 13 (Enforcement Readiness)
+    "rpt_tr_nav_readiness":       {"en": "13 Enforcement Readiness",                "zh_TW": "13 執行就緒度"},
+    "rpt_tr_sec_readiness":       {"en": "13 · Enforcement Readiness",              "zh_TW": "13 · 執行就緒度"},
+    "rpt_tr_readiness_score":     {"en": "Enforcement Readiness Score:",             "zh_TW": "執行就緒度分數："},
+    "rpt_tr_score_breakdown":     {"en": "Score Breakdown by Factor",               "zh_TW": "各因素分數明細"},
+    "rpt_tr_remediation_rec":     {"en": "Remediation Recommendations",             "zh_TW": "改善建議"},
+    # Module 14 (Infrastructure Scoring)
+    "rpt_tr_nav_infrastructure":  {"en": "14 Infrastructure Scoring",               "zh_TW": "14 基礎架構評分"},
+    "rpt_tr_sec_infrastructure":  {"en": "14 · Infrastructure Scoring",             "zh_TW": "14 · 基礎架構評分"},
+    "rpt_tr_apps_analysed":       {"en": "Applications analysed:",                   "zh_TW": "分析應用程式數："},
+    "rpt_tr_comm_edges":          {"en": "Communication edges:",                     "zh_TW": "通訊連結數："},
+    "rpt_tr_role_distribution":   {"en": "Role Distribution",                        "zh_TW": "角色分佈"},
+    "rpt_tr_hub_apps":            {"en": "Hub Applications (High Blast Radius)",     "zh_TW": "樞紐應用程式（高爆炸半徑）"},
+    "rpt_tr_top_apps_infra":      {"en": "Top Applications by Infrastructure Score", "zh_TW": "基礎架構評分最高應用程式"},
+    "rpt_tr_top_comm_paths":      {"en": "Top Communication Paths (by Volume)",      "zh_TW": "最大通訊路徑（依流量）"},
+    # Module 15 (Lateral Movement)
+    "rpt_tr_nav_lateral":         {"en": "15 Lateral Movement",                      "zh_TW": "15 橫向移動"},
+    "rpt_tr_sec_lateral":         {"en": "15 · Lateral Movement",                    "zh_TW": "15 · 橫向移動"},
+    "rpt_tr_lateral_flows":       {"en": "Lateral movement port flows:",             "zh_TW": "橫向移動通訊埠流量："},
+    "rpt_tr_lateral_pct":         {"en": "of all flows",                             "zh_TW": "佔總流量"},
+    "rpt_tr_lateral_by_service":  {"en": "Lateral Port Activity by Service",         "zh_TW": "各服務橫向通訊埠活動"},
+    "rpt_tr_fan_out":             {"en": "Fan-out Sources (Potential Scanner / Worm)", "zh_TW": "扇出來源（疑似掃描器/蠕蟲）"},
+    "rpt_tr_allowed_lateral":     {"en": "Explicitly Allowed Lateral Flows (Highest Risk)", "zh_TW": "明確允許的橫向流量（最高風險）"},
+    "rpt_tr_top_risk_sources":    {"en": "Top High-Risk Sources",                    "zh_TW": "最高風險來源"},
+    "rpt_tr_app_chains":          {"en": "Lateral Movement App Chains (BFS Paths)",  "zh_TW": "橫向移動應用鏈（BFS 路徑）"},
+
+    # ── Email template strings ────────────────────────────────────────────────
+    "rpt_email_traffic_subject":  {"en": "Illumio Traffic Flow Report",              "zh_TW": "Illumio 流量分析報表"},
+    "rpt_email_audit_subject":    {"en": "Illumio Audit & System Events Report",     "zh_TW": "Illumio 稽核與系統事件報表"},
+    "rpt_email_ven_subject":      {"en": "Illumio VEN Status Report",                "zh_TW": "Illumio VEN 狀態報表"},
+    "rpt_email_no_findings":      {"en": "No findings.",                             "zh_TW": "無發現項目。"},
+    "rpt_email_footer":           {"en": "Full report attached as HTML file. · Illumio PCE Monitor", "zh_TW": "完整報表已附加為 HTML 檔案。· Illumio PCE Monitor"},
 }
 
 
@@ -278,6 +446,10 @@ def make_i18n_js() -> str:
     document.querySelectorAll('[data-i18n]').forEach(function(el) {{
       var k = el.getAttribute('data-i18n');
       if (_T[k] && _T[k][_lang]) el.textContent = _T[k][_lang];
+    }});
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el) {{
+      var k = el.getAttribute('data-i18n-html');
+      if (_T[k] && _T[k][_lang]) el.innerHTML = _T[k][_lang];
     }});
     var btn = document.getElementById('_langBtn');
     if (btn) btn.textContent = _lang === 'zh_TW' ? 'EN' : '中文';

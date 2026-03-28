@@ -9,6 +9,8 @@ import pandas as pd
 from dataclasses import dataclass, field
 from typing import Optional
 
+from src.i18n import t
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -24,7 +26,6 @@ class AuditGenerator:
         self.cm = config_manager
         self.api = api_client
         self._config_dir = config_dir
-        self._report_cfg = self._load_report_config()
 
     def generate_from_api(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> AuditReportResult:
         if not self.api:
@@ -35,11 +36,11 @@ class AuditGenerator:
         if not start_date:
             start_date = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat() + "Z"
 
-        print(f"[Audit Report] Querying PCE API for events ({start_date} to {end_date})…")
+        print(t("rpt_audit_querying", start=start_date, end=end_date))
         events = self.api.fetch_events(start_time_str=start_date, end_time_str=end_date)
         
         if not events:
-            print("[Audit Report] ⚠ No events returned by API.")
+            print(t("rpt_audit_no_events"))
             return AuditReportResult(record_count=0)
 
         df = pd.DataFrame(events)
@@ -51,7 +52,7 @@ class AuditGenerator:
                     return u.get('username', u.get('name', u.get('href', str(v))))
                 return str(v) if v is not None else ''
             df['created_by'] = df['created_by'].apply(_extract_user)
-        print(f"[Audit Report] {len(df):,} event records received — analyzing…")
+        print(t("rpt_audit_records", count=f"{len(df):,}"))
         
         return self._run_pipeline(df, start_date, end_date)
 
@@ -77,7 +78,7 @@ class AuditGenerator:
                 results[mod_id] = {'error': str(e)}
 
         results['mod00'] = audit_executive_summary(results, df)
-        print(f"[Audit Report] All modules complete             ")
+        print(t("rpt_audit_complete") + "             ")
 
         return AuditReportResult(
             record_count=len(df),
@@ -96,17 +97,13 @@ class AuditGenerator:
                 date_range=result.date_range
             ).export(output_dir)
             paths.append(path)
-            print(f"[Audit Report] ✅ HTML  saved: {path}")
+            print(t("rpt_audit_html_saved", path=path))
         if fmt in ('csv', 'all'):
-            path = CsvExporter(result.module_results, report_label='Audit').export(output_dir)
+            # Include full raw event data alongside module results
+            export_data = dict(result.module_results)
+            if result.dataframe is not None and not result.dataframe.empty:
+                export_data['raw_events'] = result.dataframe
+            path = CsvExporter(export_data, report_label='Audit').export(output_dir)
             paths.append(path)
-            print(f"[Audit Report] ✅ CSV (ZIP) saved: {path}")
+            print(t("rpt_audit_csv_saved", path=path))
         return paths
-
-    def _load_report_config(self) -> dict:
-        import yaml
-        path = os.path.join(self._config_dir, 'report_config.yaml')
-        if os.path.exists(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                return yaml.safe_load(f) or {}
-        return {}

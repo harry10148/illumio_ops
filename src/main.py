@@ -43,8 +43,8 @@ def run_daemon_loop(interval_minutes: int):
 
     cm = ConfigManager()
     logger.info(f"Starting daemon loop (interval={interval_minutes}m)")
-    print(f"Illumio PCE Monitor — daemon mode (interval={interval_minutes}m)")
-    print("Press Ctrl+C or send SIGTERM to stop.")
+    print(t("daemon_start", interval=interval_minutes))
+    print(t("daemon_stop_hint"))
 
     from src.report_scheduler import ReportScheduler
 
@@ -79,7 +79,7 @@ def run_daemon_loop(interval_minutes: int):
         _shutdown_event.wait(timeout=60)
 
     logger.info("Daemon loop stopped.")
-    print("\nDaemon stopped.")
+    print(f"\n{t('daemon_stopped')}")
 
 
 def view_logs(log_file):
@@ -89,7 +89,7 @@ def view_logs(log_file):
     print("")
     try:
         if not os.path.exists(log_file):
-            print(f"Log file not found: {log_file}")
+            print(t("log_not_found", path=log_file))
         else:
             with open(log_file, "r", encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
@@ -97,7 +97,7 @@ def view_logs(log_file):
                 for line in lines[-20:]:
                     print(line.strip())
     except Exception as e:
-        print(f"Error reading logs: {e}")
+        print(t("log_read_error", error=str(e)))
     input(
         f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
     )
@@ -222,15 +222,13 @@ def main_menu():
             from src.gui import launch_gui, HAS_FLASK
 
             if not HAS_FLASK:
-                print(
-                    f"{Colors.FAIL}Web GUI not available: Flask is not installed.{Colors.ENDC}"
-                )
-                print(f"  Install it with: pip install flask")
+                print(f"{Colors.FAIL}{t('flask_not_available')}{Colors.ENDC}")
+                print(t("flask_install_hint"))
                 input(
                     f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
                 )
             else:
-                port_str = safe_input("Web GUI Port (default 5001): ", str)
+                port_str = safe_input(t("gui_port_prompt"), str)
                 try:
                     port = int(port_str) if port_str and port_str.strip() else 5001
                 except (ValueError, TypeError):
@@ -257,8 +255,8 @@ def _run_report_menu(cm):
     try:
         import pandas  # noqa: F401
     except ImportError:
-        print(f"{Colors.FAIL}Report feature requires: pip install pandas pyyaml{Colors.ENDC}")
-        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+        print(f"{Colors.FAIL}{t('report_requires_pandas')}{Colors.ENDC}")
+        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
         return
 
     from src.report.report_generator import ReportGenerator
@@ -274,15 +272,15 @@ def _run_report_menu(cm):
 
     while True:
         draw_panel(
-            f"{Colors.CYAN}[Report] Traffic Report Generator{Colors.ENDC}",
+            f"{Colors.CYAN}{t('report_panel_title')}{Colors.ENDC}",
             [
-                "1. Generate from API (fetch from PCE)",
-                "2. Generate from CSV file",
-                "3. Report Settings",
-                "0. Back",
+                t("report_menu_1"),
+                t("report_menu_2"),
+                t("report_menu_3"),
+                t("nav_back"),
             ]
         )
-        sel = safe_input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Select [0-3]: ", int, range(0, 4))
+        sel = safe_input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('report_select_prompt')}", int, range(0, 4))
 
         if sel == 0:
             break
@@ -291,10 +289,10 @@ def _run_report_menu(cm):
             fmt = cm.config.get('report', {}).get('format', ['html'])
             if isinstance(fmt, list):
                 fmt = fmt[0] if fmt else 'html'
-            fmt_str = safe_input(f"Output format [html/csv/all] (default: {fmt}): ", str) or fmt
+            fmt_str = safe_input(t("report_format_prompt", fmt=fmt), str) or fmt
             if fmt_str not in ('html', 'csv', 'all'):
                 fmt_str = 'html'
-            send_email = safe_input("Send report by email? [y/N]: ", str).strip().lower() == 'y'
+            send_email = safe_input(t("report_email_prompt"), str).strip().lower() == 'y'
 
             # Date range for API source
             api_start_date = None
@@ -303,15 +301,15 @@ def _run_report_menu(cm):
                 now = _dt.datetime.utcnow()
                 default_end = now.strftime('%Y-%m-%d')
                 default_start = (now - _dt.timedelta(days=7)).strftime('%Y-%m-%d')
-                print(f"\n{Colors.CYAN}[Report] Date Range (YYYY-MM-DD, UTC){Colors.ENDC}")
-                s = safe_input(f"  Start date (default: {default_start}): ", str) or default_start
-                e = safe_input(f"  End date   (default: {default_end}): ", str) or default_end
+                print(f"\n{Colors.CYAN}{t('report_date_range_title')}{Colors.ENDC}")
+                s = safe_input(f"  {t('report_start_date', date=default_start)}", str) or default_start
+                e = safe_input(f"  {t('report_end_date', date=default_end)}", str) or default_end
                 try:
                     api_start_date = _dt.datetime.strptime(s.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT00:00:00Z')
                     api_end_date   = _dt.datetime.strptime(e.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT23:59:59Z')
                 except ValueError:
-                    print(f"{Colors.FAIL}Invalid date format. Please use YYYY-MM-DD.{Colors.ENDC}")
-                    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+                    print(f"{Colors.FAIL}{t('report_invalid_date')}{Colors.ENDC}")
+                    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
                     continue
 
             try:
@@ -322,34 +320,34 @@ def _run_report_menu(cm):
                 if sel == 1:
                     result = gen.generate_from_api(start_date=api_start_date, end_date=api_end_date)
                 else:
-                    csv_path = safe_input("CSV file path: ", str).strip()
+                    csv_path = safe_input(t("csv_path_prompt"), str).strip()
                     if not csv_path or not os.path.exists(csv_path):
-                        print(f"{Colors.FAIL}File not found: {csv_path}{Colors.ENDC}")
+                        print(f"{Colors.FAIL}{t('csv_not_found', path=csv_path)}{Colors.ENDC}")
                         continue
                     result = gen.generate_from_csv(csv_path)
 
                 if result.record_count == 0:
-                    print(f"{Colors.WARNING}No data returned — cannot generate report.{Colors.ENDC}")
+                    print(f"{Colors.WARNING}{t('report_no_data')}{Colors.ENDC}")
                 else:
                     paths = gen.export(result, fmt=fmt_str, output_dir=output_dir,
                                        send_email=send_email, reporter=reporter if send_email else None)
-                    print(f"\n{Colors.GREEN}Report files saved:{Colors.ENDC}")
+                    print(f"\n{Colors.GREEN}{t('report_files_saved')}{Colors.ENDC}")
                     for p in paths:
                         print(f"  {p}")
 
             except Exception as e:
-                print(f"{Colors.FAIL}Report generation failed: {e}{Colors.ENDC}")
+                print(f"{Colors.FAIL}{t('report_gen_failed', error=str(e))}{Colors.ENDC}")
                 logger.exception("Report generation error")
 
-            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
 
         elif sel == 3:
             report_cfg = cm.config.get('report', {})
-            print(f"\nCurrent report config:")
+            print(f"\n{t('report_current_config')}")
             for k, v in report_cfg.items():
                 print(f"  {k}: {v}")
-            print(f"\nEdit report settings in config/config.json under the 'report' key.")
-            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+            print(f"\n{t('report_edit_hint')}")
+            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
 
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
@@ -437,8 +435,8 @@ def main():
         try:
             import pandas  # noqa: F401
         except ImportError:
-            print("Report feature requires additional packages. Install with:")
-            print("  pip install pandas pyyaml")
+            print(t("report_requires_pandas"))
+            print(t("cli_pip_install_hint", pkg="pandas pyyaml"))
             sys.exit(1)
         from src.report.report_generator import ReportGenerator
         from src.api_client import ApiClient
@@ -455,17 +453,17 @@ def main():
         gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
         if args.source == 'csv':
             if not args.file:
-                print("--source csv requires --file <path>")
+                print(t("cli_source_csv_requires_file"))
                 sys.exit(1)
             result = gen.generate_from_csv(args.file)
         else:
             result = gen.generate_from_api()
         if result.record_count == 0:
-            print("No data returned — report not generated.")
+            print(t("no_data_report"))
             sys.exit(1)
         paths = gen.export(result, fmt=args.format, output_dir=output_dir,
                            send_email=args.email, reporter=reporter if args.email else None)
-        print("Generated:")
+        print(t("cli_generated"))
         for p in paths:
             print(f"  {p}")
         sys.exit(0)
@@ -475,8 +473,8 @@ def main():
         from src.gui import launch_gui, HAS_FLASK
 
         if not HAS_FLASK:
-            print("Web GUI requires Flask. Install it with:")
-            print("  pip install flask")
+            print(t("report_requires_flask"))
+            print(t("cli_pip_install_hint", pkg="flask"))
             sys.exit(1)
         cm = ConfigManager()
         launch_gui(cm, port=args.port)
@@ -491,8 +489,8 @@ def _run_audit_report_menu(cm):
     try:
         import pandas  # noqa: F401
     except ImportError:
-        print(f"{Colors.FAIL}Report feature requires: pip install pandas pyyaml{Colors.ENDC}")
-        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+        print(f"{Colors.FAIL}{t('report_requires_pandas')}{Colors.ENDC}")
+        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
         return
 
     from src.report.audit_generator import AuditGenerator
@@ -509,42 +507,42 @@ def _run_audit_report_menu(cm):
     now = _dt.datetime.utcnow()
     default_end = now.strftime('%Y-%m-%d')
     default_start = (now - _dt.timedelta(days=7)).strftime('%Y-%m-%d')
-    print(f"\n{Colors.CYAN}[Audit] Date Range (YYYY-MM-DD, UTC){Colors.ENDC}")
-    start_str = safe_input(f"  Start date (default: {default_start}): ", str) or default_start
-    end_str   = safe_input(f"  End date   (default: {default_end}): ", str) or default_end
+    print(f"\n{Colors.CYAN}{t('audit_date_range_title')}{Colors.ENDC}")
+    start_str = safe_input(f"  {t('report_start_date', date=default_start)}", str) or default_start
+    end_str   = safe_input(f"  {t('report_end_date', date=default_end)}", str) or default_end
     try:
         start_date = _dt.datetime.strptime(start_str.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT00:00:00Z')
         end_date   = _dt.datetime.strptime(end_str.strip(),   '%Y-%m-%d').strftime('%Y-%m-%dT23:59:59Z')
     except ValueError:
-        print(f"{Colors.FAIL}Invalid date format. Please use YYYY-MM-DD.{Colors.ENDC}")
-        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+        print(f"{Colors.FAIL}{t('report_invalid_date')}{Colors.ENDC}")
+        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
         return
 
-    fmt_str = safe_input("Output format [html/csv/all] (default: html): ", str) or 'html'
+    fmt_str = safe_input(t("report_format_prompt", fmt="html"), str) or 'html'
     if fmt_str not in ('html', 'csv', 'all'):
         fmt_str = 'html'
 
-    print(f"\n{Colors.CYAN}[Audit] Generating System Health & Event Report...{Colors.ENDC}")
+    print(f"\n{Colors.CYAN}{t('audit_generating')}{Colors.ENDC}")
     try:
         api = ApiClient(cm)
         gen = AuditGenerator(cm, api_client=api, config_dir=config_dir)
 
         result = gen.generate_from_api(start_date=start_date, end_date=end_date)
         if result.record_count > 0:
-            print(f"[Audit] Analysis finished. Saving to {output_dir}...")
+            print(t("audit_analysis_done", path=output_dir))
             paths = gen.export(result, fmt=fmt_str, output_dir=output_dir)
             if paths:
-                print(f"\n{Colors.GREEN}Report saved:{Colors.ENDC}")
+                print(f"\n{Colors.GREEN}{t('report_saved')}{Colors.ENDC}")
                 for p in paths:
                     print(f"  {p}")
             else:
-                print(f"{Colors.FAIL}Export failed. Please check permissions.{Colors.ENDC}")
+                print(f"{Colors.FAIL}{t('export_failed')}{Colors.ENDC}")
         else:
-            print("[Audit] No data to export.")
+            print(t("audit_no_data"))
     except Exception as e:
-        print(f"{Colors.FAIL}Error: {e}{Colors.ENDC}")
+        print(f"{Colors.FAIL}{t('error_generic', error=str(e))}{Colors.ENDC}")
 
-    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
 
 
 def _run_ven_status_menu(cm):
@@ -552,8 +550,8 @@ def _run_ven_status_menu(cm):
     try:
         import pandas  # noqa: F401
     except ImportError:
-        print(f"{Colors.FAIL}Report feature requires: pip install pandas{Colors.ENDC}")
-        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+        print(f"{Colors.FAIL}{t('report_requires_pandas')}{Colors.ENDC}")
+        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
         return
 
     from src.report.ven_status_generator import VenStatusGenerator
@@ -565,7 +563,7 @@ def _run_ven_status_menu(cm):
     if not os.path.isabs(output_dir):
         output_dir = os.path.join(ROOT_DIR, output_dir)
 
-    print(f"\n{Colors.CYAN}[VEN Report] Generating VEN Status Inventory Report...{Colors.ENDC}")
+    print(f"\n{Colors.CYAN}{t('ven_generating')}{Colors.ENDC}")
     try:
         api = ApiClient(cm)
         gen = VenStatusGenerator(cm, api_client=api)
@@ -574,21 +572,21 @@ def _run_ven_status_menu(cm):
             kpis = result.module_results.get('kpis', [])
             for kpi in kpis:
                 print(f"  {kpi['label']}: {Colors.GREEN}{kpi['value']}{Colors.ENDC}")
-            print(f"\n[VEN Report] Saving to {output_dir}...")
+            print(f"\n{t('ven_saving', path=output_dir)}")
             paths = gen.export(result, output_dir=output_dir)
             if paths:
-                print(f"\n{Colors.GREEN}Report saved:{Colors.ENDC}")
+                print(f"\n{Colors.GREEN}{t('report_saved')}{Colors.ENDC}")
                 for p in paths:
                     print(f"  {p}")
             else:
-                print(f"{Colors.FAIL}Export failed. Please check permissions.{Colors.ENDC}")
+                print(f"{Colors.FAIL}{t('export_failed')}{Colors.ENDC}")
         else:
-            print("[VEN Report] No managed workloads found.")
+            print(t("ven_no_workloads"))
     except Exception as e:
-        print(f"{Colors.FAIL}Error: {e}{Colors.ENDC}")
+        print(f"{Colors.FAIL}{t('error_generic', error=str(e))}{Colors.ENDC}")
         logger.exception("VEN status report error")
 
-    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} Press Enter to continue ")
+    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
 
 
 if __name__ == "__main__":

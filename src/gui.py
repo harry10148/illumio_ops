@@ -303,7 +303,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
         cm.load()
         if 0 <= idx < len(cm.config['rules']):
             return jsonify({"index": idx, **cm.config['rules'][idx]})
-        return jsonify({"error": "not found"}), 404
+        return jsonify({"error": t("gui_not_found")}), 404
 
     @app.route('/api/rules/<int:idx>', methods=['PUT'])
     def api_update_rule(idx):
@@ -332,7 +332,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
                     except (ValueError, TypeError): pass
             cm.save()
             return jsonify({"ok": True})
-        return jsonify({"error": "not found"}), 404
+        return jsonify({"error": t("gui_not_found")}), 404
 
     @app.route('/api/rules/<int:idx>', methods=['DELETE'])
     def api_delete_rule(idx):
@@ -460,7 +460,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
                 cm.config['settings']['dashboard_queries'].pop(idx)
                 cm.save()
                 return jsonify({"ok": True})
-        return jsonify({"error": "not found"}), 404
+        return jsonify({"error": t("gui_not_found")}), 404
 
     @app.route('/api/dashboard/snapshot', methods=['GET'])
     def api_dashboard_snapshot():
@@ -473,7 +473,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
         
         snapshot_path = os.path.join(reports_dir, 'latest_snapshot.json')
         if not os.path.exists(snapshot_path):
-            return jsonify({"ok": False, "error": "No recent snapshot found"})
+            return jsonify({"ok": False, "error": t("gui_no_snapshot")})
             
         try:
             import json
@@ -520,9 +520,9 @@ def _create_app(cm: ConfigManager) -> 'Flask':
         # Prevent path traversal
         target = os.path.realpath(os.path.join(reports_dir, filename))
         if not target.startswith(os.path.realpath(reports_dir) + os.sep):
-            return jsonify({"ok": False, "error": "Invalid filename"}), 400
+            return jsonify({"ok": False, "error": t("gui_invalid_filename")}), 400
         if not os.path.isfile(target):
-            return jsonify({"ok": False, "error": "File not found"}), 404
+            return jsonify({"ok": False, "error": t("gui_file_not_found")}), 404
         os.remove(target)
         return jsonify({"ok": True})
 
@@ -557,7 +557,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             # Can be 'api' or 'csv'
             source = d.get('source', 'api')
             if source == 'csv':
-                return jsonify({"ok": False, "error": "CSV upload via Web UI is not implemented yet."}), 400
+                return jsonify({"ok": False, "error": t("gui_csv_not_impl")}), 400
             
             start_date = d.get('start_date')
             end_date = d.get('end_date')
@@ -565,7 +565,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             result = gen.generate_from_api(start_date, end_date)
             
             if result.record_count == 0:
-                return jsonify({"ok": False, "error": "No traffic data returned by API."})
+                return jsonify({"ok": False, "error": t("gui_no_traffic_data")})
             
             fmt = d.get('format', 'all')
             output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
@@ -601,7 +601,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             result = gen.generate_from_api(start_date, end_date)
             
             if result.record_count == 0:
-                return jsonify({"ok": False, "error": "No audit tracking data returned by API."})
+                return jsonify({"ok": False, "error": t("gui_no_audit_data")})
             
             output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
             if not os.path.isabs(output_dir):
@@ -632,7 +632,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             result = gen.generate()
 
             if result.record_count == 0:
-                return jsonify({"ok": False, "error": "No managed workloads returned by API."})
+                return jsonify({"ok": False, "error": t("gui_no_ven_data")})
 
             output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
             if not os.path.isabs(output_dir):
@@ -692,7 +692,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             cm.load()
             ok = cm.update_report_schedule(schedule_id, d)
             if not ok:
-                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+                return jsonify({"ok": False, "error": t("gui_schedule_not_found")}), 404
             return jsonify({"ok": True})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 400
@@ -703,7 +703,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             cm.load()
             ok = cm.remove_report_schedule(schedule_id)
             if not ok:
-                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+                return jsonify({"ok": False, "error": t("gui_schedule_not_found")}), 404
             return jsonify({"ok": True})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 400
@@ -715,7 +715,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             schedules = cm.get_report_schedules()
             sched = next((s for s in schedules if s.get("id") == schedule_id), None)
             if not sched:
-                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+                return jsonify({"ok": False, "error": t("gui_schedule_not_found")}), 404
             new_enabled = not sched.get("enabled", False)
             cm.update_report_schedule(schedule_id, {"enabled": new_enabled})
             return jsonify({"ok": True, "enabled": new_enabled})
@@ -729,7 +729,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             schedules = cm.get_report_schedules()
             sched = next((s for s in schedules if s.get("id") == schedule_id), None)
             if not sched:
-                return jsonify({"ok": False, "error": "Schedule not found"}), 404
+                return jsonify({"ok": False, "error": t("gui_schedule_not_found")}), 404
 
             from src.report_scheduler import ReportScheduler
             from src.reporter import Reporter
@@ -963,12 +963,12 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             q_hrefs = api.check_and_create_quarantine_labels()
             target_label_href = q_hrefs.get(level)
             if not target_label_href:
-                return jsonify({"ok": False, "error": f"Failed to retrieve label for {level}"})
+                return jsonify({"ok": False, "error": t("gui_label_fetch_failed", level=level)})
 
             # 2. Fetch Workload's current labels
             wl = api.get_workload(href)
             if not wl:
-                return jsonify({"ok": False, "error": "Workload not found"})
+                return jsonify({"ok": False, "error": t("gui_workload_not_found")})
 
             # 3. Filter out existing Quarantine labels and append the new one
             current_labels = wl.get("labels", [])
@@ -980,7 +980,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             if success:
                 return jsonify({"ok": True, "level": level})
             else:
-                return jsonify({"ok": False, "error": "API failed to update workload"})
+                return jsonify({"ok": False, "error": t("gui_api_update_failed")})
         except Exception as e:
             logger.error(f"Quarantine Apply Error: {e}")
             return jsonify({"ok": False, "error": str(e)})
