@@ -25,7 +25,7 @@ mkdir -p ~/.virtualenvs
 ## 二、為新專案建立虛擬環境
 
 ```fish
-# 建立（以 illumio_monitor 為例）
+# 建立（以 illumio_ops 為例）
 python3 -m venv ~/.virtualenvs/illumio_env
 
 # 啟動
@@ -40,7 +40,7 @@ source ~/.virtualenvs/illumio_env/bin/activate.fish
 
 ```fish
 # 切換至專案目錄
-cd ~/Library/CloudStorage/OneDrive-個人/RD/illumio_monitor
+cd ~/Library/CloudStorage/OneDrive-個人/RD/illumio_ops
 
 # 依 requirements.txt 安裝
 pip install -r requirements.txt
@@ -76,7 +76,7 @@ rm -rf ~/.virtualenvs/illumio_env
 
 | 專案 | 虛擬環境名稱 |
 |:---|:---|
-| illumio_monitor | `illumio_env` |
+| illumio_ops | `illumio_env` |
 
 ---
 

@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Install/Uninstall Illumio PCE Monitor as a Windows Service using NSSM.
+    Install/Uninstall Illumio PCE Ops as a Windows Service using NSSM.
 
 .DESCRIPTION
     This script uses NSSM (Non-Sucking Service Manager) to register the
-    Illumio PCE Monitor as a Windows service with auto-start and crash recovery.
+    Illumio PCE Ops as a Windows service with auto-start and crash recovery.
 
 .PARAMETER Action
     install   - Install and start the service
@@ -39,11 +39,11 @@ param(
 )
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-$ServiceName = "IllumioMonitor"
-$DisplayName = "Illumio PCE Monitor"
+$ServiceName = "IllumioOps"
+$DisplayName = "Illumio PCE Ops"
 $Description = "Monitors Illumio PCE for events, traffic anomalies, and health."
 $ProjectRoot = Split-Path -Parent $PSScriptRoot          # deploy/ -> project root
-$EntryScript = Join-Path $ProjectRoot "illumio_monitor.py"
+$EntryScript = Join-Path $ProjectRoot "illumio_ops.py"
 $LogDir      = Join-Path $ProjectRoot "logs"
 
 # Prefer venv Python if it exists; fall back to system Python

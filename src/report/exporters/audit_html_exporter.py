@@ -138,7 +138,7 @@ class AuditHtmlExporter:
         mod00 = self._r.get('mod00', {})
         nav_html = (
             '<nav>'
-            '<div class="nav-brand">Illumio PCE Monitor</div>'
+            '<div class="nav-brand">Illumio PCE Ops</div>'
             '<a href="#summary"><span data-i18n="rpt_au_nav_summary">Executive Summary</span></a>'
             '<a href="#health"><span data-i18n="rpt_au_nav_health">1 System Health</span></a>'
             '<a href="#users"><span data-i18n="rpt_au_nav_users">2 User Activity</span></a>'
@@ -173,7 +173,7 @@ class AuditHtmlExporter:
             self._section('health', 'rpt_au_sec_health', '1 · System Health &amp; Agent', self._mod01_html()) + '\n' +
             self._section('users',  'rpt_au_sec_users',  '2 · User Activity &amp; Authentication', self._mod02_html()) + '\n' +
             self._section('policy', 'rpt_au_sec_policy', '3 · Policy Modifications', self._mod03_html()) + '\n' +
-            '<footer><span data-i18n="rpt_au_footer">Illumio PCE Monitor — Audit Report</span>'
+            '<footer><span data-i18n="rpt_au_footer">Illumio PCE Ops — Audit Report</span>'
             ' &middot; ' + today_str + '</footer>'
         )
         return (

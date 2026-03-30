@@ -42,6 +42,7 @@ FULL_EVENT_CATALOG = {
         "rule_set.create": "event_ruleset_create",
         "rule_set.update": "event_ruleset_update",
         "sec_rule.create": "event_rule_create",
+        "sec_rule.update": "event_rule_update",
         "sec_rule.delete": "event_rule_delete",
         "sec_policy.create": "event_policy_prov",
     },
@@ -96,7 +97,7 @@ def _wizard_step(step, total, title):
 
 def _wizard_confirm(summary_lines):
     title = t("wiz_review_config")
-    draw_panel(title, summary_lines, width=90)
+    draw_panel(title, summary_lines)
     prompt = t("wiz_save_rule_confirm")
     answer = (
         input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {prompt} {Colors.GREEN}❯{Colors.ENDC} ")
@@ -156,7 +157,6 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
         draw_panel(
             title,
             _menu_hints("Rules > Event"),
-            width=80,
         )
 
         sel = ""
@@ -371,6 +371,7 @@ def add_event_menu(cm: ConfigManager, edit_rule=None):
 
 def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     from src.utils import Colors, safe_input, draw_panel
+    os.system("cls" if os.name == "nt" else "clear")
 
     def should_restart_flow():
         return get_last_input_action() == "cancel"
@@ -383,7 +384,6 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
     draw_panel(
         title,
         _menu_hints("Rules > Traffic"),
-        width=80,
     )
     _wizard_step(1, 5, t("wiz_basic_setup"))
     print("")
@@ -636,6 +636,7 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
 
 def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     from src.utils import Colors, safe_input, draw_panel
+    os.system("cls" if os.name == "nt" else "clear")
 
     def should_restart_flow():
         return get_last_input_action() == "cancel"
@@ -648,7 +649,6 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
     draw_panel(
         title,
         _menu_hints("Rules > Bandwidth/Volume"),
-        width=80,
     )
     _wizard_step(1, 5, t("wiz_basic_setup"))
     print("")
@@ -892,7 +892,7 @@ def manage_rules_menu(cm: ConfigManager):
     while True:
         os.system("cls" if os.name == "nt" else "clear")
         draw_panel(
-            t("menu_manage_rules_title"), _menu_hints("Rules > Manage"), width=100
+            t("menu_manage_rules_title"), _menu_hints("Rules > Manage")
         )
         print("")
 
@@ -1047,7 +1047,7 @@ def alert_settings_menu(cm: ConfigManager):
     while True:
         os.system("cls" if os.name == "nt" else "clear")
         draw_panel(
-            t("settings_alert_title"), _menu_hints("Settings > Alerts"), width=80
+            t("settings_alert_title"), _menu_hints("Settings > Alerts")
         )
         _wizard_step(
             1,
@@ -1144,7 +1144,6 @@ def settings_menu(cm: ConfigManager):
         draw_panel(
             t("menu_settings_title", version=__version__),
             _menu_hints("Settings"),
-            width=80,
         )
         _wizard_step(
             1,
@@ -1189,8 +1188,11 @@ def settings_menu(cm: ConfigManager):
         rpt_dir = rpt_cfg.get("output_dir", "reports/")
         rpt_ret = rpt_cfg.get("retention_days", 30)
         print(t("settings_5", output_dir=rpt_dir, retention_days=rpt_ret))
+        rs_cfg = cm.config.get("rule_scheduler", {})
+        rs_status = "ON" if rs_cfg.get("enabled", False) else "OFF"
+        print(t("settings_6", status=rs_status))
         print(t("menu_return"))
-        sel = safe_input(f"\n{t('please_select')}", int, range(0, 6))
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 7))
         if sel is None:
             break
         if sel == 1:
@@ -1282,6 +1284,31 @@ def settings_menu(cm: ConfigManager):
                 rc["retention_days"] = max(0, int(new_ret))
             cm.save()
             print(f"{Colors.GREEN}{t('saved')}{Colors.ENDC}")
+        elif sel == 6:
+            rs_c = cm.config.setdefault("rule_scheduler", {})
+            print(f"\n{Colors.HEADER}╭── {Colors.BOLD}{t('rs_menu_settings')}{Colors.ENDC}")
+            enabled = rs_c.get("enabled", False)
+            interval = rs_c.get("check_interval_seconds", 300)
+            en_str = f"{Colors.GREEN}ON{Colors.ENDC}" if enabled else f"{Colors.FAIL}OFF{Colors.ENDC}"
+            print(f"{Colors.HEADER}│{Colors.ENDC} {t('rs_cfg_enabled')}: {en_str}")
+            print(f"{Colors.HEADER}│{Colors.ENDC} {t('rs_cfg_interval')}: {interval}s")
+            print(f"{Colors.HEADER}├{'─' * 40}{Colors.ENDC}")
+            print(f"{Colors.HEADER}│{Colors.ENDC} 1. {t('rs_cfg_toggle')}")
+            print(f"{Colors.HEADER}│{Colors.ENDC} 2. {t('rs_cfg_set_interval')}")
+            print(f"{Colors.HEADER}│{Colors.ENDC} 0. {t('menu_return', default='0. Back')}")
+            print(f"{Colors.HEADER}╰{'─' * 40}{Colors.ENDC}")
+            rs_sel = safe_input(f"\n{t('please_select')}", int, range(0, 3))
+            if rs_sel == 1:
+                rs_c["enabled"] = not enabled
+                cm.save()
+            elif rs_sel == 2:
+                new_int = safe_input(
+                    t("rs_cfg_interval_prompt"), int, allow_cancel=True,
+                    hint=str(interval)
+                )
+                if new_int and int(new_int) > 0:
+                    rs_c["check_interval_seconds"] = int(new_int)
+                    cm.save()
 
 
 # ─── Report Schedule Management ───────────────────────────────────────────────
@@ -1307,7 +1334,7 @@ def manage_report_schedules_menu(cm: ConfigManager):
             except Exception:
                 pass
 
-        draw_panel(t("sched_menu_title"), [], width=90)
+        draw_panel(t("sched_menu_title"), [])
 
         if not schedules:
             print(f"\n  {Colors.DARK_GRAY}{t('sched_no_schedules')}{Colors.ENDC}")
@@ -1401,7 +1428,7 @@ def _add_report_schedule_wizard(cm: ConfigManager, edit_sched: dict = None):
     is_edit = edit_sched is not None
     title = t("sched_edit") if is_edit else t("sched_add")
     os.system("cls" if os.name == "nt" else "clear")
-    draw_panel(title, [], width=80)
+    draw_panel(title, [])
 
     def _ask(prompt, default="", cast=str):
         hint = f" (default: {default})" if default != "" else ""

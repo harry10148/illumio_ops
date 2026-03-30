@@ -3,6 +3,8 @@ import sys
 import logging
 import unicodedata
 import re
+import threading
+import itertools
 from logging.handlers import RotatingFileHandler
 from src.i18n import t, get_language
 
@@ -67,11 +69,6 @@ def safe_input(
         except Exception:
             range_hint = ""
 
-    full_prompt = f"{prefix}{Colors.CYAN}[?]{Colors.ENDC} {prompt}{range_hint}"
-    if hint:
-        def_text = t("def_val_prefix", default="Default")
-        full_prompt += f" {Colors.DARK_GRAY}({def_text}: {hint}){Colors.ENDC}"
-
     shortcuts = ""
     lang = get_language()
     if allow_cancel:
@@ -88,7 +85,13 @@ def safe_input(
         else:
             shortcuts = t("cli_shortcuts_no_cancel", default="Enter=default, h=help")
 
-    full_prompt += f" {Colors.DARK_GRAY}[{shortcuts.strip()}]{Colors.ENDC}"
+    # Print shortcuts on a separate line to keep the prompt short
+    print(f"{prefix}{Colors.DARK_GRAY}  {shortcuts.strip()}{Colors.ENDC}", end="")
+
+    full_prompt = f"\n{Colors.CYAN}[?]{Colors.ENDC} {prompt}{range_hint}"
+    if hint:
+        def_text = t("def_val_prefix", default="Default")
+        full_prompt += f" {Colors.DARK_GRAY}({def_text}: {hint}){Colors.ENDC}"
     full_prompt += f" {Colors.GREEN}❯{Colors.ENDC} "
 
     while True:
@@ -128,15 +131,16 @@ def safe_input(
             if valid_range and val not in valid_range:
                 _set_last_input_action("invalid")
                 print(
-                    f"{Colors.FAIL}{t('error_out_of_range', default='Value out of range.')}{Colors.ENDC}"
+                    f"{Colors.FAIL}'{raw}' — {t('error_out_of_range', default='Value out of range.')}{range_hint}{Colors.ENDC}"
                 )
                 continue
             _set_last_input_action("value")
             return val
         except ValueError:
             _set_last_input_action("invalid")
+            expected = "number" if value_type in (int, float) else str(value_type.__name__)
             print(
-                f"{Colors.FAIL}{t('error_format', default='Invalid format.')}{Colors.ENDC}"
+                f"{Colors.FAIL}'{raw}' — {t('error_format', default='Invalid format.')} ({expected}){Colors.ENDC}"
             )
 
 
@@ -165,19 +169,27 @@ def setup_logger(
     return logger
 
 
-def format_unit(value, type="volume") -> str:
+def get_terminal_width(default: int = 80) -> int:
+    """Return current terminal width, capped at 120. Falls back to *default* in non-TTY."""
+    try:
+        return min(os.get_terminal_size().columns, 120)
+    except (AttributeError, ValueError, OSError):
+        return default
+
+
+def format_unit(value, unit_type="volume") -> str:
     try:
         val = float(value)
     except (ValueError, TypeError):
         return str(value)
 
-    if type == "volume":
+    if unit_type == "volume":
         if val >= 1024 * 1024:
             return f"{val / (1024 * 1024):.2f} TB"
         if val >= 1024:
             return f"{val / 1024:.2f} GB"
         return f"{val:.2f} MB"
-    elif type == "bandwidth":
+    elif unit_type == "bandwidth":
         if val >= 1000:
             return f"{val / 1000:.2f} Gbps"
         return f"{val:.2f} Mbps"
@@ -203,50 +215,38 @@ def pad_string(s: str, total_width: int, fillchar: str = " ") -> str:
     return s + fillchar * (total_width - current_width)
 
 
-def draw_panel(title: str, lines: list, width: int = 80):
-    """Draws a modern UI panel in the terminal using ASCII characters."""
-    b = Colors.DARK_GRAY
+def draw_panel(title: str, lines: list, width: int = 0):
+    """Draws a modern UI panel using Unicode box-drawing characters (╭/│/╰ style).
+    *width* defaults to terminal width − 4 (min 60)."""
+    if width <= 0:
+        width = max(get_terminal_width() - 4, 60)
+    h = Colors.HEADER
     e = Colors.ENDC
     content = []
 
-    # Header
-    content.append(f"{b}+-{'-' * (width - 2)}+{e}")
+    # Title row
+    content.append(f"{h}╭── {Colors.BOLD}{title}{e}")
 
-    # Title row (centered)
-    t_width = get_visible_width(title)
-    if t_width <= width - 4:
-        pad = width - 4 - t_width
-        left_pad = pad // 2
-        right_pad = pad - left_pad
-        content.append(
-            f"{b}|{e} {' ' * left_pad}{Colors.BOLD}{Colors.CYAN}{title}{e}{' ' * right_pad} {b}|{e}"
-        )
-    else:
-        content.append(f"{b}|{e} {Colors.BOLD}{Colors.CYAN}{title}{e} {b}|{e}")
-
-    content.append(f"{b}+-{'-' * (width - 2)}+{e}")
+    # Separator after title if there are lines
+    if lines:
+        content.append(f"{h}├{'─' * width}{e}")
 
     # Lines
     for line in lines:
         if line == "-":
-            content.append(f"{b}+-{'-' * (width - 2)}+{e}")
-            continue
-
-        real_width = get_visible_width(line)
-        if real_width <= width - 4:
-            pad = width - 4 - real_width
-            content.append(f"{b}|{e} {line}{' ' * pad} {b}|{e}")
+            content.append(f"{h}├{'─' * width}{e}")
         else:
-            content.append(f"{b}|{e} {line} {b}|{e}")
+            content.append(f"{h}│{e} {line}")
 
     # Footer
-    content.append(f"{b}+-{'-' * (width - 2)}+{e}")
+    content.append(f"{h}╰{'─' * width}{e}")
 
     print("\n".join(content))
 
 
 def draw_table(headers: list, rows: list):
-    """Draws a modern UI table in the terminal using ASCII characters."""
+    """Draws a modern UI table using Unicode box-drawing characters.
+    Automatically truncates columns when the total width exceeds the terminal."""
     if not headers and not rows:
         return
 
@@ -261,31 +261,127 @@ def draw_table(headers: list, rows: list):
     # Add padding
     cols_width = [w + 2 for w in cols_width]
 
-    b = Colors.DARK_GRAY
+    # Shrink columns if total exceeds terminal width
+    term_w = get_terminal_width()
+    overhead = len(cols_width) * 3 + 2  # separators + margins
+    total = sum(cols_width) + overhead
+    if total > term_w and len(cols_width) > 1:
+        excess = total - term_w
+        # Shrink widest columns first
+        while excess > 0:
+            max_i = max(range(len(cols_width)), key=lambda i: cols_width[i])
+            if cols_width[max_i] <= 6:
+                break
+            shrink = min(excess, cols_width[max_i] - 6)
+            cols_width[max_i] -= shrink
+            excess -= shrink
+
+    h = Colors.HEADER
     e = Colors.ENDC
 
-    def draw_sep(left, mid, right):
-        seps = [f"{'-' * w}" for w in cols_width]
-        return f"{b}{left}{mid.join(seps)}{right}{e}"
+    def _truncate(text: str, max_w: int) -> str:
+        """Truncate *text* to *max_w* visible width, adding … if needed."""
+        clean = ANSI_ESCAPE.sub("", text)
+        if get_visible_width(clean) <= max_w:
+            return text
+        result = []
+        w = 0
+        for ch in clean:
+            cw = 2 if unicodedata.east_asian_width(ch) in ("W", "F", "A") else 1
+            if w + cw > max_w - 1:
+                break
+            result.append(ch)
+            w += cw
+        return "".join(result) + "…"
+
+    def draw_sep():
+        seps = [f"{'─' * w}" for w in cols_width]
+        return f"{h}{'─┼─'.join(seps)}{e}"
 
     def draw_row(row_data, is_header=False):
         cells = []
         for i, cell in enumerate(row_data):
             if i >= len(cols_width):
                 continue
-            cell_str = str(cell)
+            cell_str = _truncate(str(cell), cols_width[i] - 1)
             w = get_visible_width(cell_str)
-            pad = cols_width[i] - w - 1
+            pad = max(cols_width[i] - w - 1, 0)
             content = f"{Colors.CYAN}{cell_str}{e}" if is_header else f"{cell_str}"
             cells.append(f" {content}{' ' * pad}")
-        line = f"{b}|{e}".join(cells)
-        return f"{b}|{e}{line}{b}|{e}"
+        return f" {'│'.join(cells)}"
 
-    print(draw_sep("+-", "-+-", "-+"))
+    print(draw_sep())
     print(draw_row(headers, is_header=True))
-    print(draw_sep("+-", "-+-", "-+"))
+    print(draw_sep())
 
     for row in rows:
         print(draw_row(row))
 
-    print(draw_sep("+-", "-+-", "-+"))
+    print(draw_sep())
+
+
+class Spinner:
+    """Context manager that shows a terminal spinner during long operations.
+
+    Usage::
+
+        with Spinner("Analyzing..."):
+            do_long_work()
+    """
+
+    _FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
+    def __init__(self, label: str = ""):
+        self._label = label
+        self._stop = threading.Event()
+        self._thread = None
+        self._is_tty = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+
+    def __enter__(self):
+        if self._is_tty:
+            self._thread = threading.Thread(target=self._spin, daemon=True)
+            self._thread.start()
+        else:
+            if self._label:
+                print(self._label)
+        return self
+
+    def __exit__(self, *_exc):
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=1)
+        if self._is_tty:
+            # Clear spinner line
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+
+    def update(self, label: str):
+        """Update the spinner label while running."""
+        self._label = label
+
+    def _spin(self):
+        cycle = itertools.cycle(self._FRAMES)
+        while not self._stop.is_set():
+            frame = next(cycle)
+            sys.stdout.write(
+                f"\r{Colors.CYAN}{frame}{Colors.ENDC} {self._label}\033[K"
+            )
+            sys.stdout.flush()
+            self._stop.wait(0.08)
+
+
+def progress_bar(current: int, total: int, label: str = "", width: int = 30):
+    """Print an inline text progress bar. Call repeatedly to update in place."""
+    if total <= 0:
+        return
+    ratio = min(current / total, 1.0)
+    filled = int(width * ratio)
+    bar = "█" * filled + "░" * (width - filled)
+    pct = f"{ratio * 100:.0f}%"
+    line = f"\r{Colors.CYAN}{bar}{Colors.ENDC} {pct} {current}/{total}"
+    if label:
+        line += f" {Colors.DARK_GRAY}{label}{Colors.ENDC}"
+    sys.stdout.write(line + "\033[K")
+    sys.stdout.flush()
+    if current >= total:
+        sys.stdout.write("\n")

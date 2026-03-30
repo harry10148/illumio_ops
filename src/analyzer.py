@@ -80,8 +80,7 @@ class Analyzer:
         self.state = {
             "last_check": datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
             "history": {},
-            "alert_history": {},
-            "processed_ids": []
+            "alert_history": {}
         }
         self.load_state()
 
@@ -113,9 +112,6 @@ class Analyzer:
             if valid:
                 new_history[rid] = valid
         self.state["history"] = new_history
-
-        if len(self.state["processed_ids"]) > 2000:
-            self.state["processed_ids"] = self.state["processed_ids"][-2000:]
 
         try:
             # Atomic write using a temporary file
@@ -502,7 +498,7 @@ class Analyzer:
         now_dt = datetime.datetime.now(datetime.timezone.utc)
         try:
             start_dt = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-        except:
+        except (ValueError, TypeError):
             start_dt = now_dt - datetime.timedelta(minutes=30)
             
         matches = []
@@ -560,7 +556,7 @@ class Analyzer:
                 if p_int == 6: proto = "TCP"
                 elif p_int == 17: proto = "UDP"
                 elif p_int == 1: proto = "ICMP"
-            except: pass
+            except (ValueError, TypeError): pass
 
             f_copy['source'] = {
                 "name": s_name,

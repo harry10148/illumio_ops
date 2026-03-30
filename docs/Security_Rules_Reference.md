@@ -2,7 +2,7 @@
 
 > **[English](Security_Rules_Reference.md)** | **[繁體中文](Security_Rules_Reference_zh.md)**
 
-This document describes all built-in security detection rules included in Illumio PCE Monitor's traffic report engine. Rules are evaluated automatically whenever a traffic report is generated and their results appear in the **Security Findings** section of every HTML and Excel report.
+This document describes all built-in security detection rules included in Illumio PCE Ops's traffic report engine. Rules are evaluated automatically whenever a traffic report is generated and their results appear in the **Security Findings** section of every HTML and Excel report.
 
 ---
 

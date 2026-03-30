@@ -126,7 +126,7 @@ class ReportScheduler:
             output_dir = os.path.join(self._root_dir, output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
-        now_utc = datetime.datetime.utcnow()
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
         end_date = now_utc.strftime("%Y-%m-%dT23:59:59Z")
         start_date = (now_utc - datetime.timedelta(days=lookback_days)).strftime("%Y-%m-%dT00:00:00Z")
 
@@ -190,7 +190,7 @@ class ReportScheduler:
         import html as _html
 
         name = schedule.get("name", "Report")
-        date_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+        date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         subject = f"[Illumio Monitor] {name} — {date_str}"
 
         # Build HTML body
@@ -304,14 +304,14 @@ class ReportScheduler:
         if not os.path.isdir(output_dir):
             return
 
-        cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=retention_days)
         removed = 0
         for fname in os.listdir(output_dir):
             if not (fname.endswith(".html") or fname.endswith(".zip")):
                 continue
             fpath = os.path.join(output_dir, fname)
             try:
-                mtime = datetime.datetime.utcfromtimestamp(os.path.getmtime(fpath))
+                mtime = datetime.datetime.fromtimestamp(os.path.getmtime(fpath), tz=datetime.timezone.utc)
                 if mtime < cutoff:
                     os.remove(fpath)
                     removed += 1
@@ -330,7 +330,7 @@ class ReportScheduler:
         if not schedules:
             return
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         for sched in schedules:
             if not self.should_run(sched, now):

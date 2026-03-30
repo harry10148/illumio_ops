@@ -1,28 +1,28 @@
 [Unit]
-Description=Illumio PCE Monitor
-Documentation=https://github.com/your-org/illumio_monitor
+Description=Illumio PCE Ops
+Documentation=https://github.com/your-org/illumio_ops
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=illumio_monitor
-Group=illumio_monitor
-WorkingDirectory=/opt/illumio_monitor
+User=illumio_ops
+Group=illumio_ops
+WorkingDirectory=/opt/illumio_ops
 # RHEL/CentOS: packages installed via dnf, system Python is used directly.
 #   dnf install python3-flask python3-pandas python3-PyYAML
-ExecStart=/usr/bin/python3 /opt/illumio_monitor/illumio_monitor.py --monitor --interval 10
+ExecStart=/usr/bin/python3 /opt/illumio_ops/illumio_ops.py --monitor --interval 10
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=illumio-monitor
+SyslogIdentifier=illumio-ops
 
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/illumio_monitor
+ReadWritePaths=/opt/illumio_ops
 
 [Install]
 WantedBy=multi-user.target

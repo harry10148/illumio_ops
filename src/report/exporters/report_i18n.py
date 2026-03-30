@@ -97,8 +97,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Destination hosts ranked by number of distinct risk ports contacted (all policy decisions).",
         "zh_TW": "依接觸風險通訊埠數量排序的目標主機，包含所有決策（含阻斷）。",
     },
-    "rpt_tr_footer":          {"en": "Illumio PCE Monitor — Traffic Flow Report",
-                               "zh_TW": "Illumio PCE Monitor — 流量分析報表"},
+    "rpt_tr_footer":          {"en": "Illumio PCE Ops — Traffic Flow Report",
+                               "zh_TW": "Illumio PCE Ops — 流量分析報表"},
 
     # ── Security Findings – no data ──────────────────────────────────────────
     "rpt_no_findings_detail": {
@@ -269,18 +269,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "<b>Illumio Best Practice:</b> Review rule_set and sec_rule changes for overly broad scopes (null HREF = All Applications/Environments/Locations). When sec_policy.create (provision) events occur, check workloads_affected — a high number may indicate unintended policy impact. Monitor sec_rule.delete events to detect unauthorized policy weakening.",
         "zh_TW": "<b>Illumio 最佳實踐：</b>審查 rule_set 和 sec_rule 變更是否範圍過大（null HREF = 所有應用程式/環境/位置）。當 sec_policy.create（部署）事件發生時，請檢查 workloads_affected — 數量過高可能表示非預期的策略影響。監控 sec_rule.delete 事件以偵測未經授權的策略弱化。",
     },
-    "rpt_au_footer":        {"en": "Illumio PCE Monitor — Audit Report", "zh_TW": "Illumio PCE Monitor — 稽核報表"},
+    "rpt_au_footer":        {"en": "Illumio PCE Ops — Audit Report", "zh_TW": "Illumio PCE Ops — 稽核報表"},
 
     # ── VEN report ───────────────────────────────────────────────────────────
     "rpt_ven_title":          {"en": "Illumio VEN Status Inventory Report",
                                "zh_TW": "Illumio VEN 狀態盤點報表"},
     "rpt_ven_nav_summary":    {"en": "📊 Executive Summary",             "zh_TW": "📊 執行摘要"},
-    "rpt_ven_nav_online":     {"en": "✅ Online VENs",                   "zh_TW": "✅ 在線 VEN"},
-    "rpt_ven_nav_offline":    {"en": "❌ Offline VENs",                  "zh_TW": "❌ 離線 VEN"},
+    "rpt_ven_nav_online":     {"en": "✅ Online VENs",                   "zh_TW": "✅ Online VEN"},
+    "rpt_ven_nav_offline":    {"en": "❌ Offline VENs",                  "zh_TW": "❌ Offline VEN"},
     "rpt_ven_nav_lost_today": {"en": "🔴 Lost Today (<24h)",             "zh_TW": "🔴 今日失聯 (<24h)"},
     "rpt_ven_nav_lost_yest":  {"en": "🟠 Lost Yesterday",                "zh_TW": "🟠 昨日失聯"},
-    "rpt_ven_sec_online":     {"en": "✅ Online VENs",                   "zh_TW": "✅ 在線 VEN"},
-    "rpt_ven_sec_offline":    {"en": "❌ Offline VENs",                  "zh_TW": "❌ 離線 VEN"},
+    "rpt_ven_sec_online":     {"en": "✅ Online VENs",                   "zh_TW": "✅ Online VEN"},
+    "rpt_ven_sec_offline":    {"en": "❌ Offline VENs",                  "zh_TW": "❌ Offline VEN"},
     "rpt_ven_sec_lost_today": {"en": "🔴 Lost Connection in Last 24h",   "zh_TW": "🔴 近 24 小時內失聯"},
     "rpt_ven_sec_lost_yest":  {"en": "🟠 Lost Connection 24–48h Ago",    "zh_TW": "🟠 24–48 小時前失聯"},
     "rpt_ven_desc_today":     {
@@ -292,9 +292,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "zh_TW": "目前離線且最後一次心跳在 24–48 小時前的 VEN。",
     },
     "rpt_ven_footer": {
-        "en": "Illumio PCE Monitor — VEN Status Report",
-        "zh_TW": "Illumio PCE Monitor — VEN 狀態報表",
+        "en": "Illumio PCE Ops — VEN Status Report",
+        "zh_TW": "Illumio PCE Ops — VEN 狀態報表",
     },
+
+    # ── VEN Status Report column headers ─────────────────────────────────────
+    "rpt_col_ip":              {"en": "IP",              "zh_TW": "IP 位址"},
+    "rpt_col_labels":         {"en": "Labels",           "zh_TW": "標籤"},
+    "rpt_col_policy_sync":    {"en": "Policy Sync",      "zh_TW": "策略同步"},
+    "rpt_col_last_heartbeat": {"en": "Last Heartbeat",   "zh_TW": "最後心跳"},
+    "rpt_col_policy_received":{"en": "Policy Received",  "zh_TW": "策略更新時間"},
+    "rpt_col_paired_at":      {"en": "Paired At",        "zh_TW": "配對時間"},
+    "rpt_col_ven_version":    {"en": "VEN Version",      "zh_TW": "VEN 版本"},
 
     # ── Column header translations (used by _df_to_html) ──────────────────────
     "rpt_col_port":               {"en": "Port",                "zh_TW": "通訊埠"},
@@ -431,7 +440,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "rpt_email_audit_subject":    {"en": "Illumio Audit & System Events Report",     "zh_TW": "Illumio 稽核與系統事件報表"},
     "rpt_email_ven_subject":      {"en": "Illumio VEN Status Report",                "zh_TW": "Illumio VEN 狀態報表"},
     "rpt_email_no_findings":      {"en": "No findings.",                             "zh_TW": "無發現項目。"},
-    "rpt_email_footer":           {"en": "Full report attached as HTML file. · Illumio PCE Monitor", "zh_TW": "完整報表已附加為 HTML 檔案。· Illumio PCE Monitor"},
+    "rpt_email_footer":           {"en": "Full report attached as HTML file. · Illumio PCE Ops", "zh_TW": "完整報表已附加為 HTML 檔案。· Illumio PCE Ops"},
 }
 
 

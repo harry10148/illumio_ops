@@ -1,4 +1,4 @@
-# Illumio PCE Monitor
+# Illumio PCE Ops
 
 ![Version](https://img.shields.io/badge/Version-v1.0.0-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-yellow?style=flat-square&logo=python&logoColor=white)
@@ -39,17 +39,17 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 ```bash
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 cp config/config.json.example config/config.json    # Edit with your PCE credentials
 
 # Interactive CLI:
-python illumio_monitor.py
+python illumio_ops.py
 
 # Visual Web GUI (opens http://127.0.0.1:5001):
-python illumio_monitor.py --gui
+python illumio_ops.py --gui
 
 # Background Daemon (checks every 5 minutes):
-python illumio_monitor.py --monitor --interval 5
+python illumio_ops.py --monitor --interval 5
 ```
 
 ### 3. Configuration (`config.json`)
@@ -164,8 +164,8 @@ pip install pandas pyyaml flask \
 ## 📁 Project Structure
 
 ```text
-illumio_monitor/
-├── illumio_monitor.py          # Entry point
+illumio_ops/
+├── illumio_ops.py          # Entry point
 ├── config/
 │   ├── config.json             # Runtime configuration (gitignored)
 ├── state.json                  # Persistent state (gitignored)

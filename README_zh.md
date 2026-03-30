@@ -1,4 +1,4 @@
-# Illumio PCE Monitor
+# Illumio PCE Ops
 
 ![Version](https://img.shields.io/badge/Version-v1.0.0-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-yellow?style=flat-square&logo=python&logoColor=white)
@@ -39,17 +39,17 @@
 
 ```bash
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 cp config/config.json.example config/config.json    # 編輯並填入 PCE 憑證
 
 # 互動式 CLI：
-python illumio_monitor.py
+python illumio_ops.py
 
 # Web 視覺化介面（開啟 http://127.0.0.1:5001）：
-python illumio_monitor.py --gui
+python illumio_ops.py --gui
 
 # 背景 Daemon 模式（每 5 分鐘自動檢查）：
-python illumio_monitor.py --monitor --interval 5
+python illumio_ops.py --monitor --interval 5
 ```
 
 ### 3. 基本設定 (`config.json`)
@@ -164,8 +164,8 @@ pip install pandas pyyaml flask \
 ## 📁 專案結構
 
 ```text
-illumio_monitor/
-├── illumio_monitor.py          # 程式進入點
+illumio_ops/
+├── illumio_ops.py          # 程式進入點
 ├── config/
 │   ├── config.json             # 執行時設定（已加入 gitignore）
 ├── state.json                  # 持久化狀態（已加入 gitignore）

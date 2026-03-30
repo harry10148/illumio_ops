@@ -65,10 +65,16 @@ _CSS = """
   td { padding: 6px 10px; border-bottom: 1px solid var(--slate-20); word-break: break-all; }
   tr:nth-child(even) td { background: var(--tan); }
   tr:hover td { background: var(--tan-120); }
-  .badge-online  { background: var(--green-10); color: var(--green); padding:2px 8px;
-                   border-radius:4px; font-size:11px; font-weight:700; }
-  .badge-offline { background: var(--red-10); color: var(--red); padding:2px 8px;
-                   border-radius:4px; font-size:11px; font-weight:700; }
+  .badge-online   { background: var(--green-10); color: var(--green); padding:2px 8px;
+                    border-radius:4px; font-size:11px; font-weight:700; }
+  .badge-offline  { background: var(--red-10); color: var(--red); padding:2px 8px;
+                    border-radius:4px; font-size:11px; font-weight:700; }
+  .badge-synced   { background: var(--green-10); color: var(--green); padding:2px 8px;
+                    border-radius:4px; font-size:11px; font-weight:700; }
+  .badge-unsynced { background: var(--red-10); color: var(--red); padding:2px 8px;
+                    border-radius:4px; font-size:11px; font-weight:700; }
+  .badge-staged   { background: #FFF3CD; color: #856404; padding:2px 8px;
+                    border-radius:4px; font-size:11px; font-weight:700; }
   .note { background: var(--tan); border-left: 4px solid var(--orange);
           padding: 12px; border-radius: 4px; color: var(--cyan-120); font-size: 13px; }
   footer { text-align: center; color: var(--slate-50); font-size: 11px; margin: 40px 0 20px; }
@@ -96,8 +102,19 @@ document.querySelectorAll('th').forEach((th, i) => {
 """
 
 
-def _df_to_html(df, status_col: str | None = None,
-                no_data_key: str = "rpt_no_records") -> str:
+def _policy_sync_badge(val: str) -> str:
+    """Return a styled badge for the Policy Sync column value."""
+    v = str(val).lower().strip()
+    if v == 'synced':
+        return f'<span class="badge-synced">{val}</span>'
+    if v in ('staged',):
+        return f'<span class="badge-staged">{val}</span>'
+    if v and v != 'none' and v != 'nan':
+        return f'<span class="badge-unsynced">{val}</span>'
+    return '—'
+
+
+def _df_to_html(df, no_data_key: str = "rpt_no_records") -> str:
     if df is None or (hasattr(df, 'empty') and df.empty):
         return f'<p class="note" data-i18n="{no_data_key}">— No records —</p>'
     html = '<table><thead><tr>'
@@ -111,10 +128,9 @@ def _df_to_html(df, status_col: str | None = None,
     for _, row in df.iterrows():
         html += '<tr>'
         for col, val in zip(df.columns, row.values):
-            val_str = str(val) if val is not None else ''
-            if col == status_col:
-                badge = 'online' if str(val).lower() in ('active', 'online') else 'offline'
-                html += f'<td><span class="badge-{badge}">{val_str}</span></td>'
+            val_str = '' if val is None or str(val) in ('None', 'nan') else str(val)
+            if col == 'Policy Sync':
+                html += f'<td>{_policy_sync_badge(val_str)}</td>'
             else:
                 html += f'<td>{val_str}</td>'
         html += '</tr>'
@@ -177,12 +193,12 @@ class VenHtmlExporter:
 
             '<section id="online" class="card online">'
             '<h2><span data-i18n="rpt_ven_sec_online">✅ Online VENs</span> (' + str(online_count) + ')</h2>'
-            + _df_to_html(df_online, status_col='ven_status') +
+            + _df_to_html(df_online) +
             '</section>\n'
 
             '<section id="offline" class="card offline">'
             '<h2><span data-i18n="rpt_ven_sec_offline">❌ Offline VENs</span> (' + str(offline_count) + ')</h2>'
-            + _df_to_html(df_offline, status_col='ven_status') +
+            + _df_to_html(df_offline) +
             '</section>\n'
 
             '<section id="lost-today" class="card offline">'
@@ -190,7 +206,7 @@ class VenHtmlExporter:
             ' (' + str(today_count) + ')</h2>'
             '<p style="color:#718096;font-size:12px;margin-bottom:12px" data-i18n="rpt_ven_desc_today">'
             'VENs currently offline whose last heartbeat was within the past 24 hours.</p>'
-            + _df_to_html(df_today, status_col='ven_status') +
+            + _df_to_html(df_today) +
             '</section>\n'
 
             '<section id="lost-yest" class="card warn">'
@@ -198,10 +214,10 @@ class VenHtmlExporter:
             ' (' + str(yest_count) + ')</h2>'
             '<p style="color:#718096;font-size:12px;margin-bottom:12px" data-i18n="rpt_ven_desc_yest">'
             'VENs currently offline whose last heartbeat was 24\u201348 hours ago.</p>'
-            + _df_to_html(df_yest, status_col='ven_status') +
+            + _df_to_html(df_yest) +
             '</section>\n'
 
-            '<footer><span data-i18n="rpt_ven_footer">Illumio PCE Monitor — VEN Status Report</span>'
+            '<footer><span data-i18n="rpt_ven_footer">Illumio PCE Ops — VEN Status Report</span>'
             ' &middot; ' + today_str + '</footer>'
         )
         return (

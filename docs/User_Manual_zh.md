@@ -1,4 +1,4 @@
-# Illumio PCE Monitor — 完整使用手冊
+# Illumio PCE Ops — 完整使用手冊
 
 > **[English](User_Manual.md)** | **[繁體中文](User_Manual_zh.md)**
 
@@ -17,7 +17,7 @@
 
 ```bash
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 cp config/config.json.example config/config.json
 
 # 從 AppStream 安裝選用相依套件（無需 EPEL）
@@ -33,7 +33,7 @@ sudo dnf install python3-flask python3-pandas python3-pyyaml
 sudo apt install python3-venv
 
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 cp config/config.json.example config/config.json
 
 # 在專案目錄內建立並啟動虛擬環境
@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 ```bash
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 pip install -r requirements.txt
 ```
 
@@ -79,38 +79,41 @@ cp config/config.json.example config/config.json
 ### 2.1 互動式 CLI
 
 ```bash
-python illumio_monitor.py
+python illumio_ops.py
 ```
 
 啟動文字選單介面，可管理規則、設定及手動執行檢查。
 
 ```text
-=== Illumio PCE Monitor ===
-API: https://pce.lab.local:8443 | Rules: 5
-----------------------------------------
- 1. 新增事件規則
- 2. 新增流量規則
- 3. 新增頻寬/流量規則
- 4. 管理規則
- 5. 設定
- 6. 載入最佳實踐
- 7. 測試告警
- 8. 執行一次監控
- 9. 規則模擬與除錯模式
-10. 啟動 Web GUI
-11. 檢視應用程式日誌
-12. 產生流量報表
-13. 產生稽核日誌報表
-14. 產生 VEN 狀態報表
-15. 排程報表管理
+=== Illumio PCE Ops ===
+API: https://pce.lab.local:8443 | 規則數: 5
+── 告警規則 ──
+ 1. 新增事件規則 (含 PCE Health Check)
+ 2. 新增流量規則 (Traffic Rule)
+ 3. 新增頻寬與傳輸量規則 (Bandwidth & Volume)
+ 4. 管理規則 (列表/刪除)
+ 5. 載入官方最佳實踐 (Best Practices)
+ 6. 發送測試告警
+ 7. 執行分析並發送告警
+ 8. 規則模擬與除錯模式
+── 報表產生 ──
+ 9. 產生流量分析報表 (Traffic Report)
+10. 產生稽核日誌報表 (Audit Report)
+11. 產生 VEN 狀態盤點報表 (VEN Status)
+12. 報表排程管理 (定期寄送報表)
+── 規則排程 ──
+13. 規則排程器 (Rule Scheduler)
+14. 系統設定 (API / 告警通道 / Email)
+15. 啟動 Web 介面 (GUI)
+16. 查看系統日誌 (Logs)
  0. 離開
 ```
 
 ### 2.2 Web GUI
 
 ```bash
-python illumio_monitor.py --gui
-python illumio_monitor.py --gui --port 8080    # 自訂連接埠
+python illumio_ops.py --gui
+python illumio_ops.py --gui --port 8080    # 自訂連接埠
 ```
 
 在 `http://127.0.0.1:5001` 開啟瀏覽器介面，包含以下功能頁籤：
@@ -121,6 +124,7 @@ python illumio_monitor.py --gui --port 8080    # 自訂連接埠
 | **Rules** | 完整的事件/流量/頻寬/流量規則 CRUD，支援批次刪除與行內編輯 |
 | **Reports** | 手動產生流量、稽核、VEN 狀態報表；下載 HTML 報表或 CSV 原始資料 ZIP；刪除舊報表 |
 | **Report Schedules** | 建立/編輯/啟停週期性排程（每日/每週/每月）；立即觸發執行；檢視執行歷史；可設定 Email 附件寄送 |
+| **Rule Scheduler** | 瀏覽所有 PCE 規則集；啟用/停用個別規則（含可選 TTL）；部署變更 |
 | **Workload Search** | 依主機名/IP/標籤搜尋工作負載；支援單筆或批次套用隔離標籤 |
 | **Settings** | API 憑證設定、告警通道設定、時區、語言/主題切換 |
 | **Actions** | 執行監控、除錯模式、測試告警、載入最佳實踐 |
@@ -128,8 +132,8 @@ python illumio_monitor.py --gui --port 8080    # 自訂連接埠
 ### 2.3 背景 Daemon
 
 ```bash
-python illumio_monitor.py --monitor                 # 預設：每 10 分鐘
-python illumio_monitor.py --monitor --interval 5     # 每 5 分鐘
+python illumio_ops.py --monitor                 # 預設：每 10 分鐘
+python illumio_ops.py --monitor --interval 5     # 每 5 分鐘
 ```
 
 在背景無人值守運行，可透過 `SIGINT`/`SIGTERM` 優雅關閉。
@@ -137,7 +141,7 @@ python illumio_monitor.py --monitor --interval 5     # 每 5 分鐘
 ### 2.4 命令列參數參考
 
 ```bash
-python illumio_monitor.py [OPTIONS]
+python illumio_ops.py [OPTIONS]
 ```
 
 | 參數 | 預設值 | 說明 |
@@ -157,13 +161,13 @@ python illumio_monitor.py [OPTIONS]
 
 ```bash
 # 產生 HTML 報表並 Email 寄送
-python illumio_monitor.py --report --format html --email
+python illumio_ops.py --report --format html --email
 
 # 從 CSV 匯出檔產生報表，同時輸出 HTML 與原始 CSV
-python illumio_monitor.py --report --source csv --file traffic_export.csv --format all
+python illumio_ops.py --report --source csv --file traffic_export.csv --format all
 
 # 在自訂連接埠啟動 Web GUI
-python illumio_monitor.py --gui --port 8080
+python illumio_ops.py --gui --port 8080
 ```
 
 ---
@@ -284,9 +288,9 @@ python illumio_monitor.py --gui --port 8080
 ### 6.1 Windows 服務（NSSM）
 
 ```powershell
-nssm install IllumioMonitor "C:\Python312\python.exe" "C:\illumio_monitor\illumio_monitor.py" --monitor --interval 5
-nssm set IllumioMonitor AppDirectory "C:\illumio_monitor"
-nssm start IllumioMonitor
+nssm install IllumioOps "C:\Python312\python.exe" "C:\illumio_ops\illumio_ops.py" --monitor --interval 5
+nssm set IllumioOps AppDirectory "C:\illumio_ops"
+nssm start IllumioOps
 ```
 
 ### 6.2 Linux systemd
@@ -294,16 +298,16 @@ nssm start IllumioMonitor
 #### RHEL / CentOS（系統 Python）
 
 ```ini
-# /etc/systemd/system/illumio-monitor.service
+# /etc/systemd/system/illumio-ops.service
 [Unit]
-Description=Illumio PCE Monitor
+Description=Illumio PCE Ops
 After=network.target
 
 [Service]
 Type=simple
 User=illumio
-WorkingDirectory=/opt/illumio_monitor
-ExecStart=/usr/bin/python3 illumio_monitor.py --monitor --interval 5
+WorkingDirectory=/opt/illumio_ops
+ExecStart=/usr/bin/python3 illumio_ops.py --monitor --interval 5
 Restart=on-failure
 
 [Install]
@@ -315,22 +319,22 @@ WantedBy=multi-user.target
 先建立虛擬環境，再將 `ExecStart` 指向 venv 內的 Python 直譯器：
 
 ```bash
-cd /opt/illumio_monitor
+cd /opt/illumio_ops
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
 ```
 
 ```ini
-# /etc/systemd/system/illumio-monitor.service
+# /etc/systemd/system/illumio-ops.service
 [Unit]
-Description=Illumio PCE Monitor
+Description=Illumio PCE Ops
 After=network.target
 
 [Service]
 Type=simple
 User=illumio
-WorkingDirectory=/opt/illumio_monitor
-ExecStart=/opt/illumio_monitor/venv/bin/python illumio_monitor.py --monitor --interval 5
+WorkingDirectory=/opt/illumio_ops
+ExecStart=/opt/illumio_ops/venv/bin/python illumio_ops.py --monitor --interval 5
 Restart=on-failure
 
 [Install]
@@ -339,7 +343,7 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now illumio-monitor
+sudo systemctl enable --now illumio-ops
 ```
 
 ---
@@ -353,8 +357,8 @@ sudo systemctl enable --now illumio-monitor
 | 位置 | 操作方式 |
 |:---|:---|
 | Web GUI → Reports 分頁 | 點選 **Traffic Report**、**Audit Summary** 或 **VEN Status** |
-| CLI → 選單項目 **[13] 產生報表** | 選擇報表類型與日期範圍 |
-| Daemon 模式 | 透過 **[15] 報表排程** 設定排程，報表自動產生，可選擇以 Email 寄送 |
+| CLI → 選單項目 **[9–11]** | 選擇報表類型與日期範圍 |
+| Daemon 模式 | 透過 **[12] 報表排程** 設定排程，報表自動產生，可選擇以 Email 寄送 |
 
 報表依格式設定儲存為 `.html`（格式化報表）及/或 `_raw.zip`（CSV 原始資料）至 `reports/` 目錄。
 
@@ -469,7 +473,7 @@ thresholds:
 
 ### 7.5 報表排程
 
-透過 CLI 選單 **[15]** 或 Web GUI **Report Schedules** 分頁設定自動定期報表：
+透過 CLI 選單 **[12]** 或 Web GUI **Report Schedules** 分頁設定自動定期報表：
 
 | 欄位 | 說明 |
 |:---|:---|

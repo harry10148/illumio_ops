@@ -1,4 +1,4 @@
-# Illumio PCE Monitor — Comprehensive User Manual
+# Illumio PCE Ops — Comprehensive User Manual
 
 > **[English](User_Manual.md)** | **[繁體中文](User_Manual_zh.md)**
 
@@ -17,7 +17,7 @@
 
 ```bash
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 cp config/config.json.example config/config.json
 
 # Install optional dependencies from AppStream (no EPEL required)
@@ -33,7 +33,7 @@ Modern Ubuntu (22.04+) and Debian (12+) enforce **PEP 668** — direct `pip inst
 sudo apt install python3-venv
 
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 cp config/config.json.example config/config.json
 
 # Create and activate a virtual environment inside the project directory
@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 ```bash
 git clone <repo-url>
-cd illumio_monitor
+cd illumio_ops
 pip install -r requirements.txt
 ```
 
@@ -79,38 +79,41 @@ cp config/config.json.example config/config.json
 ### 2.1 Interactive CLI
 
 ```bash
-python illumio_monitor.py
+python illumio_ops.py
 ```
 
 Launches a text-based menu for managing rules, settings, and running manual checks.
 
 ```text
-=== Illumio PCE Monitor ===
+=== Illumio PCE Ops ===
 API: https://pce.lab.local:8443 | Rules: 5
-----------------------------------------
- 1. Add Event Rule
+── Alert Rules ──
+ 1. Add Event Rule (inc. PCE Health Check)
  2. Add Traffic Rule
- 3. Add Bandwidth/Volume Rule
- 4. Manage Rules
- 5. Settings
- 6. Load Best Practices
- 7. Test Alert
- 8. Run Monitor Once
- 9. Rule Simulation & Debug Mode
-10. Launch Web GUI
-11. View Application Logs
-12. Generate Traffic Flow Report
-13. Generate Audit Log Report
-14. Generate VEN Status Report
-15. Report Schedules
+ 3. Add Bandwidth & Volume Rule
+ 4. Manage Rules (List/Delete)
+ 5. Load Official Best Practices
+ 6. Send Test Alert
+ 7. Run Analysis & Send Alerts
+ 8. Rule Simulation & Debug Mode
+── Report Generation ──
+ 9. Generate Traffic Flow Report
+10. Generate Audit Log Report
+11. Generate VEN Status Report
+12. Report Schedules (Scheduled Email Reports)
+── Rule Scheduler ──
+13. Rule Scheduler (Policy Rule Automation)
+14. System Settings (API / Email / Alerts)
+15. Launch Web GUI
+16. View Application Logs
  0. Exit
 ```
 
 ### 2.2 Web GUI
 
 ```bash
-python illumio_monitor.py --gui
-python illumio_monitor.py --gui --port 8080    # Custom port
+python illumio_ops.py --gui
+python illumio_ops.py --gui --port 8080    # Custom port
 ```
 
 Opens a browser-based dashboard at `http://127.0.0.1:5001` with tabs for:
@@ -121,6 +124,7 @@ Opens a browser-based dashboard at `http://127.0.0.1:5001` with tabs for:
 | **Rules** | Full CRUD for Event/Traffic/Bandwidth/Volume rules, bulk delete, inline edit |
 | **Reports** | Generate Traffic, Audit, and VEN Status reports on demand; download HTML or CSV raw data ZIP; delete old reports |
 | **Report Schedules** | Create/edit/toggle recurring schedules (daily/weekly/monthly) with email delivery; trigger on demand; view run history |
+| **Rule Scheduler** | Browse all PCE rulesets; enable/disable individual rules with optional TTL; provision changes |
 | **Workload Search** | Search by hostname/IP/label; apply Quarantine labels (single or bulk) |
 | **Settings** | API credentials, alert channels, timezone, language/theme switching |
 | **Actions** | Run Monitor Once, Debug Mode, Test Alert, Load Best Practices |
@@ -128,8 +132,8 @@ Opens a browser-based dashboard at `http://127.0.0.1:5001` with tabs for:
 ### 2.3 Background Daemon
 
 ```bash
-python illumio_monitor.py --monitor                 # Default: every 10 minutes
-python illumio_monitor.py --monitor --interval 5     # Every 5 minutes
+python illumio_ops.py --monitor                 # Default: every 10 minutes
+python illumio_ops.py --monitor --interval 5     # Every 5 minutes
 ```
 
 Runs unattended in the background. Handles `SIGINT`/`SIGTERM` gracefully for clean shutdowns.
@@ -137,7 +141,7 @@ Runs unattended in the background. Handles `SIGINT`/`SIGTERM` gracefully for cle
 ### 2.4 Command-Line Reference
 
 ```bash
-python illumio_monitor.py [OPTIONS]
+python illumio_ops.py [OPTIONS]
 ```
 
 | Flag | Default | Description |
@@ -157,13 +161,13 @@ python illumio_monitor.py [OPTIONS]
 
 ```bash
 # Generate HTML report for the last 7 days and email it
-python illumio_monitor.py --report --format html --email
+python illumio_ops.py --report --format html --email
 
 # Generate report from CSV export and save both HTML + raw CSV
-python illumio_monitor.py --report --source csv --file traffic_export.csv --format all
+python illumio_ops.py --report --source csv --file traffic_export.csv --format all
 
 # Web GUI on a custom port
-python illumio_monitor.py --gui --port 8080
+python illumio_ops.py --gui --port 8080
 ```
 
 ---
@@ -284,9 +288,9 @@ The Quarantine feature enables you to tag compromised workloads with severity la
 ### 6.1 Windows Service (NSSM)
 
 ```powershell
-nssm install IllumioMonitor "C:\Python312\python.exe" "C:\illumio_monitor\illumio_monitor.py" --monitor --interval 5
-nssm set IllumioMonitor AppDirectory "C:\illumio_monitor"
-nssm start IllumioMonitor
+nssm install IllumioOps "C:\Python312\python.exe" "C:\illumio_ops\illumio_ops.py" --monitor --interval 5
+nssm set IllumioOps AppDirectory "C:\illumio_ops"
+nssm start IllumioOps
 ```
 
 ### 6.2 Linux systemd
@@ -294,16 +298,16 @@ nssm start IllumioMonitor
 #### RHEL / CentOS (system Python)
 
 ```ini
-# /etc/systemd/system/illumio-monitor.service
+# /etc/systemd/system/illumio-ops.service
 [Unit]
-Description=Illumio PCE Monitor
+Description=Illumio PCE Ops
 After=network.target
 
 [Service]
 Type=simple
 User=illumio
-WorkingDirectory=/opt/illumio_monitor
-ExecStart=/usr/bin/python3 illumio_monitor.py --monitor --interval 5
+WorkingDirectory=/opt/illumio_ops
+ExecStart=/usr/bin/python3 illumio_ops.py --monitor --interval 5
 Restart=on-failure
 
 [Install]
@@ -315,22 +319,22 @@ WantedBy=multi-user.target
 Create the venv first, then point `ExecStart` at the venv interpreter:
 
 ```bash
-cd /opt/illumio_monitor
+cd /opt/illumio_ops
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
 ```
 
 ```ini
-# /etc/systemd/system/illumio-monitor.service
+# /etc/systemd/system/illumio-ops.service
 [Unit]
-Description=Illumio PCE Monitor
+Description=Illumio PCE Ops
 After=network.target
 
 [Service]
 Type=simple
 User=illumio
-WorkingDirectory=/opt/illumio_monitor
-ExecStart=/opt/illumio_monitor/venv/bin/python illumio_monitor.py --monitor --interval 5
+WorkingDirectory=/opt/illumio_ops
+ExecStart=/opt/illumio_ops/venv/bin/python illumio_ops.py --monitor --interval 5
 Restart=on-failure
 
 [Install]
@@ -339,7 +343,7 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now illumio-monitor
+sudo systemctl enable --now illumio-ops
 ```
 
 ---
@@ -353,8 +357,8 @@ Reports can be triggered from three places:
 | Location | How |
 |:---|:---|
 | Web GUI → Reports tab | Click **Traffic Report**, **Audit Summary**, or **VEN Status** |
-| CLI → menu item **[13] Generate Report** | Select report type and date range |
-| Daemon mode | Configure a schedule via **[15] Report Schedules** — reports run automatically and can be emailed |
+| CLI → menu item **[9–11]** | Select report type and date range |
+| Daemon mode | Configure a schedule via **[12] Report Schedules** — reports run automatically and can be emailed |
 
 Reports are saved to the `reports/` directory as `.html` (formatted report) and/or `_raw.zip` (CSV raw data) depending on your format setting.
 
@@ -469,7 +473,7 @@ Edit this file and re-run a report to apply new thresholds — no restart requir
 
 ### 7.5 Report Schedules
 
-Configure automated recurring reports via CLI menu **[15]** or Web GUI **Report Schedules** tab:
+Configure automated recurring reports via CLI menu **[12]** or Web GUI **Report Schedules** tab:
 
 | Field | Description |
 |:---|:---|

@@ -1,5 +1,5 @@
 """
-Illumio PCE Monitor — Flask Web GUI.
+Illumio PCE Ops — Flask Web GUI.
 Optional dependency: pip install flask
 
 Features full parity with CLI:
@@ -61,6 +61,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
     PKG_DIR = os.path.dirname(os.path.abspath(__file__))
     app = Flask(__name__, template_folder=os.path.join(PKG_DIR, 'templates'), static_folder=os.path.join(PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
 
     # ─── Frontend SPA ─────────────────────────────────────────────────────
     @app.route('/')
@@ -137,7 +138,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
 
     @app.route('/api/event-catalog')
     def api_event_catalog():
-        from src.settings import FULL_EVENT_CATALOG
+        from src.settings import FULL_EVENT_CATALOG, ACTION_EVENTS
         from src.i18n import t
         # Build dictionary with translated names
         translated_catalog = {}
@@ -146,13 +147,14 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             # Combine Agent Health details
             if category == "Agent Health Detail":
                 trans_cat = t('cat_agent_health', default="Agent Health")
-                
+
             if trans_cat not in translated_catalog:
                 translated_catalog[trans_cat] = {}
-                
+
             for event_id, translation_key in events.items():
                 translated_catalog[trans_cat][event_id] = t(translation_key, default=translation_key)
-        return jsonify(translated_catalog)
+        # Return catalog along with list of events that support status/severity filtering
+        return jsonify({'catalog': translated_catalog, 'action_events': ACTION_EVENTS})
 
     # ─── API: Rules CRUD ──────────────────────────────────────────────────
     @app.route('/api/rules')
@@ -204,6 +206,8 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             "name": d.get('name', ''),
             "filter_key": "event_type",
             "filter_value": d.get('filter_value', ''),
+            "filter_status": d.get('filter_status', 'all'),
+            "filter_severity": d.get('filter_severity', 'all'),
             "desc": d.get('name', ''),
             "rec": "Check Logs",
             "threshold_type": d.get('threshold_type', 'immediate'),
@@ -934,17 +938,65 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             d = request.args.to_dict()
         try:
             from src.api_client import ApiClient
+            import ipaddress
             api = ApiClient(cm)
             
             # API query parameters mapping
             params = {}
             if "name" in d and d["name"]: params["name"] = d["name"]
             if "hostname" in d and d["hostname"]: params["hostname"] = d["hostname"]
-            if "ip_address" in d and d["ip_address"]: params["ip_address"] = d["ip_address"]
+            
+            ip_query = d.get("ip_address", "").strip()
+            local_ip_filter = False
+            target_networks = []
+            
+            if ip_query:
+                if "," in ip_query or "/" in ip_query:
+                    local_ip_filter = True
+                    parts = [p.strip() for p in ip_query.split(",") if p.strip()]
+                    for p in parts:
+                        try:
+                            if "/" in p:
+                                target_networks.append(ipaddress.ip_network(p, strict=False))
+                            else:
+                                target_networks.append(ipaddress.ip_address(p))
+                        except ValueError:
+                            pass
+                else:
+                    params["ip_address"] = ip_query
+
             if "max_results" in d: params["max_results"] = d["max_results"]
             else: params["max_results"] = 500
 
             workloads = api.search_workloads(params)
+            
+            if local_ip_filter and target_networks:
+                filtered_workloads = []
+                for wl in workloads:
+                    interfaces = wl.get("interfaces", [])
+                    matched = False
+                    for iface in interfaces:
+                        ip_str = iface.get("address")
+                        if ip_str:
+                            try:
+                                ip_obj = ipaddress.ip_address(ip_str)
+                                for target in target_networks:
+                                    if isinstance(target, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
+                                        if ip_obj in target:
+                                            matched = True
+                                            break
+                                    else:
+                                        if ip_obj == target:
+                                            matched = True
+                                            break
+                            except ValueError:
+                                pass
+                        if matched:
+                            break
+                    if matched:
+                        filtered_workloads.append(wl)
+                workloads = filtered_workloads
+
             return jsonify({"ok": True, "data": workloads})
         except Exception as e:
             logger.error(f"Search Workload Error: {e}", exc_info=True)
@@ -1088,6 +1140,232 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             os._exit(0)
         return jsonify({"ok": True})
 
+    # ─── Rule Scheduler API ────────────────────────────────────────────────
+
+    def extract_id(href):
+        return href.split('/')[-1] if href else ""
+
+    def _get_rs_components():
+        """Lazy-init Rule Scheduler components."""
+        from src.rule_scheduler import ScheduleDB, ScheduleEngine
+        from src.api_client import ApiClient
+        ROOT_DIR = os.path.dirname(PKG_DIR)
+        db_path = os.path.join(ROOT_DIR, "config", "rule_schedules.json")
+        db = ScheduleDB(db_path)
+        db.load()
+        api = ApiClient(cm)
+        engine = ScheduleEngine(db, api)
+        return db, api, engine
+
+    @app.route('/api/rule_scheduler/status')
+    def rs_status():
+        rs_cfg = cm.config.get("rule_scheduler", {})
+        from src.rule_scheduler import ScheduleDB
+        ROOT_DIR = os.path.dirname(PKG_DIR)
+        db = ScheduleDB(os.path.join(ROOT_DIR, "config", "rule_schedules.json"))
+        db.load()
+        return jsonify({
+            "enabled": rs_cfg.get("enabled", False),
+            "check_interval_seconds": rs_cfg.get("check_interval_seconds", 300),
+            "schedule_count": len(db.get_all())
+        })
+
+    @app.route('/api/rule_scheduler/rulesets')
+    def rs_rulesets():
+        db, api, _ = _get_rs_components()
+        q = request.args.get('q', '').strip()
+        page = int(request.args.get('page', 1))
+        size = int(request.args.get('size', 50))
+        try:
+            api.update_label_cache(silent=True)
+        except Exception:
+            pass
+
+        try:
+            if q:
+                if q.isdigit():
+                    rs = api.get_ruleset_by_id(q)
+                    all_rs = [rs] if rs else api.search_rulesets(q)
+                else:
+                    all_rs = api.search_rulesets(q)
+            else:
+                all_rs = api.get_all_rulesets()
+        except Exception as e:
+            return jsonify({"items": [], "total": 0, "page": page, "size": size,
+                            "error": f"PCE API error: {e}"}), 200
+
+        total = len(all_rs)
+        start = (page - 1) * size
+        page_items = all_rs[start:start + size]
+
+        results = []
+        for rs in page_items:
+            stype = db.get_schedule_type(rs)
+            ut = rs.get('update_type')
+            results.append({
+                "href": rs['href'],
+                "id": extract_id(rs['href']),
+                "name": rs.get('name', ''),
+                "enabled": rs.get('enabled', False),
+                "rules_count": len(rs.get('rules', [])),
+                "schedule_type": stype,
+                "provision_state": "DRAFT" if ut else "ACTIVE"
+            })
+        return jsonify({"items": results, "total": total, "page": page, "size": size})
+
+    @app.route('/api/rule_scheduler/rulesets/<rs_id>')
+    def rs_ruleset_detail(rs_id):
+        db, api, _ = _get_rs_components()
+        try:
+            api.update_label_cache(silent=True)
+        except Exception:
+            pass
+        try:
+            rs = api.get_ruleset_by_id(rs_id)
+        except Exception as e:
+            return jsonify({"error": f"PCE API error: {e}"}), 502
+        if not rs:
+            return jsonify({"error": "Not found"}), 404
+
+        ut = rs.get('update_type')
+        rs_row = {
+            "href": rs['href'],
+            "id": extract_id(rs['href']),
+            "name": rs.get('name', ''),
+            "enabled": rs.get('enabled', False),
+            "provision_state": "DRAFT" if ut else "ACTIVE",
+            "is_scheduled": rs['href'] in db.get_all(),
+            "type": "ruleset"
+        }
+
+        rules = []
+        for r in rs.get('rules', []):
+            r_ut = r.get('update_type')
+            dest_field = r.get('destinations', r.get('consumers', []))
+            rules.append({
+                "href": r['href'],
+                "id": extract_id(r['href']),
+                "enabled": r.get('enabled', False),
+                "description": r.get('description', ''),
+                "provision_state": "DRAFT" if r_ut else "ACTIVE",
+                "is_scheduled": r['href'] in db.get_all(),
+                "source": api.resolve_actor_str(dest_field),
+                "dest": api.resolve_actor_str(r.get('providers', [])),
+                "service": api.resolve_service_str(r.get('ingress_services', [])),
+                "type": "rule"
+            })
+        return jsonify({"ruleset": rs_row, "rules": rules})
+
+    @app.route('/api/rule_scheduler/schedules')
+    def rs_schedules_list():
+        db, api, _ = _get_rs_components()
+        db_data = db.get_all()
+        result = []
+        for href, conf in db_data.items():
+            entry = dict(conf)
+            entry['href'] = href
+            entry['id'] = extract_id(href)
+            # Live status check
+            try:
+                status, data = api.get_live_item(href)
+                if status == 200 and data:
+                    entry['live_enabled'] = data.get('enabled')
+                    entry['live_name'] = data.get('name', conf.get('name', ''))
+                else:
+                    entry['live_enabled'] = None
+                    entry['live_name'] = conf.get('name', '')
+            except Exception:
+                entry['live_enabled'] = None
+                entry['live_name'] = conf.get('name', '')
+            result.append(entry)
+        return jsonify(result)
+
+    @app.route('/api/rule_scheduler/schedules', methods=['POST'])
+    def rs_schedule_create():
+        db, api, _ = _get_rs_components()
+        data = request.get_json()
+        href = data.get('href', '')
+        if not href:
+            return jsonify({"error": "href required"}), 400
+
+        # Validate time format for recurring
+        if data.get('type') == 'recurring':
+            try:
+                datetime.datetime.strptime(data['start'], "%H:%M")
+                datetime.datetime.strptime(data['end'], "%H:%M")
+            except (ValueError, KeyError):
+                return jsonify({"error": "Invalid time format (use HH:MM)"}), 400
+        elif data.get('type') == 'one_time':
+            try:
+                ex = data['expire_at'].replace(' ', 'T')
+                datetime.datetime.fromisoformat(ex)
+                data['expire_at'] = ex
+            except (ValueError, KeyError):
+                return jsonify({"error": "Invalid expiration format"}), 400
+
+        db_entry = {
+            "type": data.get('type', 'recurring'),
+            "name": data.get('name', ''),
+            "is_ruleset": data.get('is_ruleset', False),
+            "action": data.get('action', 'allow'),
+            "detail_rs": data.get('detail_rs', ''),
+            "detail_src": data.get('detail_src', 'All'),
+            "detail_dst": data.get('detail_dst', 'All'),
+            "detail_svc": data.get('detail_svc', 'All'),
+            "detail_name": data.get('detail_name', data.get('name', ''))
+        }
+
+        if data.get('type') == 'recurring':
+            db_entry['days'] = data.get('days', [])
+            db_entry['start'] = data['start']
+            db_entry['end'] = data['end']
+            days_str = ",".join([d[:3] for d in db_entry['days']]) if len(db_entry['days']) < 7 else t('rs_action_everyday')
+            act_str = t('rs_action_enable_in_window') if db_entry['action'] == 'allow' else t('rs_action_disable_in_window')
+            note = f"[📅 {t('rs_sch_tag_recurring')}: {days_str} {db_entry['start']}-{db_entry['end']} {act_str}]"
+        else:
+            db_entry['expire_at'] = data['expire_at']
+            note = f"[⏳ {t('rs_sch_tag_expire')}: {data['expire_at'].replace('T', ' ')}]"
+
+        db.put(href, db_entry)
+        api.update_rule_note(href, note)
+        return jsonify({"ok": True, "id": extract_id(href)})
+
+    @app.route('/api/rule_scheduler/schedules/<path:href>')
+    def rs_schedule_detail(href):
+        db, _, _ = _get_rs_components()
+        href = '/' + href if not href.startswith('/') else href
+        conf = db.get(href)
+        if not conf:
+            return jsonify({"error": "Not found"}), 404
+        entry = dict(conf)
+        entry['href'] = href
+        entry['id'] = extract_id(href)
+        return jsonify(entry)
+
+    @app.route('/api/rule_scheduler/schedules/delete', methods=['POST'])
+    def rs_schedule_delete():
+        db, api, _ = _get_rs_components()
+        data = request.get_json()
+        hrefs = data.get('hrefs', [])
+        deleted = []
+        for href in hrefs:
+            try:
+                api.update_rule_note(href, "", remove=True)
+            except Exception:
+                pass
+            if db.delete(href):
+                deleted.append(extract_id(href))
+        return jsonify({"ok": True, "deleted": deleted})
+
+    @app.route('/api/rule_scheduler/check', methods=['POST'])
+    def rs_check():
+        _, _, engine = _get_rs_components()
+        logs = engine.check(silent=True)
+        cleaned = [_strip_ansi(l) for l in logs]
+        return jsonify({"ok": True, "logs": cleaned})
+
+    # ─── End Rule Scheduler API ────────────────────────────────────────────
+
     return app
 
 
@@ -1106,7 +1384,7 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001):
         cm = ConfigManager()
 
     app = _create_app(cm)
-    print(f"\n  Illumio PCE Monitor — Web GUI")
+    print(f"\n  Illumio PCE Ops — Web GUI")
     print(f"  Open in browser: http://127.0.0.1:{port}")
     print(f"  Press Ctrl+C to stop.\n")
 
@@ -1124,7 +1402,7 @@ _SPA_HTML = r'''<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Illumio PCE Monitor</title>
+<title>Illumio PCE Ops</title>
 <style>
 :root {
   --bg: #1a2c32; --bg2: #24393f; --bg3: #2d454c;
@@ -1240,7 +1518,7 @@ legend { color:var(--accent2); font-weight:700; font-size:.9rem; padding:0 8px; 
 <body>
 
 <div class="header">
-  <h1 data-i18n="gui_title">◆ Illumio PCE Monitor</h1>
+  <h1 data-i18n="gui_title">◆ Illumio PCE Ops</h1>
   <div style="display:flex;align-items:center;gap:14px"><span class="meta" id="hdr-meta">Loading...</span><button class="btn btn-danger btn-sm" onclick="stopGui()" title="Stop Web GUI" data-i18n="gui_stop">⏹ Stop</button></div>
 </div>
 
@@ -1418,7 +1696,7 @@ legend { color:var(--accent2); font-weight:700; font-size:.9rem; padding:0 8px; 
 <div class="modal-bg" id="m-help"><div class="modal" style="max-width:600px;">
   <h2><span data-i18n="gui_help_title">📖 Parameter Guide (API 25.2)</span></h2>
   <div style="color:var(--dim);line-height:1.6;font-size:0.95rem;">
-    <p data-i18n="gui_help_desc">Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API parameters.</p>
+    <p data-i18n="gui_help_desc">Illumio PCE Ops leverages the standard Illumio Traffic Analysis REST API parameters.</p>
     <h3 style="color:#fff;margin-top:12px" data-i18n="gui_help_filters">Filters & Excludes</h3>
     <ul style="padding-left:20px;margin-bottom:12px">
       <li data-i18n="gui_help_lf"><strong>Label format:</strong> <code>key=value</code> (e.g., <code>role=Web</code>, <code>env=Production</code>, <code>app=Database</code>). Must exactly match the PCE label keys and values.</li>

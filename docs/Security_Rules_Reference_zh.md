@@ -2,7 +2,7 @@
 
 > **[English](Security_Rules_Reference.md)** | **[繁體中文](Security_Rules_Reference_zh.md)**
 
-本文件說明 Illumio PCE Monitor 流量報表引擎內建的所有安全偵測規則。每次產生流量報表時，規則引擎會自動執行評估，結果顯示於 HTML 及 Excel 報表的 **Security Findings（安全發現）** 章節。
+本文件說明 Illumio PCE Ops 流量報表引擎內建的所有安全偵測規則。每次產生流量報表時，規則引擎會自動執行評估，結果顯示於 HTML 及 Excel 報表的 **Security Findings（安全發現）** 章節。
 
 ---
 

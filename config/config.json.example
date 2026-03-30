@@ -83,5 +83,9 @@
         ],
         "timezone": "local"
     },
-    "rules": []
+    "rules": [],
+    "rule_scheduler": {
+        "enabled": false,
+        "check_interval_seconds": 300
+    }
 }

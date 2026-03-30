@@ -29,11 +29,26 @@ logger = logging.getLogger(__name__)
 
 
 def _fmt_tz_str(dt: datetime.datetime) -> str:
-    """Format a timezone-aware datetime as '2026-03-26 16:30:00 (UTC+08:00)'."""
+    """Format a timezone-aware datetime as '2026-03-26 16:30:00 (UTC+08)'."""
     offset_s = dt.strftime('%z')
-    sign = offset_s[0]; hh = offset_s[1:3]; mm = offset_s[3:5]
-    tz_label = f"UTC{sign}{hh}:{mm}" if mm != '00' else f"UTC{sign}{hh}"
+    sign = offset_s[0]; hh = int(offset_s[1:3]); mm = int(offset_s[3:5])
+    tz_label = f"UTC{sign}{hh}" if mm == 0 else f"UTC{sign}{hh}:{mm:02d}"
     return dt.strftime('%Y-%m-%d %H:%M:%S') + f' ({tz_label})'
+
+
+def _fmt_ts_local(ts_str, tz: datetime.timezone) -> str:
+    """Format an ISO timestamp string to 'YYYY-MM-DD HH:MM (UTC+N)' in local time."""
+    if not ts_str:
+        return ''
+    try:
+        dt = datetime.datetime.fromisoformat(str(ts_str).replace('Z', '+00:00'))
+        local_dt = dt.astimezone(tz)
+        offset_s = local_dt.strftime('%z')          # e.g. "+0800"
+        sign = offset_s[0]; hh = int(offset_s[1:3]); mm = int(offset_s[3:5])
+        tz_label = f"UTC{sign}{hh}" if mm == 0 else f"UTC{sign}{hh}:{mm:02d}"
+        return local_dt.strftime('%Y-%m-%d %H:%M') + f' ({tz_label})'
+    except Exception:
+        return str(ts_str)
 
 _ONLINE_STATUSES = {'active', 'online'}
 # VENs whose last heartbeat is older than this are considered offline,
@@ -113,23 +128,25 @@ class VenStatusGenerator:
             )
 
             rows.append({
-                'hostname':                  w.get('hostname', w.get('name', '')),
-                'name':                      w.get('name', ''),
-                'ip':                        ip_str,
-                'labels':                    labels_str,
-                'ven_status':                st.get('status', ''),
-                'last_heartbeat':            st.get('last_heartbeat_on', ''),
+                'hostname':                   w.get('hostname', w.get('name', '')),
+                'ip':                         ip_str,
+                'labels':                     labels_str,
+                # Internal fields used for online/offline determination (not displayed)
+                'ven_status':                 st.get('status', ''),
                 'hours_since_last_heartbeat': st.get('hours_since_last_heartbeat', None),
-                'policy_received':           st.get('security_policy_refresh_at', ''),
-                'paired_at':                 st.get('managed_since', ''),
-                'ven_version':               st.get('agent_version', ''),
-                'pce_fqdn':                  st.get('active_pce_fqdn', ''),
+                # Display fields
+                'policy_sync':               st.get('security_policy_sync_state', ''),
+                'last_heartbeat':             st.get('last_heartbeat_on', ''),
+                'policy_received':            st.get('security_policy_refresh_at', ''),
+                'paired_at':                  st.get('managed_since', ''),
+                'ven_version':                st.get('agent_version', ''),
             })
 
         return pd.DataFrame(rows) if rows else pd.DataFrame(
-            columns=['hostname', 'name', 'ip', 'labels', 'ven_status',
-                     'last_heartbeat', 'policy_received', 'paired_at',
-                     'ven_version', 'pce_fqdn']
+            columns=['hostname', 'ip', 'labels',
+                     'ven_status', 'hours_since_last_heartbeat',
+                     'policy_sync', 'last_heartbeat', 'policy_received',
+                     'paired_at', 'ven_version']
         )
 
     def _parse_tz(self) -> datetime.timezone:
@@ -153,10 +170,19 @@ class VenStatusGenerator:
         cutoff_24h = now - datetime.timedelta(hours=24)
         cutoff_48h = now - datetime.timedelta(hours=48)
 
-        _COLS = ['hostname', 'name', 'ip', 'labels',
-                 'ven_status', 'hours_since_last_heartbeat',
-                 'last_heartbeat', 'policy_received',
-                 'paired_at', 'ven_version']
+        # Columns included in the final display tables (internal-only fields excluded)
+        _DISPLAY_COLS = ['hostname', 'ip', 'labels', 'policy_sync',
+                         'last_heartbeat', 'policy_received', 'paired_at', 'ven_version']
+        _COL_RENAME = {
+            'hostname':        'Hostname',
+            'ip':              'IP',
+            'labels':          'Labels',
+            'policy_sync':     'Policy Sync',
+            'last_heartbeat':  'Last Heartbeat',
+            'policy_received': 'Policy Received',
+            'paired_at':       'Paired At',
+            'ven_version':     'VEN Version',
+        }
 
         def _parse(ts: str):
             if not ts:
@@ -174,10 +200,15 @@ class VenStatusGenerator:
 
         def _clean(d):
             if d.empty:
-                return pd.DataFrame(columns=_COLS)
-            # Only select columns that exist (guard against unexpected API shapes)
-            cols = [c for c in _COLS if c in d.columns]
-            return d[cols].sort_values('last_heartbeat', ascending=False).reset_index(drop=True)
+                return pd.DataFrame(columns=list(_COL_RENAME.values()))
+            cols = [c for c in _DISPLAY_COLS if c in d.columns]
+            out = d[cols].copy().sort_values('last_heartbeat', ascending=False, na_position='last')
+            # Format timestamp columns to human-readable local time
+            tz = now.tzinfo
+            for ts_col in ('last_heartbeat', 'policy_received', 'paired_at'):
+                if ts_col in out.columns:
+                    out[ts_col] = out[ts_col].apply(lambda v: _fmt_ts_local(v, tz))
+            return out.rename(columns=_COL_RENAME).reset_index(drop=True)
 
         df = df.copy()
         df['_hb_dt'] = df['last_heartbeat'].apply(_parse)

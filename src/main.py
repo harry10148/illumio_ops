@@ -3,7 +3,7 @@ import os
 import signal
 import logging
 import argparse
-from src.utils import setup_logger, Colors, safe_input, draw_panel
+from src.utils import setup_logger, Colors, safe_input, draw_panel, get_terminal_width, Spinner
 from src.config import ConfigManager
 from src.api_client import ApiClient
 from src.analyzer import Analyzer
@@ -49,12 +49,13 @@ def run_daemon_loop(interval_minutes: int):
     from src.report_scheduler import ReportScheduler
 
     last_analysis_time = None
+    last_rule_check_time = None
     interval_seconds = interval_minutes * 60
 
     while not _shutdown_event.is_set():
         try:
             import datetime as _dt
-            now = _dt.datetime.utcnow()
+            now = _dt.datetime.now(_dt.timezone.utc)
 
             # Run monitoring analysis at the configured interval
             if last_analysis_time is None or (now - last_analysis_time).total_seconds() >= interval_seconds:
@@ -72,6 +73,23 @@ def run_daemon_loop(interval_minutes: int):
             scheduler = ReportScheduler(cm, rep)
             scheduler.tick()
 
+            # Rule Scheduler check (at configured interval)
+            if cm.config.get("rule_scheduler", {}).get("enabled", False):
+                rule_check_interval = cm.config.get("rule_scheduler", {}).get("check_interval_seconds", 300)
+                if last_rule_check_time is None or (now - last_rule_check_time).total_seconds() >= rule_check_interval:
+                    from src.rule_scheduler import ScheduleDB, ScheduleEngine
+                    import os as _os
+                    _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
+                    _root_dir = _os.path.dirname(_pkg_dir)
+                    _db_path = _os.path.join(_root_dir, "config", "rule_schedules.json")
+                    rs_db = ScheduleDB(_db_path)
+                    rs_db.load()
+                    rs_api = ApiClient(cm)
+                    rs_engine = ScheduleEngine(rs_db, rs_api)
+                    rs_engine.check(silent=True)
+                    last_rule_check_time = now
+                    logger.info("Rule scheduler check completed.")
+
         except Exception as e:
             logger.error(f"Error in monitoring cycle: {e}", exc_info=True)
 
@@ -85,7 +103,7 @@ def run_daemon_loop(interval_minutes: int):
 def view_logs(log_file):
     """Simple log viewer for the CLI."""
     os.system("cls" if os.name == "nt" else "clear")
-    draw_panel(t("menu_view_logs_title"), [], width=80)
+    draw_panel(t("menu_view_logs_title"), [])
     print("")
     try:
         if not os.path.exists(log_file):
@@ -106,16 +124,112 @@ def view_logs(log_file):
 # ─── Interactive CLI Menu ─────────────────────────────────────────────────────
 
 
+def rule_management_menu(cm):
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        cm.load()
+        lines = [
+            f"{Colors.BOLD}{Colors.CYAN}{t('main_menu_root_1')}{Colors.ENDC}",
+            "-",
+            t("main_menu_1"),
+            t("main_menu_2"),
+            t("main_menu_3"),
+            t("main_menu_4"),
+            t("main_menu_5"),
+            t("main_menu_6"),
+            t("main_menu_7"),
+            t("main_menu_8"),
+            t("main_menu_0")
+        ]
+        draw_panel("Illumio PCE Ops", lines)
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 9))
+
+        if sel is None or sel == 0:
+            break
+        elif sel == 1:
+            add_event_menu(cm)
+        elif sel == 2:
+            from src.settings import add_traffic_menu
+            # We'll update add_traffic_menu to have its own start screen in settings.py later.
+            add_traffic_menu(cm)
+        elif sel == 3:
+            from src.settings import add_bandwidth_volume_menu
+            # We'll update add_bandwidth_volume_menu to have its own start screen in settings.py later.
+            add_bandwidth_volume_menu(cm)
+        elif sel == 4:
+            manage_rules_menu(cm)
+        elif sel == 5:
+            print(f"\n{Colors.WARNING}{t('warning_best_practices')}{Colors.ENDC}")
+            confirm = safe_input(f"{t('confirm_continue')} (Y/N)", str)
+            if confirm and confirm.strip().upper() == "Y":
+                cm.load_best_practices()
+                input(
+                    f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('best_practice_loaded', default='Best practices loaded successfully! Press Enter to continue...')} {Colors.GREEN}❯{Colors.ENDC} "
+                )
+            else:
+                input(
+                    f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('operation_cancelled', default='Operation cancelled. Press Enter to continue...')} {Colors.GREEN}❯{Colors.ENDC} "
+                )
+        elif sel == 6:
+            Reporter(cm).send_alerts(force_test=True)
+            input(
+                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('done_msg')} {Colors.GREEN}❯{Colors.ENDC} "
+            )
+        elif sel == 7:
+            api = ApiClient(cm)
+            rep = Reporter(cm)
+            ana = Analyzer(cm, api, rep)
+            ana.run_analysis()
+            rep.send_alerts()
+            input(
+                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
+            )
+        elif sel == 8:
+            api = ApiClient(cm)
+            rep = Reporter(cm)
+            ana = Analyzer(cm, api, rep)
+            ana.run_debug_mode()
+            input(
+                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
+            )
+
+def report_generation_menu(cm):
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        cm.load()
+        lines = [
+            f"{Colors.BOLD}{Colors.CYAN}{t('main_menu_root_2')}{Colors.ENDC}",
+            "-",
+            t("main_menu_9"),
+            t("main_menu_10"),
+            t("main_menu_11"),
+            t("main_menu_12"),
+            t("main_menu_0")
+        ]
+        draw_panel("Illumio PCE Ops", lines)
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 5))
+
+        if sel is None or sel == 0:
+            break
+        elif sel == 1:
+            _run_report_menu(cm)
+        elif sel == 2:
+            _run_audit_report_menu(cm)
+        elif sel == 3:
+            _run_ven_status_menu(cm)
+        elif sel == 4:
+            manage_report_schedules_menu(cm)
+
 def main_menu():
     # Setup Logging
     global LOG_FILE
     PKG_DIR = os.path.dirname(os.path.abspath(__file__))
     ROOT_DIR = os.path.dirname(PKG_DIR)
     LOG_DIR = os.path.join(ROOT_DIR, "logs")
-    LOG_FILE = os.path.join(LOG_DIR, "illumio_monitor.log")
+    LOG_FILE = os.path.join(LOG_DIR, "illumio_ops.log")
 
     setup_logger("src", LOG_FILE)
-    logger.info("Starting Illumio PCE Monitor")
+    logger.info("Starting Illumio PCE Ops")
 
     cm = ConfigManager()
 
@@ -141,86 +255,32 @@ def main_menu():
             f"Health Check: {health_status} | Language: {current_lang} | Theme: {current_theme}",
             f"{Colors.DARK_GRAY}{shortcuts_line}{Colors.ENDC}",
             "-",
-            t("main_menu_1"),
-            t("main_menu_2")
-            .replace("{Colors.WARNING}", Colors.WARNING)
-            .replace("{Colors.ENDC}", Colors.ENDC),
-            t("main_menu_3")
-            .replace("{Colors.CYAN}", Colors.CYAN)
-            .replace("{Colors.ENDC}", Colors.ENDC),
-            t("main_menu_4"),
-            t("main_menu_5"),
-            t("main_menu_6")
-            .replace("{Colors.CYAN}", Colors.CYAN)
-            .replace("{Colors.ENDC}", Colors.ENDC),
-            t("main_menu_7"),
-            t("main_menu_8"),
-            t("main_menu_9"),
-            t("main_menu_10")
-            .replace("{Colors.CYAN}", Colors.CYAN)
-            .replace("{Colors.ENDC}", Colors.ENDC),
-            t("main_menu_11"),
-            t("main_menu_12"),
-            t("main_menu_13"),
-            t("main_menu_14"),
-            t("main_menu_15"),
+            t("main_menu_root_1"),
+            t("main_menu_root_2"),
+            t("main_menu_root_3"),
+            t("main_menu_root_4"),
+            t("main_menu_root_5"),
+            t("main_menu_root_6"),
             t("main_menu_0"),
         ]
 
-        draw_panel("Illumio PCE Monitor", lines, width=65)
+        draw_panel("Illumio PCE Ops", lines)
 
-        sel = safe_input(f"\n{t('please_select')}", int, range(0, 16))
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 7))
 
-        if sel == 0:
+        if sel is None or sel == 0:
             break
         elif sel == 1:
-            add_event_menu(cm)
+            rule_management_menu(cm)
         elif sel == 2:
-            add_traffic_menu(cm)
+            report_generation_menu(cm)
         elif sel == 3:
-            add_bandwidth_volume_menu(cm)
+            from src.rule_scheduler_cli import rule_scheduler_menu
+            rule_scheduler_menu(cm)
         elif sel == 4:
-            manage_rules_menu(cm)
-        elif sel == 5:
             settings_menu(cm)
-        elif sel == 6:
-            print(f"\n{Colors.WARNING}{t('warning_best_practices')}{Colors.ENDC}")
-            confirm = safe_input(f"{t('confirm_continue')} (Y/N)", str)
-            if confirm and confirm.strip().upper() == "Y":
-                cm.load_best_practices()
-                input(
-                    f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('best_practice_loaded', default='Best practices loaded successfully! Press Enter to continue...')} {Colors.GREEN}❯{Colors.ENDC} "
-                )
-            else:
-                input(
-                    f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('operation_cancelled', default='Operation cancelled. Press Enter to continue...')} {Colors.GREEN}❯{Colors.ENDC} "
-                )
-        elif sel == 7:
-            Reporter(cm).send_alerts(force_test=True)
-            input(
-                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('done_msg')} {Colors.GREEN}❯{Colors.ENDC} "
-            )
-        elif sel == 8:
-            api = ApiClient(cm)
-            rep = Reporter(cm)
-            ana = Analyzer(cm, api, rep)
-            ana.run_analysis()
-            rep.send_alerts()
-            input(
-                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
-            )
-        elif sel == 9:
-            api = ApiClient(cm)
-            rep = Reporter(cm)
-            ana = Analyzer(cm, api, rep)
-            ana.run_debug_mode()
-            input(
-                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
-            )
-        elif sel == 10:
-            # Launch Web GUI from console menu
+        elif sel == 5:
             from src.gui import launch_gui, HAS_FLASK
-
             if not HAS_FLASK:
                 print(f"{Colors.FAIL}{t('flask_not_available')}{Colors.ENDC}")
                 print(t("flask_install_hint"))
@@ -234,16 +294,8 @@ def main_menu():
                 except (ValueError, TypeError):
                     port = 5001
                 launch_gui(cm, port=port)
-        elif sel == 11:
+        elif sel == 6:
             view_logs(LOG_FILE)
-        elif sel == 12:
-            _run_report_menu(cm)
-        elif sel == 13:
-            _run_audit_report_menu(cm)
-        elif sel == 14:
-            _run_ven_status_menu(cm)
-        elif sel == 15:
-            manage_report_schedules_menu(cm)
 
 
 # ─── Report Sub-Menu ─────────────────────────────────────────────────────────
@@ -298,12 +350,18 @@ def _run_report_menu(cm):
             api_start_date = None
             api_end_date = None
             if sel == 1:
-                now = _dt.datetime.utcnow()
+                now = _dt.datetime.now(_dt.timezone.utc)
                 default_end = now.strftime('%Y-%m-%d')
                 default_start = (now - _dt.timedelta(days=7)).strftime('%Y-%m-%d')
                 print(f"\n{Colors.CYAN}{t('report_date_range_title')}{Colors.ENDC}")
-                s = safe_input(f"  {t('report_start_date', date=default_start)}", str) or default_start
-                e = safe_input(f"  {t('report_end_date', date=default_end)}", str) or default_end
+                s = safe_input(f"  {t('report_start_date', date=default_start)}", str)
+                if s is None:
+                    continue
+                s = s or default_start
+                e = safe_input(f"  {t('report_end_date', date=default_end)}", str)
+                if e is None:
+                    continue
+                e = e or default_end
                 try:
                     api_start_date = _dt.datetime.strptime(s.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT00:00:00Z')
                     api_end_date   = _dt.datetime.strptime(e.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT23:59:59Z')
@@ -355,15 +413,15 @@ def _run_report_menu(cm):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Illumio PCE Monitor",
+        description="Illumio PCE Ops",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  python illumio_monitor.py                       # Interactive CLI menu\n"
-            "  python illumio_monitor.py --monitor             # Headless daemon mode\n"
-            "  python illumio_monitor.py --monitor -i 5        # Daemon with 5-min interval\n"
-            "  python illumio_monitor.py --gui                 # Launch Web GUI (port 5001)\n"
-            "  python illumio_monitor.py --gui --port 8080     # Web GUI on custom port\n"
+            "  python illumio_ops.py                       # Interactive CLI menu\n"
+            "  python illumio_ops.py --monitor             # Headless daemon mode\n"
+            "  python illumio_ops.py --monitor -i 5        # Daemon with 5-min interval\n"
+            "  python illumio_ops.py --gui                 # Launch Web GUI (port 5001)\n"
+            "  python illumio_ops.py --gui --port 8080     # Web GUI on custom port\n"
         ),
     )
     parser.add_argument(
@@ -428,7 +486,7 @@ def main():
     PKG_DIR = os.path.dirname(os.path.abspath(__file__))
     ROOT_DIR = os.path.dirname(PKG_DIR)
     LOG_DIR = os.path.join(ROOT_DIR, "logs")
-    LOG_FILE = os.path.join(LOG_DIR, "illumio_monitor.log")
+    LOG_FILE = os.path.join(LOG_DIR, "illumio_ops.log")
     setup_logger("src", LOG_FILE)
 
     if args.report:
@@ -483,6 +541,8 @@ def main():
             main_menu()
         except KeyboardInterrupt:
             print(f"\n{t('bye_msg')}")
+
+
 def _run_audit_report_menu(cm):
     """Interactive sub-menu for Audit & System Events Report (item 13)."""
     import datetime as _dt
@@ -504,12 +564,18 @@ def _run_audit_report_menu(cm):
         output_dir = os.path.join(ROOT_DIR, output_dir)
 
     # --- Date range input ---
-    now = _dt.datetime.utcnow()
+    now = _dt.datetime.now(_dt.timezone.utc)
     default_end = now.strftime('%Y-%m-%d')
     default_start = (now - _dt.timedelta(days=7)).strftime('%Y-%m-%d')
     print(f"\n{Colors.CYAN}{t('audit_date_range_title')}{Colors.ENDC}")
-    start_str = safe_input(f"  {t('report_start_date', date=default_start)}", str) or default_start
-    end_str   = safe_input(f"  {t('report_end_date', date=default_end)}", str) or default_end
+    start_str = safe_input(f"  {t('report_start_date', date=default_start)}", str)
+    if start_str is None:
+        return
+    start_str = start_str or default_start
+    end_str = safe_input(f"  {t('report_end_date', date=default_end)}", str)
+    if end_str is None:
+        return
+    end_str = end_str or default_end
     try:
         start_date = _dt.datetime.strptime(start_str.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT00:00:00Z')
         end_date   = _dt.datetime.strptime(end_str.strip(),   '%Y-%m-%d').strftime('%Y-%m-%dT23:59:59Z')

@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0F172A">
-  <title>Illumio PCE Monitor</title>
+  <title>Illumio PCE Ops</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
@@ -421,6 +421,11 @@
       border-radius: 6px;
     }
 
+    .btn:active:not(:disabled) {
+      transform: scale(0.97);
+      transition-duration: 0.05s;
+    }
+
     .btn:disabled {
       opacity: .5;
       cursor: not-allowed;
@@ -521,8 +526,10 @@
       font-size: .84rem;
       white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
       font-variant-numeric: tabular-nums;
+    }
+    .rule-table td {
+      text-overflow: ellipsis;
     }
 
     .rule-table th {
@@ -819,7 +826,7 @@
       right: 24px;
       background: var(--success);
       color: #fff;
-      padding: 12px 24px;
+      padding: 12px 20px;
       border-radius: 8px;
       font-weight: 600;
       font-size: .9rem;
@@ -829,16 +836,35 @@
       transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       pointer-events: none;
       box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 420px;
     }
 
     .toast.show {
       opacity: 1;
       transform: translateY(0);
+      pointer-events: auto;
     }
 
-    .toast.err {
-      background: var(--danger);
+    .toast.err { background: var(--danger); }
+    .toast.warn { background: var(--warn); color: #1a2c32; }
+    .toast.info { background: var(--bg3); color: var(--fg); border: 1px solid var(--border); }
+
+    .toast-icon { flex-shrink: 0; font-size: 1.1rem; }
+    .toast-close {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: inherit;
+      font-size: 1.1rem;
+      cursor: pointer;
+      opacity: .7;
+      padding: 0 0 0 8px;
+      line-height: 1;
     }
+    .toast-close:hover { opacity: 1; }
 
     /* Quarantine Feature - SubNav & Floating Bar */
     .sub-nav {
@@ -1041,6 +1067,82 @@
       outline-offset: 2px;
     }
 
+    /* Spinner overlay for long operations */
+    .spinner-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(26, 44, 50, .85);
+      backdrop-filter: blur(2px);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      border-radius: var(--radius);
+    }
+    .spinner-overlay.active { display: flex; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-label { color: var(--dim); font-size: .85rem; font-weight: 600; }
+
+    /* Rules search box */
+    .rules-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 8px;
+      position: relative;
+    }
+    .rules-search input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px 5px 28px;
+      color: var(--fg);
+      font-size: .82rem;
+      width: 180px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .rules-search input:focus {
+      border-color: var(--accent2);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent2) 25%, transparent);
+    }
+    .rules-search .search-icon {
+      position: absolute;
+      left: 8px;
+      color: var(--dim);
+      pointer-events: none;
+      width: 14px; height: 14px;
+    }
+    .rules-search .counter {
+      font-size: .75rem;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+    mark { background: color-mix(in srgb, var(--accent2) 35%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 40px 20px;
+      color: var(--dim);
+      text-align: center;
+    }
+    .empty-state svg { width: 48px; height: 48px; opacity: .4; }
+    .empty-state h3 { font-size: 1rem; font-weight: 600; color: var(--fg); opacity: .7; }
+    .empty-state p { font-size: .85rem; max-width: 320px; }
+
     @media (max-width: 960px) {
       .header h1 {
         font-size: 1.28rem;
@@ -1059,6 +1161,19 @@
       .rule-table td {
         font-size: .8rem;
       }
+    }
+
+    @media (max-width: 640px) {
+      .header { padding: 10px 12px; }
+      .header-right { width: 100%; justify-content: flex-end; }
+      .toolbar { flex-wrap: wrap; }
+      .toolbar .spacer { display: none; }
+      .rules-search input { width: 120px; }
+      .action-grid { grid-template-columns: 1fr !important; }
+      .modal { padding: 18px; width: 98vw; }
+      #rs-split { flex-direction: column !important; }
+      #rs-split .rs-divider { display: none; }
+      #rs-split > div { width: 100% !important; min-width: 0 !important; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1154,7 +1269,7 @@
       <svg class="icon" style="width:24px;height:24px;margin-right:8px;color:var(--accent2);">
         <use href="#icon-shield"></use>
       </svg>
-      Illumio PCE Monitor
+      Illumio PCE Ops
     </h1>
     <div class="header-right">
       <span class="meta" id="hdr-meta">Loading...</span>
@@ -1192,25 +1307,20 @@
         <use href="#icon-shield"></use>
       </svg> Rules
     </button>
-    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-reports" data-tab="reports" onclick="switchTab('reports')">
+    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-reports" data-tab="reports" onclick="switchTab('reports')" data-i18n="gui_tab_reports">
       <svg class="icon">
         <use href="#icon-activity"></use>
       </svg> Reports
     </button>
-    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-report-schedules" data-tab="report-schedules" onclick="switchTab('report-schedules')" data-i18n="gui_tab_report_schedules">
+    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-rule-scheduler" data-tab="rule-scheduler" onclick="switchTab('rule-scheduler')">
       <svg class="icon">
         <use href="#icon-clock"></use>
-      </svg> Report Schedules
+      </svg> <span data-i18n="gui_rs_tab">Rule Scheduler</span>
     </button>
     <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-settings" data-tab="settings" onclick="switchTab('settings')" data-i18n="gui_tab_settings">
       <svg class="icon">
         <use href="#icon-settings"></use>
       </svg> Settings
-    </button>
-    <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="p-actions" data-tab="actions" onclick="switchTab('actions')" data-i18n="gui_tab_actions">
-      <svg class="icon">
-        <use href="#icon-play"></use>
-      </svg> Actions
     </button>
   </div>
 
@@ -1533,101 +1643,152 @@
 
   <!-- ═══ Rules ═══ -->
   <div class="panel" id="p-rules">
-    <div class="toolbar">
-      <span style="font-size:1.1rem;font-weight:700;color:var(--accent2)" data-i18n="gui_tab_rules">Rules</span>
-      <span class="badge" id="r-badge">0</span>
-      <button class="btn btn-sm" style="margin-left:8px;background:var(--dim);color:#fff" onclick="openModal('m-help')"
-        data-i18n="gui_param_guide"><svg class="icon" aria-hidden="true"><use href="#icon-help-circle"></use></svg> Parameter Guide</button>
-      <div class="spacer"></div>
-      <button class="btn btn-warn btn-sm" onclick="openModal('m-event')" data-i18n="gui_add_event"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> + Event</button>
-      <button class="btn btn-warn btn-sm" onclick="openModal('m-traffic')" data-i18n="gui_add_traffic"><svg class="icon" aria-hidden="true"><use href="#icon-activity"></use></svg> +
-        Traffic</button>
-      <button class="btn btn-warn btn-sm" onclick="openModal('m-bw')" data-i18n="gui_add_bw"><svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg> + BW/Vol</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteSelected()" data-i18n="gui_delete"><svg class="icon" aria-hidden="true"><use href="#icon-cross"></use></svg> Delete</button>
+    <div class="rs-tab-bar">
+      <button class="btn btn-primary rs-active" onclick="rulesSubTab('rules')" id="rules-tab-rules" data-i18n="gui_tab_rules">Rules</button>
+      <button class="btn" onclick="rulesSubTab('actions')" id="rules-tab-actions" data-i18n="gui_tab_actions">Actions</button>
     </div>
-    <table class="rule-table">
-      <thead>
-        <tr>
-          <th style="width:30px"><input type="checkbox" id="r-chkall" onchange="toggleAll(this)"></th>
-          <th data-i18n="gui_col_type">Type</th>
-          <th data-i18n="gui_col_name">Name</th>
-          <th style="width:110px" data-i18n="gui_col_status">Status</th>
-          <th data-i18n="gui_col_condition">Condition</th>
-          <th data-i18n="gui_col_filters">Filters</th>
-          <th style="width:50px" data-i18n="gui_col_edit">Edit</th>
-        </tr>
-      </thead>
-      <tbody id="r-body"></tbody>
-    </table>
+
+    <!-- ── Rules sub-view ── -->
+    <div id="rules-sv-rules" class="rules-subview">
+      <div class="toolbar">
+        <span class="badge" id="r-badge">0</span>
+        <div class="rules-search">
+          <svg class="search-icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+          <input type="text" id="r-search" placeholder="Filter rules..." data-i18n-placeholder="gui_rules_search_placeholder" oninput="filterRules()">
+          <span class="counter" id="r-search-count"></span>
+        </div>
+        <button class="btn btn-sm" style="margin-left:8px;background:var(--dim);color:#fff" onclick="openModal('m-help')"
+          data-i18n="gui_param_guide"><svg class="icon" aria-hidden="true"><use href="#icon-help-circle"></use></svg> Parameter Guide</button>
+        <div class="spacer"></div>
+        <button class="btn btn-warn btn-sm" onclick="openModal('m-event')" data-i18n="gui_add_event"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> + Event</button>
+        <button class="btn btn-warn btn-sm" onclick="openModal('m-traffic')" data-i18n="gui_add_traffic"><svg class="icon" aria-hidden="true"><use href="#icon-activity"></use></svg> + Traffic</button>
+        <button class="btn btn-warn btn-sm" onclick="openModal('m-bw')" data-i18n="gui_add_bw"><svg class="icon" aria-hidden="true"><use href="#icon-settings"></use></svg> + BW/Vol</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSelected()" data-i18n="gui_delete"><svg class="icon" aria-hidden="true"><use href="#icon-cross"></use></svg> Delete</button>
+      </div>
+      <table class="rule-table">
+        <thead>
+          <tr>
+            <th style="width:30px"><input type="checkbox" id="r-chkall" onchange="toggleAll(this)"></th>
+            <th data-i18n="gui_col_type">Type</th>
+            <th data-i18n="gui_col_name">Name</th>
+            <th style="width:110px" data-i18n="gui_col_status">Status</th>
+            <th data-i18n="gui_col_condition">Condition</th>
+            <th data-i18n="gui_col_filters">Filters</th>
+            <th style="width:50px" data-i18n="gui_col_edit">Edit</th>
+          </tr>
+        </thead>
+        <tbody id="r-body"></tbody>
+      </table>
+    </div>
+
+    <!-- ── Actions sub-view ── -->
+    <div id="rules-sv-actions" class="rules-subview" style="display:none;">
+      <div class="action-grid">
+        <div class="action-card">
+          <h3 data-i18n="gui_run_once"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> Run Monitor Once</h3>
+          <p data-i18n="gui_run_once_desc">Execute full cycle: Health → Fetch → Analyze → Alert</p><button
+            class="btn btn-primary" onclick="runAction('run')" data-i18n="gui_run_btn">Run</button>
+        </div>
+        <div class="action-card">
+          <h3 data-i18n="gui_debug_mode"><svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg> Debug Mode</h3>
+          <p data-i18n="gui_debug_desc">Sandbox mode — no alerts, no state updates</p>
+          <div class="form-row" style="margin-bottom:8px;">
+            <div class="form-group"><label data-i18n="gui_window_min">Window (min)</label><input id="a-debug-mins" value="30"></div>
+            <div class="form-group"><label data-i18n="gui_policy_dec">Policy Dec.</label><select id="a-debug-pd">
+                <option value="1" data-i18n="gui_pd_blocked">Blocked</option>
+                <option value="2" data-i18n="gui_pd_allowed">Allowed</option>
+                <option value="3" data-i18n="gui_pd_all" selected>All</option>
+              </select></div>
+          </div>
+          <button class="btn btn-primary" onclick="runDebug()" data-i18n="gui_run_debug">Run Debug</button>
+        </div>
+        <div class="action-card">
+          <h3 data-i18n="gui_test_alert"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Send Test Alert</h3>
+          <p data-i18n="gui_test_alert_desc">Verify Email / LINE / Webhook delivery</p><button class="btn btn-primary"
+            onclick="runAction('test-alert')" data-i18n="gui_send">Send</button>
+        </div>
+        <div class="action-card">
+          <h3 data-i18n="gui_best_practices"><svg class="icon" aria-hidden="true"><use href="#icon-shield"></use></svg> Load Best Practices</h3>
+          <p data-i18n="gui_best_practices_desc">Replace ALL existing rules with recommended defaults</p><button
+            class="btn btn-danger" onclick="confirmBestPractices()" data-i18n="gui_load">Load</button>
+        </div>
+      </div>
+      <h3 style="color:var(--accent2);margin-bottom:8px;" data-i18n="gui_output">Output</h3>
+      <div class="log-box" id="a-log"></div>
+    </div>
   </div>
 
   <!-- ═══ Settings ═══ -->
   <!-- ═══ Reports ═══ -->
   <div class="panel" id="p-reports">
-    <div class="toolbar" style="gap:8px;flex-wrap:wrap;">
-      <span style="font-size:1.1rem;font-weight:700;color:var(--accent2)" data-i18n="gui_reports">Reports</span>
-      <div class="spacer"></div>
-      <button class="btn btn-primary btn-sm" id="btn-gen-report" onclick="openReportGenModal('traffic')">
-        <svg class="icon"><use href="#icon-play"></use></svg> <span data-i18n="gui_btn_traffic_report">Traffic Report</span>
-      </button>
-      <button class="btn btn-primary btn-sm" id="btn-gen-audit" onclick="openReportGenModal('audit')" style="background:var(--accent2);">
-        <svg class="icon"><use href="#icon-shield"></use></svg> <span data-i18n="gui_btn_audit_report">Audit Summary</span>
-      </button>
-      <button class="btn btn-primary btn-sm" id="btn-gen-ven" onclick="openReportGenModal('ven')" style="background:var(--accent);">
-        <svg class="icon"><use href="#icon-cpu"></use></svg> <span data-i18n="gui_btn_ven_report">VEN Status</span>
-      </button>
+    <div class="rs-tab-bar">
+      <button class="btn btn-primary rs-active" onclick="reportsSubTab('list')" id="reports-tab-list" data-i18n="gui_tab_reports">Reports</button>
+      <button class="btn" onclick="reportsSubTab('schedules')" id="reports-tab-schedules" data-i18n="gui_tab_report_schedules">Report Schedules</button>
     </div>
 
-    <div class="table-container">
-      <table class="rule-table">
-        <thead>
-          <tr>
-            <th data-i18n="gui_col_filename">Filename</th>
-            <th data-i18n="gui_col_date_created">Date Created</th>
-            <th data-i18n="gui_col_size">Size</th>
-            <th width="160" data-i18n="gui_actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="rt-body">
-          <tr><td colspan="4" style="text-align:center;color:var(--dim)" data-i18n="gui_reports_loading">Loading reports...</td></tr>
-        </tbody>
-      </table>
+    <!-- ── Reports list sub-view ── -->
+    <div id="reports-sv-list" class="reports-subview">
+      <div class="toolbar" style="gap:8px;flex-wrap:wrap;">
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-sm" id="btn-gen-report" onclick="openReportGenModal('traffic')">
+          <svg class="icon"><use href="#icon-play"></use></svg> <span data-i18n="gui_btn_traffic_report">Traffic Report</span>
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-gen-audit" onclick="openReportGenModal('audit')" style="background:var(--accent2);">
+          <svg class="icon"><use href="#icon-shield"></use></svg> <span data-i18n="gui_btn_audit_report">Audit Summary</span>
+        </button>
+        <button class="btn btn-primary btn-sm" id="btn-gen-ven" onclick="openReportGenModal('ven')" style="background:var(--accent);">
+          <svg class="icon"><use href="#icon-cpu"></use></svg> <span data-i18n="gui_btn_ven_report">VEN Status</span>
+        </button>
+      </div>
+      <div class="table-container">
+        <table class="rule-table">
+          <thead>
+            <tr>
+              <th data-i18n="gui_col_filename">Filename</th>
+              <th data-i18n="gui_col_date_created">Date Created</th>
+              <th data-i18n="gui_col_size">Size</th>
+              <th width="160" data-i18n="gui_actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rt-body">
+            <tr><td colspan="4" style="text-align:center;color:var(--dim)" data-i18n="gui_reports_loading">Loading reports...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
 
-  <!-- ═══ Report Schedules ═══ -->
-  <div class="panel" id="p-report-schedules">
-    <div class="toolbar" style="gap:8px;flex-wrap:wrap;margin-bottom:14px;">
-      <span style="font-size:1.1rem;font-weight:700;color:var(--accent2)" data-i18n="gui_tab_report_schedules">Report Schedules</span>
-      <div class="spacer"></div>
-      <button class="btn btn-primary btn-sm" onclick="openSchedModal()">
-        <svg class="icon"><use href="#icon-plus"></use></svg>
-        <span data-i18n="gui_sched_add">+ Add Schedule</span>
-      </button>
-    </div>
-
-    <div class="table-container">
-      <table class="rule-table">
-        <thead>
-          <tr>
-            <th data-i18n="gui_sched_col_name">Name</th>
-            <th data-i18n="gui_sched_col_type">Type</th>
-            <th data-i18n="gui_sched_col_freq">Frequency</th>
-            <th data-i18n="gui_sched_col_last">Last Run</th>
-            <th data-i18n="gui_sched_col_status">Status</th>
-            <th data-i18n="gui_sched_col_enabled">Enabled</th>
-            <th width="200" data-i18n="gui_sched_col_actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="sched-body">
-          <tr><td colspan="7" style="text-align:center;color:var(--dim)" data-i18n="gui_sched_empty">No report schedules configured.</td></tr>
-        </tbody>
-      </table>
+    <!-- ── Report Schedules sub-view ── -->
+    <div id="reports-sv-schedules" class="reports-subview" style="display:none;">
+      <div class="toolbar" style="gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-sm" onclick="openSchedModal()">
+          <svg class="icon"><use href="#icon-plus"></use></svg>
+          <span data-i18n="gui_sched_add">+ Add Schedule</span>
+        </button>
+      </div>
+      <div class="table-container">
+        <table class="rule-table">
+          <thead>
+            <tr>
+              <th data-i18n="gui_sched_col_name">Name</th>
+              <th data-i18n="gui_sched_col_type">Type</th>
+              <th data-i18n="gui_sched_col_freq">Frequency</th>
+              <th data-i18n="gui_sched_col_last">Last Run</th>
+              <th data-i18n="gui_sched_col_status">Status</th>
+              <th data-i18n="gui_sched_col_enabled">Enabled</th>
+              <th width="200" data-i18n="gui_sched_col_actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sched-body">
+            <tr><td colspan="7" style="text-align:center;color:var(--dim)" data-i18n="gui_sched_empty">No report schedules configured.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <!-- Report Schedule Modal -->
-  <div class="modal-bg" id="m-sched">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-sched">
     <div class="modal" style="max-width:560px;">
       <h2><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg> <span id="sched-modal-title" data-i18n="gui_sched_modal_add">Add Report Schedule</span></h2>
       <input type="hidden" id="sched-id" value="">
@@ -1710,7 +1871,7 @@
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="closeModal('m-sched')" data-i18n="gui_gen_cancel">Cancel</button>
+        <button class="btn btn-secondary" onclick="closeModal('m-sched')" data-i18n="gui_gen_cancel">Cancel</button>
         <button class="btn btn-success" onclick="saveSchedule()"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> <span data-i18n="gui_save">Save</span></button>
       </div>
     </div>
@@ -1733,46 +1894,257 @@
     </div>
   </div>
 
-  <!-- ═══ Actions ═══ -->
-  <div class="panel" id="p-actions">
-    <div class="action-grid">
-      <div class="action-card">
-        <h3 data-i18n="gui_run_once"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> Run Monitor Once</h3>
-        <p data-i18n="gui_run_once_desc">Execute full cycle: Health → Fetch → Analyze → Alert</p><button
-          class="btn btn-primary" onclick="runAction('run')" data-i18n="gui_run_btn">Run</button>
+
+  <!-- ═══ Rule Scheduler ═══ -->
+  <div class="panel" id="p-rule-scheduler">
+
+    <!-- Scoped inline styles for Rule Scheduler -->
+    <style>
+      /* Split-pane layout */
+      #rs-split{display:flex;height:calc(100vh - 240px);min-height:400px;gap:0;position:relative;}
+      #rs-left{width:45%;min-width:200px;overflow:auto;border-right:2px solid var(--border);padding-right:0;}
+      #rs-right{flex:1;overflow:auto;padding-left:12px;}
+      #rs-resizer{width:6px;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background .2s;}
+      #rs-resizer:hover,#rs-resizer.active{background:var(--accent);}
+
+      /* Glass-card panels */
+      .rs-glass{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px;backdrop-filter:blur(6px);}
+
+      /* Badge styles */
+      .rs-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.75rem;font-weight:600;line-height:1.4;vertical-align:middle;}
+      .rs-badge-on{background:#299B65;color:#fff;}
+      .rs-badge-off{background:#F43F51;color:#fff;}
+      .rs-badge-active{background:#299B65;color:#fff;}
+      .rs-badge-draft{background:var(--accent2);color:#000;}
+      .rs-badge-allow{background:#299B65;color:#fff;}
+      .rs-badge-block{background:#F43F51;color:#fff;}
+      .rs-badge-expire{background:var(--accent2);color:#000;}
+
+      /* Schedule markers */
+      .rs-mark-rs{color:var(--warn);font-size:1.1rem;cursor:help;}
+      .rs-mark-child{color:var(--accent2);font-size:1.1rem;cursor:help;}
+
+      /* Clickable cells */
+      .rs-clickable{cursor:pointer;position:relative;text-decoration:underline dotted;text-underline-offset:3px;}
+      .rs-clickable:hover{color:var(--accent);background:rgba(255,85,0,.08);border-radius:3px;}
+
+      /* Detail popup */
+      #rs-detail-popup{position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;box-shadow:0 8px 32px rgba(0,0,0,.4);max-width:420px;min-width:200px;font-size:.85rem;display:none;white-space:pre-wrap;word-break:break-all;}
+      #rs-detail-popup .popup-title{font-weight:700;color:var(--accent2);margin-bottom:6px;font-size:.9rem;}
+      #rs-detail-popup .popup-close{position:absolute;top:4px;right:8px;cursor:pointer;color:var(--dim);font-size:1.1rem;}
+      #rs-detail-popup .popup-close:hover{color:var(--danger);}
+
+      /* Pagination */
+      .rs-pagination{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+      .rs-pagination .rs-pg-info{color:var(--dim);font-size:.85rem;}
+      .rs-pagination button{padding:4px 12px;}
+
+      /* Table tweaks inside scheduler */
+      #p-rule-scheduler table{font-size:.85rem;}
+      #p-rule-scheduler td{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;}
+      #p-rule-scheduler td.rs-clickable{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;}
+      #p-rule-scheduler td .rs-badge{white-space:nowrap;}
+      #p-rule-scheduler td input[type="checkbox"]{max-width:none;}
+
+      /* Sub-tab bar */
+      .rs-tab-bar{display:flex;gap:6px;margin-bottom:14px;border-bottom:2px solid var(--border);padding-bottom:8px;}
+      .rs-tab-bar .btn.rs-active{border-bottom:3px solid var(--accent);font-weight:700;}
+
+      /* Search bar */
+      .rs-search-bar{display:flex;gap:8px;margin-bottom:12px;align-items:center;}
+      .rs-search-bar input{flex:1;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--fg);font-size:.9rem;}
+
+      /* Right panel placeholder */
+      .rs-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:1rem;opacity:.7;}
+
+      /* Edit button in schedule table */
+      .rs-edit-btn{cursor:pointer;color:var(--accent2);background:none;border:1px solid var(--accent2);border-radius:var(--radius);padding:2px 10px;font-size:.78rem;}
+      .rs-edit-btn:hover{background:var(--accent2);color:#000;}
+    </style>
+
+    <!-- Sub-tabs -->
+    <div class="rs-tab-bar">
+      <button class="btn btn-primary rs-active" onclick="rsSubTab('browse')" id="rs-tab-browse" data-i18n="gui_rs_browse_add">Browse & Add</button>
+      <button class="btn" onclick="rsSubTab('schedules')" id="rs-tab-schedules" data-i18n="gui_rs_schedules">Schedules</button>
+      <button class="btn" onclick="rsSubTab('logs')" id="rs-tab-logs" data-i18n="gui_rs_logs">Logs</button>
+    </div>
+
+    <!-- ── Browse & Add sub-view ── -->
+    <div id="rs-browse" class="rs-subview">
+      <div class="rs-search-bar">
+        <input id="rs-search" placeholder="Search RuleSets by name..." data-i18n="gui_rs_search_placeholder" onkeydown="if(event.key==='Enter')rsSearchRulesets()">
+        <button class="btn btn-primary" onclick="rsSearchRulesets()" data-i18n="gui_rs_search_btn">Search</button>
+        <button class="btn" onclick="rsSearchRulesets('')" data-i18n="gui_rs_refresh_all">Refresh All</button>
+        <span style="color:var(--dim);font-size:.78rem;margin-left:auto;white-space:nowrap;"><span class="rs-mark-rs">★</span> = <span data-i18n="gui_rs_legend_rs">RS scheduled</span> &nbsp; <span class="rs-mark-child">●</span> = <span data-i18n="gui_rs_legend_child">Rule scheduled</span></span>
       </div>
-      <div class="action-card">
-        <h3 data-i18n="gui_debug_mode"><svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg> Debug Mode</h3>
-        <p data-i18n="gui_debug_desc">Sandbox mode — no alerts, no state updates</p>
-        <div class="form-row" style="margin-bottom:8px;">
-          <div class="form-group"><label data-i18n="gui_window_min">Window (min)</label><input id="a-debug-mins"
-              value="30"></div>
-          <div class="form-group"><label data-i18n="gui_policy_dec">Policy Dec.</label><select id="a-debug-pd">
-              <option value="1" data-i18n="gui_pd_blocked">Blocked</option>
-              <option value="2" data-i18n="gui_pd_allowed">Allowed</option>
-              <option value="3" data-i18n="gui_pd_all" selected>All</option>
-            </select></div>
+
+      <div id="rs-split">
+        <!-- Left: RuleSets list -->
+        <div id="rs-left">
+          <div class="table-container" style="border:none;height:100%;overflow:auto;">
+            <table class="rule-table">
+              <thead>
+                <tr>
+                  <th style="width:56px" data-i18n="gui_rs_col_sch">Sch</th>
+                  <th style="width:60px" data-i18n="gui_rs_col_id">ID</th>
+                  <th style="width:90px" data-i18n="gui_rs_col_prov">Prov</th>
+                  <th style="width:64px" data-i18n="gui_rs_col_status">Status</th>
+                  <th style="width:50px" data-i18n="gui_rs_col_rules">Rules</th>
+                  <th data-i18n="gui_rs_col_name">Name</th>
+                </tr>
+              </thead>
+              <tbody id="rs-rulesets-body"></tbody>
+            </table>
+          </div>
+          <div class="rs-pagination" id="rs-pagination"></div>
         </div>
-        <button class="btn btn-primary" onclick="runDebug()" data-i18n="gui_run_debug">Run Debug</button>
-      </div>
-      <div class="action-card">
-        <h3 data-i18n="gui_test_alert"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Send Test Alert</h3>
-        <p data-i18n="gui_test_alert_desc">Verify Email / LINE / Webhook delivery</p><button class="btn btn-primary"
-          onclick="runAction('test-alert')" data-i18n="gui_send">Send</button>
-      </div>
-      <div class="action-card">
-        <h3 data-i18n="gui_best_practices"><svg class="icon" aria-hidden="true"><use href="#icon-shield"></use></svg> Load Best Practices</h3>
-        <p data-i18n="gui_best_practices_desc">Replace ALL existing rules with recommended defaults</p><button
-          class="btn btn-danger" onclick="confirmBestPractices()" data-i18n="gui_load">Load</button>
+
+        <!-- Resizer handle -->
+        <div id="rs-resizer"></div>
+
+        <!-- Right: Rules detail -->
+        <div id="rs-right">
+          <div class="rs-placeholder" id="rs-right-placeholder" data-i18n="gui_rs_placeholder">Select a RuleSet from the left panel to view its rules.</div>
+          <div id="rs-detail" style="display:none;">
+            <div class="rs-glass">
+              <h3 style="color:var(--accent2);margin:0 0 4px 0;font-size:1rem;" id="rs-detail-title"></h3>
+              <div style="color:var(--dim);font-size:.8rem;" id="rs-detail-meta"></div>
+            </div>
+            <div class="table-container" style="border:none;overflow:auto;max-height:calc(100vh - 360px);">
+              <table class="rule-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px" data-i18n="gui_rs_col_sch">Sch</th>
+                    <th style="width:60px" data-i18n="gui_rs_col_id">ID</th>
+                    <th style="width:90px" data-i18n="gui_rs_col_prov">Prov</th>
+                    <th style="width:64px" data-i18n="gui_rs_col_status">Status</th>
+                    <th style="width:140px" data-i18n="gui_rs_col_desc">Description</th>
+                    <th style="width:150px" data-i18n="gui_rs_col_source">Source</th>
+                    <th style="width:140px" data-i18n="gui_rs_col_dest">Dest</th>
+                    <th style="width:130px" data-i18n="gui_rs_col_service">Service</th>
+                    <th style="width:80px" data-i18n="gui_rs_col_action">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="rs-rules-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <h3 style="color:var(--accent2);margin-bottom:8px;" data-i18n="gui_output">Output</h3>
-    <div class="log-box" id="a-log"></div>
+
+    <!-- ── Schedules sub-view ── -->
+    <div id="rs-schedules" class="rs-subview" style="display:none;">
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;">
+        <button class="btn btn-primary" onclick="rsLoadSchedules()" data-i18n="gui_rs_refresh_btn">Refresh</button>
+        <button class="btn btn-danger" onclick="rsDeleteSelected()" data-i18n="gui_rs_delete_selected">Delete Selected</button>
+      </div>
+      <div class="table-container">
+        <table class="rule-table">
+          <thead>
+            <tr>
+              <th style="width:28px"><input type="checkbox" id="rs-sch-all" onchange="rsToggleAll(this)"></th>
+              <th style="width:60px" data-i18n="gui_rs_col_type">Type</th>
+              <th style="width:54px" data-i18n="gui_rs_col_status">Status</th>
+              <th style="width:140px" data-i18n="gui_rs_col_name">RS Name</th>
+              <th style="width:140px" data-i18n="gui_rs_col_desc">Description</th>
+              <th style="width:100px" data-i18n="gui_rs_col_source">Source</th>
+              <th style="width:100px" data-i18n="gui_rs_col_dest">Dest</th>
+              <th style="width:100px" data-i18n="gui_rs_col_service">Service</th>
+              <th style="width:66px" data-i18n="gui_rs_col_action">Action</th>
+              <th style="width:160px" data-i18n="gui_rs_col_timing">Timing</th>
+              <th style="width:64px" data-i18n="gui_rs_col_id">ID</th>
+              <th style="width:50px" data-i18n="gui_rs_col_edit">Edit</th>
+            </tr>
+          </thead>
+          <tbody id="rs-schedules-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Logs sub-view ── -->
+    <div id="rs-logs" class="rs-subview" style="display:none;">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn btn-primary" onclick="rsRunCheck()" data-i18n="gui_rs_run_check">Run Manual Check</button>
+        <button class="btn" onclick="$('rs-log-output').textContent=''" data-i18n="gui_rs_clear">Clear</button>
+      </div>
+      <div class="log-box" id="rs-log-output" style="min-height:300px;font-family:'Courier New',Consolas,monospace;font-size:.82rem;white-space:pre-wrap;overflow:auto;" data-i18n="gui_rs_log_ready">Ready.</div>
+    </div>
+
+    <!-- Detail popup (shared, positioned via JS) -->
+    <div id="rs-detail-popup"><span class="popup-close" onclick="rsClosePopup()">&times;</span><div class="popup-title" id="rs-popup-title"></div><div id="rs-popup-body"></div></div>
   </div>
 
   <!-- ═══ Modals ═══ -->
+
+  <!-- Rule Scheduler Schedule Modal -->
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-rs-schedule">
+    <div class="modal" style="max-width:520px;">
+      <h2><svg class="icon" aria-hidden="true"><use href="#icon-clock"></use></svg> <span data-i18n="gui_rs_schedule_title">Schedule Rule</span></h2>
+      <input type="hidden" id="rs-sch-href">
+      <input type="hidden" id="rs-sch-name">
+      <input type="hidden" id="rs-sch-is-rs">
+      <input type="hidden" id="rs-sch-detail-rs">
+      <input type="hidden" id="rs-sch-detail-src" value="All">
+      <input type="hidden" id="rs-sch-detail-dst" value="All">
+      <input type="hidden" id="rs-sch-detail-svc" value="All">
+      <input type="hidden" id="rs-sch-edit-id" value="">
+
+      <!-- Target summary -->
+      <div style="background:var(--bg3);border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-size:.85rem;">
+        <strong data-i18n="gui_rs_target">Target:</strong> <span id="rs-sch-target-label" style="color:var(--accent2);"></span>
+      </div>
+
+      <fieldset>
+        <legend data-i18n="gui_rs_sch_type">Schedule Type</legend>
+        <div class="radio-group">
+          <label><input type="radio" name="rs-sch-type" value="recurring" checked onchange="rsSchTypeChanged()"> <span data-i18n="gui_rs_recurring">Recurring (Weekly)</span></label>
+          <label><input type="radio" name="rs-sch-type" value="one_time" onchange="rsSchTypeChanged()"> <span data-i18n="gui_rs_one_time">One-Time Expiration</span></label>
+        </div>
+      </fieldset>
+
+      <div id="rs-sch-recurring-fields">
+        <fieldset>
+          <legend data-i18n="gui_rs_action_label">Action</legend>
+          <div class="radio-group">
+            <label><input type="radio" name="rs-sch-action" value="allow" checked> <span class="rs-badge rs-badge-allow" data-i18n="gui_rs_enable_label">Enable</span> <span data-i18n="gui_rs_on_during">(ON during window)</span></label>
+            <label><input type="radio" name="rs-sch-action" value="block"> <span class="rs-badge rs-badge-block" data-i18n="gui_rs_disable_label">Disable</span> <span data-i18n="gui_rs_off_during">(OFF during window)</span></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend data-i18n="gui_rs_active_days">Active Days</legend>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <label><input type="checkbox" class="rs-day-cb" value="Monday" checked> <span data-i18n="gui_rs_mon">Mon</span></label>
+            <label><input type="checkbox" class="rs-day-cb" value="Tuesday" checked> <span data-i18n="gui_rs_tue">Tue</span></label>
+            <label><input type="checkbox" class="rs-day-cb" value="Wednesday" checked> <span data-i18n="gui_rs_wed">Wed</span></label>
+            <label><input type="checkbox" class="rs-day-cb" value="Thursday" checked> <span data-i18n="gui_rs_thu">Thu</span></label>
+            <label><input type="checkbox" class="rs-day-cb" value="Friday" checked> <span data-i18n="gui_rs_fri">Fri</span></label>
+            <label><input type="checkbox" class="rs-day-cb" value="Saturday"> <span data-i18n="gui_rs_sat">Sat</span></label>
+            <label><input type="checkbox" class="rs-day-cb" value="Sunday"> <span data-i18n="gui_rs_sun">Sun</span></label>
+          </div>
+        </fieldset>
+        <div class="form-row">
+          <div class="form-group"><label data-i18n="gui_rs_start_time">Start Time (HH:MM)</label><input id="rs-sch-start" placeholder="08:00" value="08:00"></div>
+          <div class="form-group"><label data-i18n="gui_rs_end_time">End Time (HH:MM)</label><input id="rs-sch-end" placeholder="18:00" value="18:00"></div>
+        </div>
+      </div>
+
+      <div id="rs-sch-onetime-fields" style="display:none;">
+        <div class="form-group">
+          <label data-i18n="gui_rs_expire_at">Expire At</label>
+          <input id="rs-sch-expire" type="datetime-local">
+          <small style="color:var(--dim);" data-i18n="gui_rs_expire_note">Rule will be auto-disabled and schedule removed after this time.</small>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('m-rs-schedule')" data-i18n="gui_rs_cancel">Cancel</button>
+        <button class="btn btn-success" onclick="rsSaveSchedule()"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> <span data-i18n="gui_rs_save">Save Schedule</span></button>
+      </div>
+    </div>
+  </div>
   <!-- Dashboard Query Profile Modal -->
-  <div class="modal-bg" id="m-query">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-query">
     <div class="modal">
       <h2><span data-i18n="gui_add_query_widget" id="mq-title">Add Query Widget</span></h2>
       <input type="hidden" id="dq-idx" value="-1">
@@ -1823,14 +2195,14 @@
               placeholder="e.g. 8.8.8.8"></div>
         </div>
       </fieldset>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-query')"
+      <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-query')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveDashboardQuery()"
           data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
   <!-- Traffic Analyzer Advanced Filters Modal -->
-  <div class="modal-bg" id="modal-qt-filters">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="modal-qt-filters">
     <div class="modal">
       <h2><svg class="icon">
           <use href="#icon-settings"></use>
@@ -1877,14 +2249,14 @@
         </div>
       </fieldset>
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="closeModal('modal-qt-filters')" data-i18n="gui_cancel">Cancel</button>
+        <button class="btn btn-secondary" onclick="closeModal('modal-qt-filters')" data-i18n="gui_cancel">Cancel</button>
         <button class="btn btn-success" onclick="applyQtFilters()">Apply & Query</button>
       </div>
     </div>
   </div>
 
   <!-- Quarantine Action Modal -->
-  <div class="modal-bg" id="m-quarantine">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-quarantine">
     <div class="modal" style="max-width:500px">
       <h2><svg class="icon">
           <use href="#icon-alert"></use>
@@ -1918,7 +2290,7 @@
         </select>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="closeModal('m-quarantine')">Cancel</button>
+        <button class="btn btn-secondary" onclick="closeModal('m-quarantine')">Cancel</button>
         <button class="btn btn-danger" id="btn-apply-q" onclick="applyQuarantine()" data-i18n="gui_q_apply">Apply
           Quarantine</button>
       </div>
@@ -1926,16 +2298,30 @@
   </div>
 
   <!-- Event -->
-  <div class="modal-bg" id="m-event">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-event">
     <div class="modal">
       <h2><span data-i18n="gui_add_event_rule" id="me-title">Add Event Rule</span></h2>
       <div class="form-group"><label data-i18n="gui_category">Category</label><select id="ev-cat"
           onchange="populateEvents()">
           <option value="" data-i18n="gui_select">Select…</option>
         </select></div>
-      <div class="form-group"><label data-i18n="gui_event_type">Event Type</label><select id="ev-type">
+      <div class="form-group"><label data-i18n="gui_event_type">Event Type</label><select id="ev-type" onchange="updateEventFilters()">
           <option value="" data-i18n="gui_select_category_first">Select category first</option>
         </select></div>
+      <div class="form-row" id="ev-filter-row" style="display:none">
+        <div class="form-group" id="ev-status-group"><label data-i18n="gui_ev_status_filter">Status Filter</label>
+          <select id="ev-status">
+            <option value="all" data-i18n="gui_ev_status_all">All</option>
+            <option value="success" data-i18n="gui_ev_status_success">Success</option>
+            <option value="failure" data-i18n="gui_ev_status_failure">Failure</option>
+          </select></div>
+        <div class="form-group" id="ev-severity-group"><label data-i18n="gui_ev_severity_filter">Severity Filter</label>
+          <select id="ev-severity">
+            <option value="all" data-i18n="gui_ev_severity_all">All</option>
+            <option value="error" data-i18n="gui_ev_severity_error">Error</option>
+            <option value="warning" data-i18n="gui_ev_severity_warning">Warning</option>
+          </select></div>
+      </div>
       <fieldset>
         <legend data-i18n="gui_threshold">Threshold</legend>
         <div class="form-group"><label data-i18n="gui_type">Type</label>
@@ -1952,14 +2338,14 @@
               value="10"></div>
         </div>
       </fieldset>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-event')"
+      <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-event')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveEvent()"
           data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
   <!-- Traffic -->
-  <div class="modal-bg" id="m-traffic">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-traffic">
     <div class="modal">
       <h2><span data-i18n="gui_add_traffic_rule" id="mt-title">Add Traffic Rule</span></h2>
       <div class="form-group"><label data-i18n="gui_rule_name">Rule Name</label><input id="tr-name"></div>
@@ -2013,14 +2399,14 @@
               value="10"></div>
         </div>
       </fieldset>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-traffic')"
+      <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-traffic')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveTraffic()"
           data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
   <!-- BW/Volume -->
-  <div class="modal-bg" id="m-bw">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-bw">
     <div class="modal">
       <h2><span data-i18n="gui_add_bw_rule" id="mb-title">Add Bandwidth / Volume Rule</span></h2>
       <div class="form-group"><label data-i18n="gui_rule_name">Rule Name</label><input id="bw-name"></div>
@@ -2075,14 +2461,14 @@
               value="30"></div>
         </div>
       </fieldset>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-bw')"
+      <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-bw')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveBW()"
           data-i18n="gui_save"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg> Save</button></div>
     </div>
   </div>
 
   <!-- Report Generation Modal -->
-  <div class="modal-bg" id="m-gen-report">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-gen-report">
     <div class="modal" style="max-width:440px;">
       <h2 id="m-gen-title"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> <span data-i18n="gui_gen_traffic_title">Generate Report</span></h2>
       <div id="m-gen-dates">
@@ -2101,7 +2487,7 @@
         Live snapshot — queries all managed VENs' current status, no date range needed.
       </p>
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="closeModal('m-gen-report')" data-i18n="gui_gen_cancel">Cancel</button>
+        <button class="btn btn-secondary" onclick="closeModal('m-gen-report')" data-i18n="gui_gen_cancel">Cancel</button>
         <button class="btn btn-success" id="m-gen-confirm" onclick="confirmReportGen()">
           <svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> <span data-i18n="gui_gen_generate">Generate</span>
         </button>
@@ -2110,11 +2496,11 @@
   </div>
 
   <!-- Help / Parameter Guide -->
-  <div class="modal-bg" id="m-help">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="m-help">
     <div class="modal" style="max-width:600px;">
       <h2><span data-i18n="gui_help_title">Parameter Guide (API 25.2)</span></h2>
       <div style="color:var(--dim);line-height:1.6;font-size:0.95rem;">
-        <p data-i18n="gui_help_desc">Illumio PCE Monitor leverages the standard Illumio Traffic Analysis REST API
+        <p data-i18n="gui_help_desc">Illumio PCE Ops leverages the standard Illumio Traffic Analysis REST API
           parameters.</p>
         <h3 style="color:#fff;margin-top:12px" data-i18n="gui_help_filters">Filters & Excludes</h3>
         <ul style="padding-left:20px;margin-bottom:12px">
@@ -2140,14 +2526,14 @@
           <li data-i18n="gui_help_pd_all"><strong>Allowed:</strong> Traffic permitted by policy.</li>
         </ul>
       </div>
-      <div class="modal-actions"><button class="btn btn-primary" onclick="closeModal('m-help')"
+      <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-help')"
           data-i18n="gui_help_close">Close window</button>
       </div>
     </div>
   </div>
 
   <!-- Traffic Analyzer Parameter Guide Modal -->
-  <div class="modal-bg" id="modal-qt-guide">
+  <div class="modal-bg" role="dialog" aria-modal="true" id="modal-qt-guide">
     <div class="modal" style="max-width:700px;">
       <h2><span data-i18n="gui_ta_guide_title">Traffic Analyzer Parameter Guide</span></h2>
       <div style="color:var(--dim); line-height:1.6; font-size:0.95rem; max-height:60vh; overflow-y:auto;">
@@ -2178,7 +2564,7 @@
         </ul>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-primary" onclick="closeModal('modal-qt-guide')" data-i18n="gui_cancel">Close</button>
+        <button class="btn btn-secondary" onclick="closeModal('modal-qt-guide')" data-i18n="gui_cancel">Close</button>
       </div>
     </div>
   </div>
@@ -2393,7 +2779,7 @@
       setInterval(loadStatus, 30000);
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab');
-      if (tab && ['dashboard', 'rules', 'settings', 'actions'].includes(tab)) {
+      if (tab && ['dashboard', 'rules', 'reports', 'settings', 'rule-scheduler'].includes(tab)) {
         switchTab(tab, false);
       }
       const qtab = params.get('qtab');
@@ -2462,7 +2848,17 @@
       });
     }
 
-    function toast(msg, err) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : '') + ' show'; setTimeout(() => t.className = 'toast', 3000) }
+    let _toastTimer = null;
+    function toast(msg, type) {
+      // type: 'err'|'warn'|'info' or falsy for success
+      const t = $('toast');
+      const icons = { err: '✕', warn: '⚠', info: 'ℹ' };
+      const cls = type === 'err' ? ' err' : type === 'warn' ? ' warn' : type === 'info' ? ' info' : '';
+      t.innerHTML = `<span class="toast-icon">${icons[type] || '✓'}</span><span>${msg}</span><button class="toast-close" onclick="this.parentElement.className='toast'" aria-label="Close">✕</button>`;
+      t.className = 'toast' + cls + ' show';
+      clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => t.className = 'toast', 4000);
+    }
     function dlog(msg) { const l = $('d-log'); l.textContent += '\n[' + new Date().toLocaleTimeString() + '] ' + msg; l.scrollTop = l.scrollHeight }
     function slog(msg) { const l = $('s-log'); if (l) { l.textContent += '\n[' + new Date().toLocaleTimeString() + '] ' + msg; l.scrollTop = l.scrollHeight } }
     function alog(msg) { const l = $('a-log'); l.textContent += '\n' + msg; l.scrollTop = l.scrollHeight }
@@ -2480,19 +2876,20 @@
       if (id === 'settings') loadSettings();
       if (id === 'dashboard') loadDashboard();
       if (id === 'reports') loadReports();
-      if (id === 'report-schedules') loadSchedules();
+      if (id === 'rule-scheduler') rsLoadTab();
       if (updateUrl) updateUrlState('tab', id);
     }
 
     /* ─── Dashboard ───────────────────────────────────────────────────── */
     /* ─── Reports Logic ─────────────────────────────────────────────── */
     async function loadReports() {
+      showSkeleton('rt-body', 4);
       const r = await api('/api/reports');
       if(!r||!r.reports) return;
       const tbody = $('rt-body');
       tbody.innerHTML = '';
       if(r.reports.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--dim)">${_translations['gui_reports_empty'] || 'No reports generated yet.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><svg aria-hidden="true"><use href="#icon-play"></use></svg><h3>${_translations['gui_reports_empty_title'] || 'No Reports'}</h3><p>${_translations['gui_reports_empty'] || 'Generate your first report using the buttons above.'}</p></div></td></tr>`;
         return;
       }
       r.reports.forEach(rp => {
@@ -2736,44 +3133,47 @@
       const btn = $('btn-gen-report');
       const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
       if (!startVal || !endVal || startVal > endVal) {
-        toast('Invalid date range.', 'err'); return;
+        toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); return;
       }
       const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
       const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
+      const origHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = 'Generating…';
+      btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
       try {
         const r = await post('/api/reports/generate', {source:'api', format:'all', start_date:startDate, end_date:endDate});
         if (r.ok) { toast(`Traffic Report generated! ${r.record_count} flows.`); loadReports(); }
         else toast(r.error || 'Generation failed', 'err');
       } catch(e) { toast('Error: ' + e, 'err'); }
       btn.disabled = false;
-      btn.innerHTML = `<svg class="icon"><use href="#icon-play"></use></svg> Traffic Report`;
+      btn.innerHTML = origHtml;
     }
 
     async function _doGenerateAudit() {
       const btn = $('btn-gen-audit');
       const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
       if (!startVal || !endVal || startVal > endVal) {
-        toast('Invalid date range.', 'err'); return;
+        toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); return;
       }
       const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
       const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
+      const origHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = 'Generating…';
+      btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
       try {
         const r = await post('/api/audit_report/generate', {start_date:startDate, end_date:endDate});
         if (r.ok) { toast(`Audit Report generated! ${r.record_count} events.`); loadReports(); }
         else toast(r.error || 'Generation failed', 'err');
       } catch(e) { toast('Error: ' + e, 'err'); }
       btn.disabled = false;
-      btn.innerHTML = `<svg class="icon"><use href="#icon-shield"></use></svg> Audit Summary`;
+      btn.innerHTML = origHtml;
     }
 
     async function _doGenerateVen() {
       const btn = $('btn-gen-ven');
+      const origHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = 'Generating…';
+      btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
       try {
         const r = await post('/api/ven_status_report/generate', {});
         if (r.ok) {
@@ -2782,7 +3182,7 @@
         } else toast(r.error || 'Generation failed', 'err');
       } catch(e) { toast('Error: ' + e, 'err'); }
       btn.disabled = false;
-      btn.innerHTML = `<svg class="icon"><use href="#icon-cpu"></use></svg> VEN Status`;
+      btn.innerHTML = origHtml;
     }
 
     async function loadDashboard() {
@@ -3189,8 +3589,9 @@
     }
 
     /* ─── Rules ───────────────────────────────────────────────────────── */
-    let _catalog = {};
+    let _catalog = {}, _actionEvents = [];
     async function loadRules() {
+      showSkeleton('r-body', 7);
       const rules = await api('/api/rules');
       $('r-badge').textContent = rules.length;
       const pdm = { 2: 'Blocked', 1: 'Potential', 0: 'Allowed', '-1': 'All' };
@@ -3221,7 +3622,7 @@
         if (r.src_ip_in) f.push('SrcIP:' + r.src_ip_in); if (r.dst_ip_in) f.push('DstIP:' + r.dst_ip_in);
         html += `<tr><td><input type="checkbox" class="r-chk" data-idx="${r.index}"></td><td title="${typ}">${typ}</td><td title="${escapeHtml(r.name)}">${escapeHtml(r.name)}</td><td>${statusHtml}</td><td title="${cond}">${cond}</td><td title="${escapeHtml(f.join(' | '))}">${escapeHtml(f.join(' | ')) || '—'}</td><td><button class="btn btn-primary btn-sm" onclick="editRule(${r.index},'${r.type}')" aria-label="Edit Rule" title="Edit Rule">✏️</button></td></tr>`;
       });
-      $('r-body').innerHTML = html || ('<tr><td colspan="7" style="color:var(--dim);text-align:center;padding:24px">' + (_translations['gui_no_rules_add_one'] || 'No rules. Add one above.') + '</td></tr>');
+      $('r-body').innerHTML = html || `<tr><td colspan="7"><div class="empty-state"><svg aria-hidden="true"><use href="#icon-shield"></use></svg><h3>${_translations['gui_no_rules_title'] || 'No Rules Yet'}</h3><p>${_translations['gui_no_rules_add_one'] || 'Create your first monitoring rule using the buttons above.'}</p></div></td></tr>`;
       initTableResizers();
     }
     function toggleAll(el) { document.querySelectorAll('.r-chk').forEach(c => c.checked = el.checked) }
@@ -3233,7 +3634,9 @@
       toast(_translations['gui_msg_deleted'] || 'Deleted'); loadRules(); loadDashboard();
     }
     function openModal(id, isEdit) {
-      _editIdx = isEdit ?? null; $(id).classList.add('show'); if (id === 'm-event' && !Object.keys(_catalog).length) loadCatalog();
+      _editIdx = isEdit ?? null; $(id).classList.add('show');
+      if (id === 'm-event' && !Object.keys(_catalog).length) loadCatalog();
+      if (id === 'm-event' && _editIdx === null) updateEventFilters();
       // Update modal title
       let target;
       if (id === 'm-event') target = $('me-title');
@@ -3248,15 +3651,98 @@
       }
     }
     function closeModal(id) { $(id).classList.remove('show'); _editIdx = null }
+
+    /* Escape key closes topmost modal */
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        const open = [...document.querySelectorAll('.modal-bg.show')];
+        if (open.length) { const last = open[open.length - 1]; last.classList.remove('show'); _editIdx = null; }
+      }
+    });
+    /* Backdrop click closes modal */
+    document.querySelectorAll('.modal-bg').forEach(bg => {
+      bg.addEventListener('click', e => { if (e.target === e.currentTarget) { bg.classList.remove('show'); _editIdx = null; } });
+    });
+
+    /* ─── Rules search/filter (W2.1) ─────────────────────────────────── */
+    let _filterDebounce = null;
+    function filterRules() {
+      clearTimeout(_filterDebounce);
+      _filterDebounce = setTimeout(_doFilterRules, 150);
+    }
+    function _doFilterRules() {
+      const q = ($('r-search').value || '').toLowerCase().trim();
+      const rows = $('r-body')?.querySelectorAll('tr') || [];
+      let shown = 0, total = rows.length;
+      rows.forEach(tr => {
+        if (!q) { tr.style.display = ''; shown++; _clearHighlight(tr); return; }
+        const text = tr.textContent.toLowerCase();
+        if (text.includes(q)) { tr.style.display = ''; shown++; _highlightRow(tr, q); }
+        else { tr.style.display = 'none'; _clearHighlight(tr); }
+      });
+      const counter = $('r-search-count');
+      counter.textContent = q ? `${shown}/${total}` : '';
+    }
+    function _highlightRow(tr, q) {
+      tr.querySelectorAll('td').forEach(td => {
+        if (td.querySelector('input,button,span[style]')) return; // skip checkbox/button/badge cells
+        const orig = td.textContent;
+        if (!orig.toLowerCase().includes(q)) return;
+        const re = new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+        td.innerHTML = orig.replace(re, '<mark>$1</mark>');
+      });
+    }
+    function _clearHighlight(tr) {
+      tr.querySelectorAll('mark').forEach(m => m.replaceWith(m.textContent));
+    }
+
+    /* ─── Skeleton / Spinner helpers ─────────────────────────────────── */
+    function showSkeleton(tbodyId, cols, rows = 4) {
+      const el = $(tbodyId); if (!el) return;
+      el.innerHTML = Array.from({length: rows}, () =>
+        `<tr>${Array.from({length: cols}, () => '<td><span class="skeleton skel-text" style="display:inline-block;width:' + (40 + Math.random()*40) + '%;height:14px"></span></td>').join('')}</tr>`
+      ).join('');
+    }
+    function showSpinner(containerId, label) {
+      let ov = document.querySelector(`#${containerId} .spinner-overlay`);
+      if (!ov) {
+        const c = $(containerId); if (!c) return;
+        c.style.position = 'relative';
+        ov = document.createElement('div');
+        ov.className = 'spinner-overlay';
+        ov.innerHTML = `<div class="spinner"></div><div class="spinner-label"></div>`;
+        c.appendChild(ov);
+      }
+      ov.querySelector('.spinner-label').textContent = label || '';
+      ov.classList.add('active');
+    }
+    function hideSpinner(containerId) {
+      const ov = document.querySelector(`#${containerId} .spinner-overlay`);
+      if (ov) ov.classList.remove('active');
+    }
+
     async function loadCatalog() {
-      _catalog = await api('/api/event-catalog');
+      const resp = await api('/api/event-catalog');
+      _catalog = resp.catalog || resp;
+      _actionEvents = resp.action_events || [];
       const sel = $('ev-cat'); sel.innerHTML = '<option value="" data-i18n="gui_select">Select...</option>';
       Object.keys(_catalog).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o) });
     }
     function populateEvents() {
       const cat = $('ev-cat').value; const sel = $('ev-type'); sel.innerHTML = '';
-      if (!cat || !_catalog[cat]) { sel.innerHTML = '<option data-i18n="gui_select_category_first">Select category first</option>'; applyI18n(sel); return }
+      if (!cat || !_catalog[cat]) { sel.innerHTML = '<option data-i18n="gui_select_category_first">Select category first</option>'; applyI18n(sel); updateEventFilters(); return }
       Object.entries(_catalog[cat]).forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = k + ' (' + v + ')'; sel.appendChild(o) });
+      updateEventFilters();
+    }
+    function updateEventFilters() {
+      const ev = $('ev-type').value;
+      const showStatus = !!ev && _actionEvents.includes(ev);
+      const showSeverity = !!ev && (_actionEvents.includes(ev) || ev === '*');
+      $('ev-filter-row').style.display = (showStatus || showSeverity) ? '' : 'none';
+      $('ev-status-group').style.display = showStatus ? '' : 'none';
+      $('ev-severity-group').style.display = showSeverity ? '' : 'none';
+      if (!showStatus) $('ev-status').value = 'all';
+      if (!showSeverity) $('ev-severity').value = 'all';
     }
 
     /* ─── Edit Rule ───────────────────────────────────────────────────── */
@@ -3270,6 +3756,9 @@
           for (const [cat, evts] of Object.entries(_catalog)) {
             if (r.filter_value in evts) { $('ev-cat').value = cat; populateEvents(); $('ev-type').value = r.filter_value; break }
           }
+          updateEventFilters();
+          $('ev-status').value = r.filter_status || 'all';
+          $('ev-severity').value = r.filter_severity || 'all';
           setRv('ev-tt', r.threshold_type || 'immediate');
           $('ev-cnt').value = r.threshold_count || 5;
           $('ev-win').value = r.threshold_window || 10;
@@ -3314,7 +3803,7 @@
       const cat = $('ev-cat').value, ev = $('ev-type').value;
       if (!cat || !ev) { toast(_translations['gui_msg_select_cat_event'] || 'Select category and event', 'err'); return }
       const name = (_catalog[cat] || {})[ev] || ev;
-      const data = { name, filter_value: ev, threshold_type: rv('ev-tt'), threshold_count: $('ev-cnt').value, threshold_window: $('ev-win').value, cooldown_minutes: $('ev-cd').value };
+      const data = { name, filter_value: ev, filter_status: $('ev-status').value || 'all', filter_severity: $('ev-severity').value || 'all', threshold_type: rv('ev-tt'), threshold_count: $('ev-cnt').value, threshold_window: $('ev-win').value, cooldown_minutes: $('ev-cd').value };
       if (_editIdx !== null) await put('/api/rules/' + _editIdx, data); else await post('/api/rules/event', data);
       closeModal('m-event'); toast(_translations['gui_msg_event_rule_saved'] || 'Event rule saved'); loadRules(); loadDashboard();
     }
@@ -3905,6 +4394,484 @@
     initUiPreferences();
     init();
     testConn();
+
+    // ═══ Rule Scheduler ═══
+    const esc = s => (s == null ? '' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    // Safe escaping for text used inside onclick="...func('ARG')..." attributes.
+    // esc() is wrong here: it converts ' → &#039;, which the HTML parser re-decodes to ' before JS runs, breaking the string.
+    const jsStr = s => (s == null ? '' : String(s))
+      .replace(/\\/g, '\\\\')    // \ → \\
+      .replace(/'/g, "\\'")      // ' → \'
+      .replace(/\r?\n|\r/g, ' ') // newlines → space
+      .replace(/"/g, '&quot;');  // " → &quot; (keeps HTML attribute valid)
+    let rsCurrentPage = 1;
+    let rsSearchQuery = '';
+    let rsSelectedRsId = null;
+
+    function rsLoadTab() {
+      rsSearchRulesets('');
+      rsInitResizer();
+    }
+
+    /* ── Split-pane resizer ── */
+    function rsInitResizer() {
+      const resizer = $('rs-resizer');
+      const left = $('rs-left');
+      const split = $('rs-split');
+      if (!resizer || !left || !split) return;
+      let startX, startW;
+      function onMouseDown(e) {
+        startX = e.clientX; startW = left.offsetWidth;
+        resizer.classList.add('active');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+      }
+      function onMouseMove(e) {
+        const dx = e.clientX - startX;
+        const newW = Math.max(180, Math.min(startW + dx, split.offsetWidth - 200));
+        left.style.width = newW + 'px';
+      }
+      function onMouseUp() {
+        resizer.classList.remove('active');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+      resizer.addEventListener('mousedown', onMouseDown);
+    }
+
+    /* ── Sub-tab switching ── */
+    function rsSubTab(which) {
+      document.querySelectorAll('#p-rule-scheduler .rs-subview').forEach(el => el.style.display = 'none');
+      $('rs-' + which).style.display = '';
+      ['browse', 'schedules', 'logs'].forEach(t => {
+        const btn = $('rs-tab-' + t);
+        if (btn) btn.className = t === which ? 'btn btn-primary rs-active' : 'btn';
+      });
+      if (which === 'schedules') rsLoadSchedules();
+    }
+
+    function rulesSubTab(which) {
+      document.querySelectorAll('#p-rules .rules-subview').forEach(el => el.style.display = 'none');
+      $('rules-sv-' + which).style.display = '';
+      ['rules', 'actions'].forEach(t => {
+        const btn = $('rules-tab-' + t);
+        if (btn) btn.className = t === which ? 'btn btn-primary rs-active' : 'btn';
+      });
+    }
+
+    function reportsSubTab(which) {
+      document.querySelectorAll('#p-reports .reports-subview').forEach(el => el.style.display = 'none');
+      $('reports-sv-' + which).style.display = '';
+      ['list', 'schedules'].forEach(t => {
+        const btn = $('reports-tab-' + t);
+        if (btn) btn.className = t === which ? 'btn btn-primary rs-active' : 'btn';
+      });
+      if (which === 'list') loadReports();
+      if (which === 'schedules') loadSchedules();
+    }
+
+    /* ── Search & fetch rulesets ── */
+    function rsSearchRulesets(q) {
+      if (q === undefined) q = ($('rs-search') ? $('rs-search').value.trim() : '');
+      rsSearchQuery = q;
+      rsCurrentPage = 1;
+      rsFetchRulesets();
+    }
+
+    async function rsFetchRulesets() {
+      const params = new URLSearchParams({ q: rsSearchQuery, page: rsCurrentPage, size: 50 });
+      const tbody = $('rs-rulesets-body');
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_rulesets || 'Loading rulesets...') + '</td></tr>';
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 30000);
+        const res = await fetch('/api/rule_scheduler/rulesets?' + params, { signal: ctrl.signal });
+        clearTimeout(timer);
+        const data = await res.json();
+        const tbody = $('rs-rulesets-body');
+        tbody.innerHTML = '';
+        if (data.error) {
+          toast('Warning: ' + data.error, true);
+        }
+        data.items.forEach(rs => {
+          const schMark = rs.schedule_type === 1
+            ? '<span class="rs-mark-rs" title="' + (_translations.gui_rs_sch_badge_sched || 'Scheduled') + '">★</span>'
+            : rs.schedule_type === 2
+              ? '<span class="rs-mark-child" title="' + (_translations.gui_rs_sch_badge_child || 'Sub-Rule') + '">●</span>'
+              : '';
+          const provBadge = rs.provision_state === 'DRAFT'
+            ? '<span class="rs-badge rs-badge-draft">DRAFT</span>'
+            : '<span class="rs-badge rs-badge-active">ACTIVE</span>';
+          const statusBadge = rs.enabled
+            ? '<span class="rs-badge rs-badge-on">ON</span>'
+            : '<span class="rs-badge rs-badge-off">OFF</span>';
+          const tr = document.createElement('tr');
+          tr.style.cursor = 'pointer';
+          tr.onclick = function() { rsViewRuleset(rs.id); };
+          if (rs.id === rsSelectedRsId) tr.style.background = 'rgba(255,85,0,.1)';
+          tr.innerHTML =
+            '<td>' + schMark + '</td>' +
+            '<td>' + rs.id + '</td>' +
+            '<td>' + provBadge + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + rs.rules_count + '</td>' +
+            '<td>' + esc(rs.name) + '</td>';
+          tbody.appendChild(tr);
+        });
+        // Pagination
+        const pg = $('rs-pagination');
+        const totalPages = Math.ceil(data.total / data.size) || 1;
+        pg.innerHTML = '<span class="rs-pg-info">Page ' + data.page + ' / ' + totalPages + ' (' + data.total + ' total)</span>';
+        if (data.page > 1) pg.innerHTML += '<button class="btn btn-sm" onclick="rsCurrentPage--;rsFetchRulesets()">Prev</button>';
+        if (data.page < totalPages) pg.innerHTML += '<button class="btn btn-sm" onclick="rsCurrentPage++;rsFetchRulesets()">Next</button>';
+        initTableResizers();
+      } catch (e) {
+        const msg = e.name === 'AbortError' ? 'Request timed out (PCE may be unreachable)' : e.message;
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:24px;">' + esc(msg) + '</td></tr>';
+        toast('Failed to load rulesets: ' + msg, true);
+      }
+    }
+
+    /* ── View ruleset detail (right pane) ── */
+    async function rsViewRuleset(rsId) {
+      rsSelectedRsId = rsId;
+      // Highlight selected row
+      const rows = $('rs-rulesets-body').querySelectorAll('tr');
+      rows.forEach(r => r.style.background = '');
+      rows.forEach(r => { if (r.onclick && r.querySelector('td:nth-child(2)') && r.querySelector('td:nth-child(2)').textContent == rsId) r.style.background = 'rgba(255,85,0,.1)'; });
+
+      $('rs-right-placeholder').style.display = 'none';
+      $('rs-detail').style.display = '';
+      $('rs-detail-title').textContent = _translations.gui_rs_loading || 'Loading...';
+      $('rs-detail-meta').innerHTML = '';
+      $('rs-rules-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_rules || 'Loading rules...') + '</td></tr>';
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 30000);
+        const res = await fetch('/api/rule_scheduler/rulesets/' + rsId, { signal: ctrl.signal });
+        clearTimeout(timer);
+        const data = await res.json();
+        const rsRow = data.ruleset;
+
+        $('rs-detail-title').textContent = rsRow.name;
+        const provBadge = rsRow.provision_state === 'DRAFT'
+          ? '<span class="rs-badge rs-badge-draft">DRAFT</span>'
+          : '<span class="rs-badge rs-badge-active">ACTIVE</span>';
+        const statusBadge = rsRow.enabled
+          ? '<span class="rs-badge rs-badge-on">ON</span>'
+          : '<span class="rs-badge rs-badge-off">OFF</span>';
+        const schRsBadge = rsRow.is_scheduled ? ' &nbsp; <span class="rs-mark-rs" title="' + (_translations.gui_rs_sch_badge_sched || 'Scheduled') + '">★ ' + (_translations.gui_rs_sch_badge_sched || 'Scheduled') + '</span>' : '';
+        $('rs-detail-meta').innerHTML = 'ID: ' + rsRow.id + ' &nbsp; ' + provBadge + ' &nbsp; ' + statusBadge + schRsBadge +
+          ' &nbsp; <button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(rsRow.href) + '\',\'' + jsStr(rsRow.name) + '\',true,\'' + jsStr(rsRow.name) + '\')">' + (_translations.gui_rs_schedule_rs_btn || 'Schedule RS') + '</button>';
+
+        const tbody = $('rs-rules-body');
+        tbody.innerHTML = '';
+
+        data.rules.forEach(r => {
+          const tr = document.createElement('tr');
+          const prov = r.provision_state === 'DRAFT'
+            ? '<span class="rs-badge rs-badge-draft">DRAFT</span>'
+            : '<span class="rs-badge rs-badge-active">ACTIVE</span>';
+          const st = r.enabled
+            ? '<span class="rs-badge rs-badge-on">ON</span>'
+            : '<span class="rs-badge rs-badge-off">OFF</span>';
+          const schIcon = r.is_scheduled ? '<span class="rs-mark-child" title="' + (_translations.gui_rs_sch_badge_child || 'Sub-Rule') + '">●</span>' : '';
+          const descLabel = _translations.gui_rs_col_desc || 'Description';
+          const noDesc = _translations.gui_rs_no_desc || '(no desc)';
+          const descHtml = r.description
+            ? '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(descLabel) + '\',\'' + jsStr(r.description) + '\')">' + rsTruncate(r.description, 30) + '</td>'
+            : '<td><span style="color:var(--dim)">' + noDesc + '</span></td>';
+
+          const srcLabel = _translations.gui_rs_col_source || 'Source';
+          const dstLabel = _translations.gui_rs_col_dest || 'Destination';
+          const svcLabel = _translations.gui_rs_col_service || 'Service';
+          const srcHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(srcLabel) + '\',\'' + jsStr(r.source) + '\')">' + rsTruncate(r.source, 25) + '</td>';
+          const dstHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(dstLabel) + '\',\'' + jsStr(r.dest) + '\')">' + rsTruncate(r.dest, 25) + '</td>';
+          const svcHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(svcLabel) + '\',\'' + jsStr(r.service) + '\')">' + rsTruncate(r.service, 25) + '</td>';
+
+          tr.innerHTML =
+            '<td>' + schIcon + '</td>' +
+            '<td>' + r.id + '</td>' +
+            '<td>' + prov + '</td>' +
+            '<td>' + st + '</td>' +
+            descHtml + srcHtml + dstHtml + svcHtml +
+            '<td><button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(r.href) + '\',\'' + jsStr(r.description || 'Rule ' + r.id) + '\',false,\'' + jsStr(rsRow.name) + '\',\'' + jsStr(r.source) + '\',\'' + jsStr(r.dest) + '\',\'' + jsStr(r.service) + '\')">' + (_translations.gui_rs_schedule_btn || 'Schedule') + '</button></td>';
+          tbody.appendChild(tr);
+        });
+        initTableResizers();
+
+      } catch (e) {
+        const msg = e.name === 'AbortError' ? 'Request timed out' : e.message;
+        $('rs-detail-title').textContent = 'Error';
+        $('rs-rules-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:24px;">' + esc(msg) + '</td></tr>';
+        toast('Failed to load ruleset detail: ' + msg, true);
+      }
+    }
+
+    /* ── Truncate helper ── */
+    function rsTruncate(s, max) {
+      if (!s) return '<span style="color:var(--dim)">All</span>';
+      const t = esc(s);
+      return t.length > max ? t.substring(0, max) + '...' : t;
+    }
+
+    /* ── Detail popup for clickable cells ── */
+    function rsShowPopup(event, title, text) {
+      event.stopPropagation();
+      const popup = $('rs-detail-popup');
+      $('rs-popup-title').textContent = title;
+      $('rs-popup-body').textContent = text.replace(/\\'/g, "'");
+      popup.style.display = 'block';
+      // Position near click
+      const rect = event.target.getBoundingClientRect();
+      let left = rect.right + 8;
+      let top = rect.top;
+      if (left + 420 > window.innerWidth) left = rect.left - 430;
+      if (left < 0) left = 8;
+      if (top + 200 > window.innerHeight) top = window.innerHeight - 210;
+      popup.style.left = left + 'px';
+      popup.style.top = top + 'px';
+    }
+
+    function rsClosePopup() {
+      $('rs-detail-popup').style.display = 'none';
+    }
+
+    // Close popup on outside click
+    document.addEventListener('click', function(e) {
+      const popup = $('rs-detail-popup');
+      if (popup && popup.style.display === 'block' && !popup.contains(e.target) && !e.target.classList.contains('rs-clickable')) {
+        popup.style.display = 'none';
+      }
+    });
+
+    /* ── Schedule modal ── */
+    function rsOpenScheduleModal(href, name, isRs, detailRs, src, dst, svc) {
+      $('rs-sch-href').value = href;
+      $('rs-sch-name').value = name;
+      $('rs-sch-is-rs').value = isRs ? '1' : '0';
+      $('rs-sch-detail-rs').value = detailRs || '';
+      $('rs-sch-detail-src').value = src || 'All';
+      $('rs-sch-detail-dst').value = dst || 'All';
+      $('rs-sch-detail-svc').value = svc || 'All';
+      $('rs-sch-edit-id').value = '';
+      // Show target label
+      $('rs-sch-target-label').textContent = (isRs ? '[' + (_translations.gui_rs_type_ruleset || 'RuleSet') + '] ' : '[' + (_translations.gui_rs_type_rule || 'Rule') + '] ') + name;
+      // Reset form
+      document.querySelector('input[name="rs-sch-type"][value="recurring"]').checked = true;
+      document.querySelector('input[name="rs-sch-action"][value="allow"]').checked = true;
+      document.querySelectorAll('.rs-day-cb').forEach(cb => { cb.checked = ['Monday','Tuesday','Wednesday','Thursday','Friday'].includes(cb.value); });
+      $('rs-sch-start').value = '08:00';
+      $('rs-sch-end').value = '18:00';
+      rsSchTypeChanged();
+      openModal('m-rs-schedule');
+    }
+
+    function rsSchTypeChanged() {
+      const isRecurring = document.querySelector('input[name="rs-sch-type"]:checked').value === 'recurring';
+      $('rs-sch-recurring-fields').style.display = isRecurring ? '' : 'none';
+      $('rs-sch-onetime-fields').style.display = isRecurring ? 'none' : '';
+    }
+
+    async function rsSaveSchedule() {
+      const type = document.querySelector('input[name="rs-sch-type"]:checked').value;
+      const body = {
+        href: $('rs-sch-href').value,
+        name: $('rs-sch-name').value,
+        is_ruleset: $('rs-sch-is-rs').value === '1',
+        detail_rs: $('rs-sch-detail-rs').value,
+        detail_src: $('rs-sch-detail-src').value,
+        detail_dst: $('rs-sch-detail-dst').value,
+        detail_svc: $('rs-sch-detail-svc').value,
+        detail_name: $('rs-sch-name').value,
+        type: type
+      };
+      if (type === 'recurring') {
+        body.action = document.querySelector('input[name="rs-sch-action"]:checked').value;
+        body.days = [...document.querySelectorAll('.rs-day-cb:checked')].map(cb => cb.value);
+        body.start = $('rs-sch-start').value;
+        body.end = $('rs-sch-end').value;
+        if (!body.start || !body.end || body.days.length === 0) {
+          return toast(_translations.gui_rs_fill_days_time || 'Please fill in days, start and end time.', true);
+        }
+      } else {
+        const expVal = $('rs-sch-expire').value;
+        if (!expVal) return toast(_translations.gui_rs_set_expire || 'Please set expiration time.', true);
+        body.expire_at = expVal.replace('T', ' ');
+      }
+      // If editing, include id
+      const editId = $('rs-sch-edit-id').value;
+      if (editId) body.id = parseInt(editId);
+      try {
+        const res = await fetch('/api/rule_scheduler/schedules', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (data.ok) {
+          closeModal('m-rs-schedule');
+          toast((_translations.gui_rs_saved || 'Schedule saved') + ' (ID: ' + data.id + ')');
+          rsFetchRulesets();
+          rsLoadSchedules();
+        } else {
+          toast('Error: ' + (data.error || 'Unknown'), true);
+        }
+      } catch (e) {
+        toast('Save failed: ' + e.message, true);
+      }
+    }
+
+    /* ── Schedules list ── */
+    async function rsLoadSchedules() {
+      const tbody = $('rs-schedules-body');
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_schedules || 'Loading schedules...') + '</td></tr>';
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 30000);
+        const res = await fetch('/api/rule_scheduler/schedules', { signal: ctrl.signal });
+        clearTimeout(timer);
+        const list = await res.json();
+        const tbody = $('rs-schedules-body');
+        tbody.innerHTML = '';
+        list.forEach(s => {
+          const tr = document.createElement('tr');
+          // Type
+          const T = _translations;
+          const typeStr = s.is_ruleset ? (T.gui_rs_type_ruleset || 'RuleSet') : (T.gui_rs_type_rule || 'Rule');
+          // Live status badge
+          const liveBadge = s.live_enabled === true
+            ? '<span class="rs-badge rs-badge-on">ON</span>'
+            : s.live_enabled === false
+              ? '<span class="rs-badge rs-badge-off">OFF</span>'
+              : '<span style="color:var(--dim)">--</span>';
+          // Action badge
+          let actionBadge = '';
+          if (s.type === 'recurring') {
+            actionBadge = s.action === 'allow'
+              ? '<span class="rs-badge rs-badge-allow">' + (T.gui_rs_enable_label || 'Enable') + '</span>'
+              : '<span class="rs-badge rs-badge-block">' + (T.gui_rs_disable_label || 'Disable') + '</span>';
+          } else {
+            actionBadge = '<span class="rs-badge rs-badge-expire">Expire</span>';
+          }
+          // Timing - map day names for i18n
+          const dayMap = {'Monday': T.gui_rs_mon||'Mon','Tuesday': T.gui_rs_tue||'Tue','Wednesday': T.gui_rs_wed||'Wed','Thursday': T.gui_rs_thu||'Thu','Friday': T.gui_rs_fri||'Fri','Saturday': T.gui_rs_sat||'Sat','Sunday': T.gui_rs_sun||'Sun'};
+          let timing = '';
+          if (s.type === 'recurring') {
+            const days = (s.days || []).length === 7 ? (T.gui_rs_everyday || 'Everyday') : (s.days || []).map(d => dayMap[d] || d.substring(0, 3)).join(', ');
+            timing = days + ' ' + (s.start || '') + ' - ' + (s.end || '');
+          } else {
+            timing = (T.gui_rs_until || 'Until') + ' ' + (s.expire_at || '').replace('T', ' ');
+          }
+          // Description (rule desc or RS name)
+          const descText = esc(s.detail_name || s.name || '');
+          const rsName = esc(s.detail_rs || '');
+          const srcText = esc(s.detail_src || 'All');
+          const dstText = esc(s.detail_dst || 'All');
+          const svcText = esc(s.detail_svc || 'All');
+
+          const descLabel = T.gui_rs_col_desc || 'Description';
+          const srcLabel = T.gui_rs_col_source || 'Source';
+          const dstLabel = T.gui_rs_col_dest || 'Destination';
+          const svcLabel = T.gui_rs_col_service || 'Service';
+          tr.innerHTML =
+            '<td><input type="checkbox" class="rs-sch-cb" value="' + esc(s.href) + '"></td>' +
+            '<td>' + typeStr + '</td>' +
+            '<td>' + liveBadge + '</td>' +
+            '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(T.gui_rs_col_name || 'RS Name') + '\',\'' + jsStr(rsName) + '\')">' + rsTruncate(s.detail_rs, 20) + '</td>' +
+            '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(descLabel) + '\',\'' + jsStr(descText) + '\')">' + rsTruncate(s.detail_name || s.name, 20) + '</td>' +
+            '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(srcLabel) + '\',\'' + jsStr(srcText) + '\')">' + rsTruncate(s.detail_src, 20) + '</td>' +
+            '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(dstLabel) + '\',\'' + jsStr(dstText) + '\')">' + rsTruncate(s.detail_dst, 20) + '</td>' +
+            '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(svcLabel) + '\',\'' + jsStr(svcText) + '\')">' + rsTruncate(s.detail_svc, 20) + '</td>' +
+            '<td>' + actionBadge + '</td>' +
+            '<td style="font-size:.8rem;">' + timing + '</td>' +
+            '<td>' + s.id + '</td>' +
+            '<td><button class="rs-edit-btn" onclick="rsEditSchedule(' + s.id + ')">' + (T.gui_rs_col_edit || 'Edit') + '</button></td>';
+          tbody.appendChild(tr);
+        });
+        initTableResizers();
+      } catch (e) {
+        const msg = e.name === 'AbortError' ? 'Request timed out (PCE may be unreachable)' : e.message;
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--danger);padding:24px;">' + esc(msg) + '</td></tr>';
+        toast('Failed to load schedules: ' + msg, true);
+      }
+    }
+
+    /* ── Edit schedule (load into modal) ── */
+    async function rsEditSchedule(id) {
+      try {
+        const res = await fetch('/api/rule_scheduler/schedules');
+        const list = await res.json();
+        const s = list.find(x => x.id === id);
+        if (!s) return toast('Schedule not found', true);
+        $('rs-sch-href').value = s.href || '';
+        $('rs-sch-name').value = s.detail_name || s.name || '';
+        $('rs-sch-is-rs').value = s.is_ruleset ? '1' : '0';
+        $('rs-sch-detail-rs').value = s.detail_rs || '';
+        $('rs-sch-detail-src').value = s.detail_src || 'All';
+        $('rs-sch-detail-dst').value = s.detail_dst || 'All';
+        $('rs-sch-detail-svc').value = s.detail_svc || 'All';
+        $('rs-sch-edit-id').value = s.id;
+        $('rs-sch-target-label').textContent = (s.is_ruleset ? '[' + (_translations.gui_rs_type_ruleset || 'RuleSet') + '] ' : '[' + (_translations.gui_rs_type_rule || 'Rule') + '] ') + (s.detail_name || s.name || '');
+        // Set type
+        const typeRadio = document.querySelector('input[name="rs-sch-type"][value="' + (s.type || 'recurring') + '"]');
+        if (typeRadio) typeRadio.checked = true;
+        rsSchTypeChanged();
+        if (s.type === 'recurring') {
+          const actionRadio = document.querySelector('input[name="rs-sch-action"][value="' + (s.action || 'allow') + '"]');
+          if (actionRadio) actionRadio.checked = true;
+          document.querySelectorAll('.rs-day-cb').forEach(cb => { cb.checked = (s.days || []).includes(cb.value); });
+          $('rs-sch-start').value = s.start || '08:00';
+          $('rs-sch-end').value = s.end || '18:00';
+        } else {
+          const exp = (s.expire_at || '').replace(' ', 'T');
+          $('rs-sch-expire').value = exp;
+        }
+        openModal('m-rs-schedule');
+      } catch (e) {
+        toast('Failed to load schedule for editing: ' + e.message, true);
+      }
+    }
+
+    function rsToggleAll(master) {
+      document.querySelectorAll('.rs-sch-cb').forEach(cb => cb.checked = master.checked);
+    }
+
+    async function rsDeleteSelected() {
+      const hrefs = [...document.querySelectorAll('.rs-sch-cb:checked')].map(cb => cb.value);
+      if (hrefs.length === 0) return toast(_translations.gui_rs_no_selection || 'No schedules selected.', true);
+      if (!confirm((_translations.gui_rs_confirm_delete || 'Delete {count} schedule(s)?').replace('{count}', hrefs.length))) return;
+      try {
+        const res = await fetch('/api/rule_scheduler/schedules/delete', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hrefs })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          toast((_translations.gui_rs_deleted || 'Deleted {count} schedule(s)').replace('{count}', data.deleted.length));
+          rsLoadSchedules();
+        }
+      } catch (e) {
+        toast('Delete failed: ' + e.message, true);
+      }
+    }
+
+    /* ── Logs / Manual check ── */
+    async function rsRunCheck() {
+      const log = $('rs-log-output');
+      log.textContent = 'Running check...\n';
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 60000);
+        const res = await fetch('/api/rule_scheduler/check', { method: 'POST', signal: ctrl.signal });
+        clearTimeout(timer);
+        const data = await res.json();
+        log.textContent = (data.logs || []).join('\n') || 'No output.';
+      } catch (e) {
+        const msg = e.name === 'AbortError' ? 'Check timed out (PCE may be unreachable)' : e.message;
+        log.textContent = 'Error: ' + msg;
+      }
+    }
+
+
   </script>
   </main>
 </body>

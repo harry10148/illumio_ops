@@ -390,7 +390,7 @@ class HtmlExporter:
             '<h2><span data-i18n="rpt_tr_sec_findings">🔍 Security Findings</span> (' + n_findings + ')</h2>'
             + self._findings_html() +
             '</section>\n' +
-            '<footer><span data-i18n="rpt_tr_footer">Illumio PCE Monitor — Traffic Flow Report</span>'
+            '<footer><span data-i18n="rpt_tr_footer">Illumio PCE Ops — Traffic Flow Report</span>'
             ' &middot; ' + today_str + '</footer>'
         )
         return (

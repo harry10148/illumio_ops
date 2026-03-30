@@ -43,7 +43,11 @@ _DEFAULT_CONFIG = {
             "max_results": 200000
         }
     },
-    "report_schedules": []
+    "report_schedules": [],
+    "rule_scheduler": {
+        "enabled": False,
+        "check_interval_seconds": 300
+    }
 }
 
 
@@ -161,14 +165,24 @@ class ConfigManager:
         self.config["rules"] = []
         ts = int(time.time())
         # type, name, threshold_type, threshold_count, threshold_window, cooldown_minutes, filter_status, filter_severity
+        # Note: ACTION_EVENTS (user/API-initiated) support filter_status; DISCOVERY_EVENTS (system-generated) do not.
         bps = [
-            ("rule_agent_tampering", "agent.tampering", "immediate", 1, 10, 30, "all", "all"),
-            ("rule_login_failed", "user.sign_in,user.login", "count", 5, 10, 30, "failure", "all"),
-            ("rule_api_auth_failed", "request.authentication_failed", "count", 5, 10, 30, "all", "all"),
-            ("rule_agent_offline", "system_task.agent_offline_check", "immediate", 1, 10, 30, "all", "all"),
-            ("rule_policy_fail", "agent.refresh_policy", "immediate", 1, 10, 30, "failure", "all"),
-            ("rule_agent_heartbeat", "system_task.agent_missed_heartbeats_check", "immediate", 1, 10, 30, "all", "all"),
-            ("rule_agent_goodbye", "agent.goodbye", "immediate", 1, 10, 30, "all", "all")
+            # ── Agent Security ──────────────────────────────────────────────────────
+            ("rule_agent_tampering",  "agent.tampering",          "immediate", 1,  10, 30,  "all",     "all"),
+            ("rule_agent_suspend",    "agent.suspend",            "immediate", 1,  10, 30,  "all",     "all"),
+            ("rule_agent_clone",      "agent.clone_detected",     "immediate", 1,  10, 30,  "all",     "all"),
+            # ── Agent Health ────────────────────────────────────────────────────────
+            ("rule_agent_heartbeat",  "system_task.agent_missed_heartbeats_check", "immediate", 1, 10, 30, "all", "all"),
+            ("rule_agent_offline",    "system_task.agent_offline_check",           "immediate", 1, 10, 30, "all", "all"),
+            ("rule_lost_agent",       "lost_agent.found",         "immediate", 1,  10, 60,  "all",     "all"),
+            ("rule_agent_goodbye",    "agent.goodbye",            "immediate", 1,  10, 30,  "all",     "all"),
+            # ── User & API Auth (support status filter) ─────────────────────────────
+            ("rule_login_failed",     "user.sign_in,user.login",  "count",     5,  10, 30,  "failure", "all"),
+            ("rule_api_auth_failed",  "request.authentication_failed", "count", 5, 10, 30,  "all",     "all"),
+            # ── Policy & Enforcement ─────────────────────────────────────────────────
+            ("rule_policy_fail",      "agent.refresh_policy",     "immediate", 1,  10, 30,  "failure", "all"),
+            ("rule_ruleset_change",   "rule_set.create,rule_set.update,rule_set.delete", "immediate", 1, 10, 60, "all", "all"),
+            ("rule_policy_provision", "sec_policy.create",        "immediate", 1,  10, 60,  "all",     "all"),
         ]
         
         for i, (name_key, etype, ttype, cnt, win, cd, f_stat, f_sev) in enumerate(bps):
