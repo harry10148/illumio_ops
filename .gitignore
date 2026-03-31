@@ -3,9 +3,11 @@ config/config.json
 config-old.json
 CLAUDE.md
 
-# Runtime state (stored in logs/)
+# Runtime state
 logs/state.json
 state.json
+*.tmp
+*.temp
 
 # Logs
 logs/
@@ -21,6 +23,8 @@ env/
 venv/
 .env
 .venv
+.pytest_cache/
+tests/.pytest_cache/
 
 # IDEs
 .vscode/
@@ -40,9 +44,8 @@ reports/
 # Temporary / backup files
 tmp_*.py
 config-old*.json
-
-# Temporary files from investigation
-find_api.py
-grep_out.txt
+test_*.json
 debug_dump.json
 debug_events.json
+find_api.py
+grep_out.txt

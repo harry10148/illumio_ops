@@ -12,6 +12,7 @@ graph TB
         CLI["CLI 選單<br/>(main.py)"]
         DAEMON["Daemon 迴圈<br/>(main.py)"]
         GUI["Web GUI<br/>(gui.py)"]
+        PERSIST["常駐監控+UI<br/>(--monitor-gui)"]
     end
 
     subgraph Core["核心引擎"]
@@ -59,7 +60,7 @@ illumio_ops/
 │
 ├── src/
 │   ├── __init__.py            # 套件初始化，匯出 __version__
-│   ├── main.py                # CLI 參數解析 (argparse)、Daemon 迴圈、互動選單
+│   ├── main.py                # CLI 參數解析、Daemon/GUI 執行序協調、互動選單
 │   ├── api_client.py          # Illumio REST API 客戶端（含重試與串流）
 │   ├── analyzer.py            # 規則引擎：流量比對、指標計算、狀態管理
 │   ├── reporter.py            # 告警聚合與多通道發送
@@ -154,15 +155,15 @@ illumio_ops/
 
 **職責**：載入、儲存和驗證 `config.json`。
 
-- **深度合併**：使用者設定覆蓋預設值 — 缺失欄位自動補齊
-- **原子儲存**：先寫至 `.tmp` 檔案，再透過 `os.replace()` 確保當機安全
-- **規則 CRUD**：`add_or_update_rule()`、`remove_rules_by_index()`、`load_best_practices()`
+- **執行緒安全**：使用 **`threading.RLock`**（重入鎖）防止在遞迴載入/儲存或 Daemon 與 GUI 執行緒同時存取時發生死結 (Deadlock)。
+- **深度合併**：使用者設定覆蓋預設值 — 缺失欄位自動補齊。
+- **原子儲存**：先寫至 `.tmp` 檔案，再透過 `os.replace()` 確保當機安全。
+- **規則 CRUD**：`add_or_update_rule()`、`remove_rules_by_index()`、`load_best_practices()`。
 
-### 3.5 `gui.py` — Flask Web GUI
+**架構**：Flask 後端提供約 30 個 JSON API 端點，由 Vanilla JS 前端（`templates/index.html`）消費。
 
-**職責**：瀏覽器介面管理介面。
-
-**架構**：Flask 後端提供約 25 個 JSON API 端點，由 Vanilla JS 前端（`templates/index.html`）消費。
+- **安全邊界 (Security Middleware)**：所有路由強制要求登入驗證，並透過 `@app.before_request` 實作 IP 白名單過濾（支援 CIDR）。
+- **連線安全**：採用 SHA-256 密碼雜湊與唯一 Salt，Session Cookies 經過加密簽署。
 
 **關鍵路由**：
 

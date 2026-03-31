@@ -1136,6 +1136,98 @@ def alert_settings_menu(cm: ConfigManager):
                 cm.save()
 
 
+def web_gui_security_menu(cm: ConfigManager):
+    import secrets
+    import hashlib
+    from src.utils import draw_panel
+
+    def _hash_pass(salt, pw):
+        return hashlib.sha256((salt + pw).encode('utf-8')).hexdigest()
+
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        draw_panel(
+            t("wgs_menu_title", default="=== Web GUI Security ==="),
+            _menu_hints("Web GUI Security"),
+        )
+        
+        gui_cfg = cm.config.get("web_gui", {})
+        username = gui_cfg.get("username", "admin")
+        has_auth = bool(gui_cfg.get("password_hash"))
+        allowed_ips = gui_cfg.get("allowed_ips", [])
+        
+        auth_status = f"{Colors.GREEN}Configured{Colors.ENDC}" if has_auth else f"{Colors.FAIL}Not Set{Colors.ENDC}"
+        ips_list = ", ".join(allowed_ips) if allowed_ips else "All (No restriction)"
+        
+        print(f"  {t('wgs_username', default='Username')}:    {username}")
+        print(f"  {t('wgs_auth', default='Password')}:    {auth_status}")
+        print(f"  {t('wgs_ips', default='Allowed IPs')}: {ips_list}")
+        print("-" * 40)
+        print("  1. " + t("wgs_change_auth", default="Change Username / Password"))
+        print("  2. " + t("wgs_manage_ips", default="Manage Allowed IPs"))
+        print("  0. " + t("menu_return", default="0. Return"))
+        
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 3))
+        if sel is None or sel == 0:
+            break
+            
+        elif sel == 1:
+            cm.config.setdefault("web_gui", {})
+            new_user = safe_input(t("wgs_user_input", default="New Username"), str, allow_cancel=True, hint=username)
+            if new_user:
+                cm.config["web_gui"]["username"] = new_user
+                
+            if has_auth:
+                old_pass = safe_input(t("wgs_old_pass", default="Old Password"), str, allow_cancel=True)
+                if not old_pass: continue
+                salt = gui_cfg.get("password_salt", "")
+                if _hash_pass(salt, old_pass) != gui_cfg.get("password_hash"):
+                    print(f"\n{Colors.FAIL}Invalid old password.{Colors.ENDC}")
+                    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
+                    continue
+                    
+            new_pass = safe_input(t("wgs_new_pass", default="New Password"), str, allow_cancel=True)
+            if new_pass:
+                salt = secrets.token_hex(8)
+                cm.config["web_gui"]["password_salt"] = salt
+                cm.config["web_gui"]["password_hash"] = _hash_pass(salt, new_pass)
+                print(f"\n{Colors.GREEN}Password updated.{Colors.ENDC}")
+                cm.save()
+            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
+            
+        elif sel == 2:
+            while True:
+                os.system("cls" if os.name == "nt" else "clear")
+                curr_ips = cm.config.get("web_gui", {}).get("allowed_ips", [])
+                print(f"=== {t('wgs_manage_ips', default='Manage Allowed IPs')} ===")
+                if not curr_ips:
+                    print(f"  {Colors.WARNING}List is empty. All IPs are allowed.{Colors.ENDC}")
+                else:
+                    for i, ip in enumerate(curr_ips):
+                        print(f"  {i+1}. {ip}")
+                print("-" * 40)
+                print("  A. " + t("wgs_add_ip", default="Add IP/CIDR"))
+                print("  D. " + t("wgs_del_ip", default="Delete IP/CIDR"))
+                print("  0. " + t("menu_return", default="0. Return"))
+                
+                act = safe_input(f"\n{t('please_select')}", str, allow_cancel=True)
+                if not act or act == "0": break
+                
+                act = act.upper()
+                if act == "A":
+                    new_ip = safe_input("Enter IP or CIDR (e.g. 192.168.1.100 or 10.0.0.0/8): ", str, allow_cancel=True)
+                    if new_ip:
+                        curr_ips.append(new_ip.strip())
+                        cm.config.setdefault("web_gui", {})["allowed_ips"] = curr_ips
+                        cm.save()
+                elif act == "D" and curr_ips:
+                    idx = safe_input("Enter number to delete: ", int, range(1, len(curr_ips) + 1))
+                    if idx is not None:
+                        curr_ips.pop(idx - 1)
+                        cm.config["web_gui"]["allowed_ips"] = curr_ips
+                        cm.save()
+
+
 def settings_menu(cm: ConfigManager):
     from src.utils import draw_panel
 
@@ -1191,8 +1283,9 @@ def settings_menu(cm: ConfigManager):
         rs_cfg = cm.config.get("rule_scheduler", {})
         rs_status = "ON" if rs_cfg.get("enabled", False) else "OFF"
         print(t("settings_6", status=rs_status))
+        print(t("settings_7_web_gui_sec", default="7. Web GUI Security"))
         print(t("menu_return"))
-        sel = safe_input(f"\n{t('please_select')}", int, range(0, 7))
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 8))
         if sel is None:
             break
         if sel == 1:
@@ -1309,6 +1402,8 @@ def settings_menu(cm: ConfigManager):
                 if new_int and int(new_int) > 0:
                     rs_c["check_interval_seconds"] = int(new_int)
                     cm.save()
+        elif sel == 7:
+            web_gui_security_menu(cm)
 
 
 # ─── Report Schedule Management ───────────────────────────────────────────────

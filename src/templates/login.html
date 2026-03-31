@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login – Illumio PCE Ops</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --bg-page:   #F0F4F8;
+      --bg-card:   #FFFFFF;
+      --bg-input:  #F7F9FB;
+      --accent:    #E85C1A;
+      --accent-h:  #C44912;
+      --text:      #1A2733;
+      --muted:     #607080;
+      --border:    #D5DDE6;
+      --shadow:    0 4px 24px rgba(0,0,0,0.10);
+      --radius:    12px;
+      --danger:    #E02B2B;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-page);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+    }
+
+    /* Subtle geometric background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #e0eaff 0%, #f0f4f8 50%, #fde8dc 100%);
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 48px 40px 40px;
+      animation: fadeUp .4s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .brand-icon {
+      width: 44px; height: 44px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .brand-icon svg { width: 24px; height: 24px; fill: white; }
+
+    .brand-text h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .brand-text p {
+      margin: 2px 0 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--bg-input);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      color: var(--text);
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(232,92,26,.12);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background .2s, transform .1s;
+      letter-spacing: .02em;
+    }
+
+    .btn:hover  { background: var(--accent-h); }
+    .btn:active { transform: scale(.98); }
+
+    .error-msg {
+      display: none;
+      margin-bottom: 18px;
+      padding: 11px 14px;
+      background: #fff0f0;
+      border: 1px solid #f5c2c2;
+      color: var(--danger);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="brand">
+        <div class="brand-icon">
+          <!-- shield icon -->
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L3 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>PCE Ops</h1>
+          <p>Illumio Monitoring Console</p>
+        </div>
+      </div>
+
+      <div class="error-msg" id="error-msg"></div>
+
+      <form id="login-form" autocomplete="on">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required autocomplete="username" placeholder="Enter username">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Enter password">
+        </div>
+        <button type="submit" class="btn" id="login-btn">Sign In →</button>
+      </form>
+
+      <div class="footer">Illumio PCE Ops · Secure Access</div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const errBox = document.getElementById('error-msg');
+    const btn = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      errBox.style.display = 'none';
+      btn.textContent = 'Signing in…';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          btn.textContent = '✓ Success!';
+          setTimeout(() => { window.location.href = '/'; }, 300);
+        } else {
+          errBox.textContent = data.error || 'Invalid username or password.';
+          errBox.style.display = 'block';
+          btn.textContent = 'Sign In →';
+          btn.disabled = false;
+          document.getElementById('password').value = '';
+          document.getElementById('password').focus();
+        }
+      } catch {
+        errBox.textContent = 'Network error — please try again.';
+        errBox.style.display = 'block';
+        btn.textContent = 'Sign In →';
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

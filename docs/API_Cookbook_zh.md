@@ -318,6 +318,45 @@ if new_label:
 
 ---
 
+---
+
+## 場景七：工具內部 API (認證與安全性)
+
+**使用場景**：對 Illumio PCE Ops 工具本身進行自動化操作（例如：透過腳本批次更新規則、觸發報表）。    
+**需求**：有效的工具登入憑證（預設：`illumio`/`illumio`）。
+
+### 操作流程
+
+1. **登入**：POST 至 `/api/login` 以取得 Session Cookie。
+2. **認證請求**：在後續呼叫中帶上該 Session Cookie。
+
+### Python 程式碼
+
+```python
+import requests
+
+BASE_URL = "http://127.0.0.1:5001"
+session = requests.Session()
+
+# 1. 登入
+login_payload = {"username": "illumio", "password": "illumio"}
+res = session.post(f"{BASE_URL}/api/login", json=login_payload)
+
+if res.json().get("ok"):
+    print("登入成功")
+    
+    # 2. 範例：觸發產生流量報表
+    report_res = session.post(f"{BASE_URL}/api/reports/generate", json={
+        "type": "traffic",
+        "days": 7
+    })
+    print(f"指令已送出: {report_res.json()}")
+else:
+    print("登入失敗")
+```
+
+---
+
 ## SIEM/SOAR 快速查閱表
 
 | 操作 | API 端點 | HTTP | 請求主體 | 預期回應 |

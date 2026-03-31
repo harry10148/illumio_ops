@@ -318,6 +318,45 @@ if new_label:
 
 ---
 
+---
+
+## Scenario 7: Internal Tool API (Auth & Security)
+
+**Use Case**: Automating against the Illumio PCE Ops tool itself (e.g., bulk updating rules, triggering reports via script).    
+**Required**: Valid tool credentials (default: `illumio`/`illumio`).
+
+### Workflow
+
+1. **Login**: POST to `/api/login` to receive a session cookie.
+2. **Authenticated Requests**: Include the session cookie in subsequent calls.
+
+### Python Code
+
+```python
+import requests
+
+BASE_URL = "http://127.0.0.1:5001"
+session = requests.Session()
+
+# 1. Login
+login_payload = {"username": "illumio", "password": "illumio"}
+res = session.post(f"{BASE_URL}/api/login", json=login_payload)
+
+if res.json().get("ok"):
+    print("Login successful")
+    
+    # 2. Example: Trigger a Traffic Report
+    report_res = session.post(f"{BASE_URL}/api/reports/generate", json={
+        "type": "traffic",
+        "days": 7
+    })
+    print(f"Report triggered: {report_res.json()}")
+else:
+    print("Login failed")
+```
+
+---
+
 ## SIEM/SOAR Quick Reference Table
 
 | Operation | API Endpoint | HTTP | Request Body | Expected Response |

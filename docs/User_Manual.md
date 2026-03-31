@@ -1,6 +1,6 @@
 # Illumio PCE Ops — Comprehensive User Manual
 
-> **[English](User_Manual.md)** | **[繁體中文](User_Manual_zh.md)**
+![Version](https://img.shields.io/badge/Version-v3.0.0-blue?style=flat-square)
 
 ---
 
@@ -95,6 +95,7 @@ Launches a text-based menu for managing rules, settings, and running manual chec
 │  4. System Settings
 │  5. Launch Web GUI
 │  6. View System Logs
+│  7. Web GUI Security
 │  0. Exit
 ╰────────────────────────────────────────────────────
 ```
@@ -164,7 +165,19 @@ python illumio_ops.py --monitor --interval 5     # Every 5 minutes
 
 Runs unattended in the background. Handles `SIGINT`/`SIGTERM` gracefully for clean shutdowns.
 
-### 2.4 Command-Line Reference
+### 2.4 Persistent Mode (Daemon + Web GUI)
+
+```bash
+python illumio_ops.py --monitor-gui --interval 10 --port 5001
+```
+
+This mode runs the **Background Daemon** and the **Web GUI** concurrently in a single process. 
+- The daemon runs in a background thread.
+- The Flask Web GUI runs in the main thread.
+- **Mandatory Security**: Authentication and IP filters are strictly enforced.
+- **Restricted Actions**: The `/api/shutdown` endpoint is disabled in this mode to prevent accidental termination of the persistent service.
+
+### 2.5 Command-Line Reference
 
 ```bash
 python illumio_ops.py [OPTIONS]
@@ -173,8 +186,9 @@ python illumio_ops.py [OPTIONS]
 | Flag | Default | Description |
 |:---|:---|:---|
 | `--monitor` | — | Run in headless daemon mode |
+| `--monitor-gui` | — | Run daemon + Web GUI concurrently (Persistent Mode) |
 | `-i` / `--interval N` | `10` | Monitoring interval in minutes |
-| `--gui` | — | Launch the Web GUI |
+| `--gui` | — | Launch the standalone Web GUI |
 | `-p` / `--port N` | `5001` | Web GUI port |
 | `--report` | — | Generate a Traffic Flow Report from the command line |
 | `--source api\|csv` | `api` | Report data source |
@@ -246,7 +260,27 @@ Detect data exfiltration patterns.
 
 ---
 
-## 4. Alert Channels
+## 4. Web GUI Security
+
+All Web GUI modes REQUIRE authentication and support source IP restrictions.
+
+### 4.1 Authentication
+
+Access is protected by SHA-256 password hashing with a unique per-installation salt.
+- **Default Credentials**: `illumio` / `illumio`
+- **Session Management**: Secure signed cookies are used (secret key is automatically generated in `config.json`).
+- **Configuration**: Change credentials via **CLI Menu 7. Web GUI Security** or Web GUI **Settings** page.
+
+### 4.2 IP Allowlisting
+
+Restrict access to specific administrative workstations or subnets.
+- **Format**: Supports individual IPs (e.g., `192.168.1.50`) or CIDR blocks (e.g., `10.0.0.0/24`).
+- **Default**: If the list is empty, all IPs are allowed (provided they authenticate).
+- **Enforcement**: Middleware checks the `X-Forwarded-For` or remote address on every request.
+
+---
+
+## 5. Alert Channels
 
 Three channels operate concurrently. Activate them in `config.json` → `alerts.active`:
 

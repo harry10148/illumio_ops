@@ -12,6 +12,7 @@ graph TB
         CLI["CLI Menu<br/>(main.py)"]
         DAEMON["Daemon Loop<br/>(main.py)"]
         GUI["Web GUI<br/>(gui.py)"]
+        PERSIST["Persistent Monitor+GUI<br/>(--monitor-gui)"]
     end
 
     subgraph Core["Core Engine"]
@@ -59,7 +60,7 @@ illumio_ops/
 │
 ├── src/
 │   ├── __init__.py            # Package init, exports __version__
-│   ├── main.py                # CLI argument parser (argparse), daemon loop, interactive menu
+│   ├── main.py                # CLI argument parser, daemon/GUI orchestration, interactive menu
 │   ├── api_client.py          # Illumio REST API client with retry and streaming
 │   ├── analyzer.py            # Rule engine: flow matching, metric calculation, state management
 │   ├── reporter.py            # Alert aggregation and multi-channel dispatch
@@ -154,15 +155,15 @@ illumio_ops/
 
 **Responsibility**: Load, save, and validate `config.json`.
 
-- **Deep Merge**: User config is merged over defaults — any missing fields are auto-populated
-- **Atomic Save**: Writes to `.tmp` file first, then `os.replace()` for crash safety
-- **Rule CRUD**: `add_or_update_rule()`, `remove_rules_by_index()`, `load_best_practices()`
+- **Thread Safety**: Uses **`threading.RLock`** (Reentrant Lock) to prevent deadlocks during recursive load/save cycles or concurrent access from Daemon and GUI threads.
+- **Deep Merge**: User config is merged over defaults — any missing fields are auto-populated.
+- **Atomic Save**: Writes to `.tmp` file first, then `os.replace()` for crash safety.
+- **Rule CRUD**: `add_or_update_rule()`, `remove_rules_by_index()`, `load_best_practices()`.
 
-### 3.5 `gui.py` — Flask Web GUI
+**Architecture**: Flask backend exposing ~30 JSON API endpoints, consumed by a Vanilla JS frontend (`templates/index.html`).
 
-**Responsibility**: Browser-based management interface.
-
-**Architecture**: Flask backend exposing ~25 JSON API endpoints, consumed by a Vanilla JS frontend (`templates/index.html`).
+- **Security Middleware**: Mandates login authentication for all routes and enforces IP Allowlisting (CIDR support) via `@app.before_request`.
+- **Session Security**: Uses SHA-256 password hashing with unique salts and cryptographically signed session cookies.
 
 **Key Endpoints**:
 

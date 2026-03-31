@@ -13,9 +13,12 @@ import json
 import datetime
 import threading
 import logging
+import hashlib
+import ipaddress
+import secrets
 
 try:
-    from flask import Flask, request, jsonify, render_template, send_from_directory
+    from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect
     HAS_FLASK = True
 except ImportError:
     HAS_FLASK = False
@@ -57,16 +60,130 @@ def _capture_stdout(func):
 # Flask Application Factory
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _create_app(cm: ConfigManager) -> 'Flask':
+def _hash_password(salt: str, password: str) -> str:
+    return hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
+
+def _check_ip_allowed(allowed_ips: list, remote_addr: str) -> bool:
+    if not allowed_ips:
+        return True
+    try:
+        remote = ipaddress.ip_address(remote_addr)
+    except ValueError:
+        return False
+    for allowed in allowed_ips:
+        try:
+            if '/' in allowed:
+                net = ipaddress.ip_network(allowed, strict=False)
+                if remote in net:
+                    return True
+            else:
+                ip = ipaddress.ip_address(allowed)
+                if remote == ip:
+                    return True
+        except ValueError:
+            continue
+    return False
+
+def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     PKG_DIR = os.path.dirname(os.path.abspath(__file__))
     app = Flask(__name__, template_folder=os.path.join(PKG_DIR, 'templates'), static_folder=os.path.join(PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
     app.config['TEMPLATES_AUTO_RELOAD'] = True
+    
+    # Initialize session secret
+    cm.load()
+    app.secret_key = cm.config.get("web_gui", {}).get("secret_key", secrets.token_hex(32))
+
+    @app.before_request
+    def security_check():
+        if request.endpoint == 'static' or request.path.startswith('/static/'):
+            return
+            
+        # IP Allowlist check
+        allowed_ips = cm.config.get("web_gui", {}).get("allowed_ips", [])
+        if not _check_ip_allowed(allowed_ips, request.remote_addr):
+            return jsonify({"error": "Forbidden", "message": "Your IP is not allowed to access this resource."}), 403
+
+        # Auth check (always enforced for all GUI modes)
+        # Bypass login routes
+        if request.path in ['/login', '/api/login', '/logout']:
+            return
+        if not session.get('logged_in'):
+            if request.path.startswith('/api/'):
+                return jsonify({"error": "Unauthorized"}), 401
+            return redirect('/login')
 
     # ─── Frontend SPA ─────────────────────────────────────────────────────
     @app.route('/')
     def index():
         return render_template('index.html')
+
+    # ─── Auth Routes ──────────────────────────────────────────────────────
+    @app.route('/login', methods=['GET'])
+    def login_page():
+        return render_template('login.html')
+
+    @app.route('/api/login', methods=['POST'])
+    def api_login():
+        d = request.json or {}
+        username = d.get('username', '')
+        password = d.get('password', '')
+        
+        cm.load()
+        gui_cfg = cm.config.get("web_gui", {})
+        
+        saved_username = gui_cfg.get("username", "admin")
+        saved_hash = gui_cfg.get("password_hash", "")
+        saved_salt = gui_cfg.get("password_salt", "")
+        
+
+        if username == saved_username and _hash_password(saved_salt, password) == saved_hash:
+            session['logged_in'] = True
+            return jsonify({"ok": True})
+            
+        return jsonify({"ok": False, "error": "Invalid username or password"}), 401
+
+    @app.route('/logout')
+    def logout():
+        session.clear()
+        return redirect('/login')
+
+    @app.route('/api/security', methods=['GET'])
+    def api_security_get():
+        cm.load()
+        gui_cfg = cm.config.get('web_gui', {})
+        return jsonify({
+            "username": gui_cfg.get("username", "admin"),
+            "allowed_ips": gui_cfg.get("allowed_ips", []),
+            "auth_setup": bool(gui_cfg.get("password_hash"))
+        })
+
+    @app.route('/api/security', methods=['POST'])
+    def api_security_post():
+        d = request.json or {}
+        cm.load()
+        gui_cfg = cm.config.setdefault("web_gui", {})
+        
+        if "username" in d:
+            gui_cfg["username"] = d["username"]
+        
+        if "allowed_ips" in d:
+            gui_cfg["allowed_ips"] = d["allowed_ips"]
+            
+        if "new_password" in d and d["new_password"]:
+            # Check old password if there's already one set
+            if gui_cfg.get("password_hash"):
+                old_pass = d.get("old_password", "")
+                salt = gui_cfg.get("password_salt", "")
+                if _hash_password(salt, old_pass) != gui_cfg.get("password_hash"):
+                    return jsonify({"ok": False, "error": "Invalid old password"}), 401
+                    
+            salt = secrets.token_hex(8)
+            gui_cfg["password_salt"] = salt
+            gui_cfg["password_hash"] = _hash_password(salt, d["new_password"])
+            
+        cm.save()
+        return jsonify({"ok": True})
 
     # ─── API: Status ──────────────────────────────────────────────────────
     @app.route('/api/ui_translations')
@@ -1152,6 +1269,9 @@ def _create_app(cm: ConfigManager) -> 'Flask':
 
     @app.route('/api/shutdown', methods=['POST'])
     def api_shutdown():
+        if persistent_mode:
+            return jsonify({"ok": False, "error": "Shutdown not allowed in persistent mode"}), 403
+            
         func = request.environ.get('werkzeug.server.shutdown')
         if func:
             func()
@@ -1396,7 +1516,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
 # Launch
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001):
+def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_mode=False):
     if not HAS_FLASK:
         print("Flask is not installed. The Web GUI requires Flask.")
         print("Install it with:")
@@ -1406,13 +1526,18 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001):
     if cm is None:
         cm = ConfigManager()
 
-    app = _create_app(cm)
+    app = _create_app(cm, persistent_mode=persistent_mode)
     print(f"\n  Illumio PCE Ops — Web GUI")
     print(f"  Open in browser: http://127.0.0.1:{port}")
-    print(f"  Press Ctrl+C to stop.\n")
+    if persistent_mode:
+        print(f"  Running in persistent mode (Press Ctrl+C to stop the entire daemon).")
+    else:
+        print(f"  Press Ctrl+C to stop.\n")
 
-    import webbrowser
-    threading.Timer(1.5, lambda: webbrowser.open(f'http://127.0.0.1:{port}')).start()
+    if not persistent_mode:
+        import webbrowser
+        threading.Timer(1.5, lambda: webbrowser.open(f'http://127.0.0.1:{port}')).start()
+        
     app.run(host=host, port=port, debug=False, use_reloader=False)
 
 

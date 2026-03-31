@@ -1,6 +1,6 @@
 # Illumio PCE Ops — 完整使用手冊
 
-> **[English](User_Manual.md)** | **[繁體中文](User_Manual_zh.md)**
+![Version](https://img.shields.io/badge/Version-v3.0.0-blue?style=flat-square)
 
 ---
 
@@ -95,6 +95,7 @@ python illumio_ops.py
 │  4. 系統設定
 │  5. 啟動 Web 介面
 │  6. 查看系統日誌
+│  7. Web GUI 安全設定
 │  0. 離開
 ╰────────────────────────────────────────────────────
 ```
@@ -171,8 +172,9 @@ python illumio_ops.py [OPTIONS]
 | 參數 | 預設值 | 說明 |
 |:---|:---|:---|
 | `--monitor` | — | 以無頭 Daemon 模式執行 |
+| `--monitor-gui` | — | 同時啟動監控與 Web GUI (常駐模式) |
 | `-i` / `--interval N` | `10` | 監控間隔（分鐘） |
-| `--gui` | — | 啟動 Web GUI |
+| `--gui` | — | 啟動獨立 Web GUI |
 | `-p` / `--port N` | `5001` | Web GUI 連接埠 |
 | `--report` | — | 從命令列直接產生流量報表 |
 | `--source api\|csv` | `api` | 報表資料來源 |
@@ -244,7 +246,27 @@ python illumio_ops.py --gui --port 8080
 
 ---
 
-## 4. 告警通道
+## 4. Web GUI 安全規範
+
+所有 Web GUI 存取均強制要求身分驗證，並支援來源 IP 限制。
+
+### 4.1 身分驗證 (Authentication)
+
+存取受到 SHA-256 密碼雜湊保護，並結合每套安裝唯一的 Salt（鹽值）。
+- **預設憑證**：`illumio` / `illumio`
+- **連線階段管理**：使用安全簽署的 Cookies（Session Secret 會自動產生於 `config.json`）。
+- **設定方式**：可透過 **CLI 選單 7. Web GUI Security** 或 Web GUI 的 **Settings** 頁面進行修改。
+
+### 4.2 IP 白名單 (IP Allowlisting)
+
+限制僅特定管理站或網段可存取網頁介面。
+- **格式**：支援單一 IP（如 `192.168.1.50`）或 CIDR 網段（如 `10.0.0.0/24`）。
+- **預設行為**：若清單為空，則允許所有 IP 存取（仍需登入）。
+- **強制執行**：Middleware 會在每次請求時檢查 `X-Forwarded-For` 或來源位址。
+
+---
+
+## 5. 告警通道
 
 三個通道同時運作，在 `config.json` → `alerts.active` 中啟用：
 

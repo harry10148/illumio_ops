@@ -47,6 +47,13 @@ _DEFAULT_CONFIG = {
     "rule_scheduler": {
         "enabled": False,
         "check_interval_seconds": 300
+    },
+    "web_gui": {
+        "username": "admin",
+        "password_hash": "",
+        "password_salt": "",
+        "secret_key": "",
+        "allowed_ips": []
     }
 }
 
@@ -80,6 +87,31 @@ class ConfigManager:
             finally:
                 lang = self.config.get("settings", {}).get("language", "en")
                 set_language(lang)
+                self._ensure_web_gui_secret()
+
+    def _ensure_web_gui_secret(self):
+        gui = self.config.get("web_gui", {})
+        if "web_gui" not in self.config:
+            self.config["web_gui"] = _DEFAULT_CONFIG["web_gui"].copy()
+            gui = self.config["web_gui"]
+            
+        changed = False
+        import secrets
+        import hashlib
+        
+        if not gui.get("secret_key"):
+            gui["secret_key"] = secrets.token_hex(32)
+            changed = True
+            
+        if not gui.get("password_hash"):
+            salt = secrets.token_hex(8)
+            gui["username"] = "illumio"
+            gui["password_salt"] = salt
+            gui["password_hash"] = hashlib.sha256((salt + "illumio").encode('utf-8')).hexdigest()
+            changed = True
+            
+        if changed:
+            self.save()
 
     def save(self):
         try:

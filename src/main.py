@@ -38,9 +38,6 @@ def run_daemon_loop(interval_minutes: int):
     Also ticks the report scheduler every 60 seconds to check due schedules."""
     _shutdown_event.clear()
 
-    signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
-
     cm = ConfigManager()
     logger.info(f"Starting daemon loop (interval={interval_minutes}m)")
     print(t("daemon_start", interval=interval_minutes))
@@ -98,6 +95,25 @@ def run_daemon_loop(interval_minutes: int):
 
     logger.info("Daemon loop stopped.")
     print(f"\n{t('daemon_stopped')}")
+
+
+def run_daemon_with_gui(interval_minutes: int, port: int):
+    """Headless monitoring loop running in background thread + Flask GUI in main thread."""
+    cm = ConfigManager()
+    logger.info(f"Starting daemon loop with Web GUI (interval={interval_minutes}m, port={port})")
+    
+    # Start daemon in background thread
+    t_daemon = threading.Thread(target=run_daemon_loop, args=(interval_minutes,), daemon=True)
+    t_daemon.start()
+
+    # Start Flask blocking in main thread
+    from src.gui import launch_gui, HAS_FLASK
+    if not HAS_FLASK:
+        print(t("report_requires_flask"))
+        print(t("cli_pip_install_hint", pkg="flask"))
+        sys.exit(1)
+        
+    launch_gui(cm, port=port, persistent_mode=True)
 
 
 def view_logs(log_file):
@@ -430,6 +446,11 @@ def main():
         help="Run in headless daemon mode (no interactive menu)",
     )
     parser.add_argument(
+        "--monitor-gui",
+        action="store_true",
+        help="Run daemon + Web GUI (persistent mode, requires auth)",
+    )
+    parser.add_argument(
         "-i",
         "--interval",
         type=int,
@@ -488,6 +509,10 @@ def main():
     LOG_DIR = os.path.join(ROOT_DIR, "logs")
     LOG_FILE = os.path.join(LOG_DIR, "illumio_ops.log")
     setup_logger("src", LOG_FILE)
+
+    if args.monitor_gui and not args.monitor:
+        run_daemon_with_gui(args.interval, args.port)
+        sys.exit(0)
 
     if args.report:
         try:
