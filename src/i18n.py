@@ -534,6 +534,8 @@ MESSAGES = {
         "gui_sched_modal_add": "Add Report Schedule",
         "gui_sched_modal_edit": "Edit Report Schedule",
         "gui_sched_name": "Schedule Name",
+        "rs_sch_draft_block": "Unprovisioned or Draft rules cannot be scheduled.",
+        "rs_engine_skip_draft": "[SKIP] {name} (ID:{id}) is in DRAFT state. Operation aborted.",
         "gui_sched_report_type": "Report Type",
         "gui_sched_rt_traffic": "Traffic Flow Report",
         "gui_sched_rt_audit": "Audit Report",
@@ -1418,6 +1420,8 @@ MESSAGES = {
         "sched_status_success": "成功",
         "sched_status_failed": "失敗",
         "sched_status_never": "尚未執行",
+        "rs_sch_draft_block": "未 provision 的規則無法加入排程",
+        "rs_engine_skip_draft": "[SKIP] {name} (ID:{id}) 處於 DRAFT 狀態。已中止操作。",
         # Reports panel
         "gui_reports": "報表",
         "gui_btn_traffic_report": "流量報表",

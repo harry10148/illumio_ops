@@ -2471,6 +2471,17 @@
   <div class="modal-bg" role="dialog" aria-modal="true" id="m-gen-report">
     <div class="modal" style="max-width:440px;">
       <h2 id="m-gen-title"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> <span data-i18n="gui_gen_traffic_title">Generate Report</span></h2>
+      <div id="m-gen-source-row" style="margin-bottom:12px; display:none;">
+        <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--dim);">Data Source</label>
+        <div class="radio-group">
+          <label><input type="radio" name="traffic-source" value="api" checked onchange="toggleTrafficSource()"> API (Fetch from PCE)</label>
+          <label><input type="radio" name="traffic-source" value="csv" onchange="toggleTrafficSource()"> CSV Upload</label>
+        </div>
+      </div>
+      <div id="m-gen-csv-upload" style="display:none; margin-bottom:12px;">
+        <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--dim);">Select CSV File</label>
+        <input type="file" id="m-gen-csv-file" accept=".csv" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px; background:var(--bg2); color:var(--fg);">
+      </div>
       <div id="m-gen-dates">
         <div class="form-row">
           <div class="form-group">
@@ -3109,7 +3120,16 @@
       const m = meta[type] || meta.traffic;
       $('m-gen-title').innerHTML =
         `<svg class="icon" aria-hidden="true"><use href="${m.icon}"></use></svg> ${_translations[m.titleKey] || m.title}`;
-      $('m-gen-dates').style.display = m.dates ? '' : 'none';
+      
+      if (type === 'traffic') {
+        $('m-gen-source-row').style.display = '';
+        toggleTrafficSource();
+      } else {
+        $('m-gen-source-row').style.display = 'none';
+        $('m-gen-csv-upload').style.display = 'none';
+        $('m-gen-dates').style.display = m.dates ? '' : 'none';
+      }
+      
       $('m-gen-note').style.display  = m.dates ? 'none' : '';
 
       if (m.dates) {
@@ -3122,6 +3142,17 @@
       $('m-gen-report').classList.add('show');
     }
 
+    function toggleTrafficSource() {
+      const src = document.querySelector('input[name="traffic-source"]:checked').value;
+      if (src === 'csv') {
+        $('m-gen-dates').style.display = 'none';
+        $('m-gen-csv-upload').style.display = '';
+      } else {
+        $('m-gen-dates').style.display = '';
+        $('m-gen-csv-upload').style.display = 'none';
+      }
+    }
+
     async function confirmReportGen() {
       closeModal('m-gen-report');
       if      (_genReportType === 'traffic') await _doGenerateTraffic();
@@ -3130,27 +3161,52 @@
     }
 
     async function _doGenerateTraffic() {
-      const btn = $('btn-gen-report');
-      const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
-      if (!startVal || !endVal || startVal > endVal) {
-        toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); return;
-      }
-      const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
-      const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
+      const btn = $('m-gen-confirm');
+      const src = document.querySelector('input[name="traffic-source"]:checked')?.value || 'api';
       const origHtml = btn.innerHTML;
       btn.disabled = true;
       btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
+
       try {
-        const r = await post('/api/reports/generate', {source:'api', format:'all', start_date:startDate, end_date:endDate});
-        if (r.ok) { toast(`Traffic Report generated! ${r.record_count} flows.`); loadReports(); }
-        else toast(r.error || 'Generation failed', 'err');
-      } catch(e) { toast('Error: ' + e, 'err'); }
+        if (src === 'csv') {
+          const fileInput = $('m-gen-csv-file');
+          if (!fileInput.files || fileInput.files.length === 0) {
+            toast('Please select a CSV file first.', 'err');
+            throw new Error("No file selected");
+          }
+          const formData = new FormData();
+          formData.append('source', 'csv');
+          formData.append('format', 'all');
+          formData.append('file', fileInput.files[0]);
+          
+          const r = await fetch('/api/reports/generate', {
+            method: 'POST',
+            body: formData
+          }).then(res => res.json());
+          
+          if (r.ok) { toast(`Traffic Report generated from CSV! ${r.record_count} flows.`); loadReports(); }
+          else toast(r.error || 'Generation failed', 'err');
+        } else {
+          const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
+          if (!startVal || !endVal || startVal > endVal) {
+            toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); throw new Error("Invalid dates");
+          }
+          const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
+          const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
+          
+          const r = await post('/api/reports/generate', {source:'api', format:'all', start_date:startDate, end_date:endDate});
+          if (r.ok) { toast(`Traffic Report generated! ${r.record_count} flows.`); loadReports(); }
+          else toast(r.error || 'Generation failed', 'err');
+        }
+      } catch(e) {
+        if(e.message !== "No file selected" && e.message !== "Invalid dates") toast('Error: ' + e, 'err');
+      }
       btn.disabled = false;
       btn.innerHTML = origHtml;
     }
 
     async function _doGenerateAudit() {
-      const btn = $('btn-gen-audit');
+      const btn = $('m-gen-confirm');
       const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
       if (!startVal || !endVal || startVal > endVal) {
         toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); return;
@@ -3170,7 +3226,7 @@
     }
 
     async function _doGenerateVen() {
-      const btn = $('btn-gen-ven');
+      const btn = $('m-gen-confirm');
       const origHtml = btn.innerHTML;
       btn.disabled = true;
       btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
@@ -4275,9 +4331,13 @@
       updateBulkBar();
 
       try {
-        const payload = { name, ip, hostname: host };
-        const qp = new URLSearchParams(payload).toString();
-        const r = await fetch('/api/workloads?' + qp).then(res => res.json());
+        const payload = { name, ip_address: ip, hostname: host };
+        const qp = new URLSearchParams();
+        if (name) qp.append('name', name);
+        if (ip) qp.append('ip_address', ip);
+        if (host) qp.append('hostname', host);
+        
+        const r = await fetch('/api/workloads?' + qp.toString()).then(res => res.json());
 
         if (!r.ok && r.error) throw new Error(r.error);
         _qw_data = r.data || [];

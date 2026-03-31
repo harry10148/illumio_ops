@@ -385,9 +385,11 @@ class _RuleSchedulerCLI:
 
         target_href, target_name, is_rs = "", "", False
         meta_src, meta_dst, meta_svc, meta_rs = "All", "All", "All", rs_name
+        ut = None
 
         if sub_act == '1':
             target_href, target_name, is_rs = rs_href, f"{rs_name}", True
+            ut = selected_rs.get('update_type')
 
         elif sub_act == '2':
             full_rs = self.api.get_ruleset_by_id(extract_id(rs_href))
@@ -403,6 +405,7 @@ class _RuleSchedulerCLI:
             target_href = r['href']
             target_name = r.get('description') or f"Rule {extract_id(r['href'])}"
             is_rs = False
+            ut = r.get('update_type')
 
             dest_field = r.get('destinations', r.get('consumers', []))
             meta_src = self.api.resolve_actor_str(dest_field)
@@ -411,8 +414,8 @@ class _RuleSchedulerCLI:
         else:
             return
 
-        # Block draft-only scheduling
-        if not self.api.is_provisioned(target_href):
+        # Block draft-only scheduling natively to protect rulesets
+        if self.api.has_draft_changes(target_href) or not self.api.is_provisioned(target_href):
             print(f"{Colors.FAIL}[!] {t('rs_sch_draft_block')}{Colors.ENDC}")
             return
 

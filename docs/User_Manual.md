@@ -85,29 +85,55 @@ python illumio_ops.py
 Launches a text-based menu for managing rules, settings, and running manual checks.
 
 ```text
-=== Illumio PCE Ops ===
-API: https://pce.lab.local:8443 | Rules: 5
-── Alert Rules ──
- 1. Add Event Rule (inc. PCE Health Check)
- 2. Add Traffic Rule
- 3. Add Bandwidth & Volume Rule
- 4. Manage Rules (List/Delete)
- 5. Load Official Best Practices
- 6. Send Test Alert
- 7. Run Analysis & Send Alerts
- 8. Rule Simulation & Debug Mode
-── Report Generation ──
- 9. Generate Traffic Flow Report
-10. Generate Audit Log Report
-11. Generate VEN Status Report
-12. Report Schedules (Scheduled Email Reports)
-── Rule Scheduler ──
-13. Rule Scheduler (Policy Rule Automation)
-14. System Settings (API / Email / Alerts)
-15. Launch Web GUI
-16. View Application Logs
- 0. Exit
+╭── Illumio PCE Ops
+│ API: https://pce.lab.local:8443 | Rules: 16
+│ Shortcuts: Enter=default | 0=back | -1=cancel | h/?=help
+├────────────────────────────────────────────────────
+│  1. Alert Rules
+│  2. Report Generation
+│  3. Rule Scheduler
+│  4. System Settings
+│  5. Launch Web GUI
+│  6. View System Logs
+│  0. Exit
+╰────────────────────────────────────────────────────
 ```
+
+Select **1. Alert Rules** to enter the sub-menu:
+
+```text
+│ 1. Add Event Rule
+│ 2. Add Traffic Rule
+│ 3. Add Bandwidth & Volume Rule
+│ 4. Manage Rules
+│ 5. Load Official Best Practices
+│ 6. Send Test Alert
+│ 7. Run Analysis & Send Alerts
+│ 8. Rule Simulation & Debug Mode
+│ 0. Back
+```
+
+Select **2. Report Generation** to enter the sub-menu:
+
+```text
+│ 1. Generate Traffic Flow Report
+│ 2. Generate Audit Log Report
+│ 3. Generate VEN Status Report
+│ 4. Report Schedule Management
+│ 0. Back
+```
+
+Select **3. Rule Scheduler** to enter the sub-menu:
+
+```text
+│ 1. Schedule Management (Add/Delete)
+│ 2. Run Schedule Check Now
+│ 3. Scheduler Settings (Enable/Disable Daemon, Interval)
+│ 0. Back
+```
+
+> **Note**: **4. System Settings**, **5. Launch Web GUI**, and **6. View System Logs** are single-step actions with no sub-menu.
+
 
 ### 2.2 Web GUI
 
@@ -357,8 +383,8 @@ Reports can be triggered from three places:
 | Location | How |
 |:---|:---|
 | Web GUI → Reports tab | Click **Traffic Report**, **Audit Summary**, or **VEN Status** |
-| CLI → menu item **[9–11]** | Select report type and date range |
-| Daemon mode | Configure a schedule via **[12] Report Schedules** — reports run automatically and can be emailed |
+| CLI → **2. Report Generation** sub-menu items 1–3 | Select report type and date range |
+| Daemon mode | Configure via CLI **2. Report Generation → 4. Report Schedule Management** — reports run automatically and can be emailed |
 
 Reports are saved to the `reports/` directory as `.html` (formatted report) and/or `_raw.zip` (CSV raw data) depending on your format setting.
 
@@ -473,7 +499,7 @@ Edit this file and re-run a report to apply new thresholds — no restart requir
 
 ### 7.5 Report Schedules
 
-Configure automated recurring reports via CLI menu **[12]** or Web GUI **Report Schedules** tab:
+Configure automated recurring reports via CLI **2. Report Generation → 4. Report Schedule Management** or Web GUI **Report Schedules** tab:
 
 | Field | Description |
 |:---|:---|
@@ -489,13 +515,65 @@ Configure automated recurring reports via CLI menu **[12]** or Web GUI **Report 
 
 The daemon loop checks schedules every 60 seconds and runs any schedule whose configured time has been reached.
 
-After each successful run, old report files (`.html` and `.zip`) are automatically cleaned up according to the **retention policy** — see Section 8.3.
+After each successful run, old report files are automatically cleaned up according to the **retention policy** — see Section 9.3.
 
 ---
 
-## 8. Settings Reference
+## 8. Rule Scheduler
 
-### 8.1 Timezone
+The Rule Scheduler automatically enables or disables PCE security rules (Rule or Ruleset) based on time windows. Use cases include maintenance windows, business-hours-only access policies, and temporary allow rules with automatic expiry.
+
+### 8.1 CLI
+
+Access via CLI main menu **3. Rule Scheduler**:
+- **1. Schedule Management** — Browse all Rulesets/Rules and add/remove schedules
+- **2. Run Schedule Check Now** — Manually trigger the scheduling engine
+- **3. Scheduler Settings** — Enable/disable the background daemon and set the check interval
+
+### 8.2 Web GUI
+
+Access via the **Rule Scheduler** tab:
+- Browse all Rulesets and expand individual Rules
+- Quick-search Rulesets by name
+- Create **Recurring** (time-window based) or **One-time** (auto-expiry) schedules
+- View real-time schedule logs under the **Logs** sub-tab
+
+### 8.3 Draft Policy Protection
+
+> **Important**: Illumio PCE's Provision operation deploys **all draft policy changes at once**. If a schedule Provision runs while a rule is in a Draft state (meaning someone is actively editing it), **all incomplete draft changes in that policy version will be deployed** — a potentially critical security risk.
+
+The system implements **multi-layer Draft state protection**:
+
+| Protection Layer | Where | Behaviour |
+|:---|:---|:---|
+| **CLI — Add Schedule** | `rule_scheduler_cli.py` | Blocks scheduling if the rule **or its parent Ruleset** is in Draft; shows error message |
+| **Web GUI — Add Schedule** | `gui.py` API | Same check; rejects POST with `Unprovisioned rules cannot be scheduled` |
+| **Scheduler Engine — At Runtime** | `rule_scheduler.py` | If a scheduled rule is found in Draft state at execution time, skips Provision and writes a `[SKIP]` log |
+| **API Client Layer** | `api_client.has_draft_changes()` | Central helper: checks the rule itself **and** its parent Ruleset for pending Draft changes |
+
+#### Detection Logic (parent Ruleset takes priority)
+
+```
+1. Fetch the rule's Draft version → if update_type is non-empty → DRAFT (stop)
+2. If it's a child rule (href contains /sec_rules/) → fetch parent Ruleset's Draft version
+   → if parent Ruleset's update_type is non-empty → DRAFT (stop)
+3. Neither has Draft changes → safe to proceed
+```
+
+#### Log Output
+
+- Draft blocks a schedule **configuration attempt** → error shown on screen only, no log file entry
+- Draft blocks a schedule **execution** → `WARNING` level log entry for audit trail
+
+```
+[SKIP] CoreServices_Rule_1499 (ID:1499) is in DRAFT state. Operation aborted.
+```
+
+---
+
+## 9. Settings Reference
+
+### 9.1 Timezone
 
 The timezone setting controls how timestamps are displayed in reports and schedule input fields. Configure it in Web GUI → **Settings → Timezone**, or directly in `config.json`:
 
@@ -511,13 +589,13 @@ Supported formats: `local` (system timezone), `UTC`, `UTC+8`, `UTC-5`, `UTC+5.5`
 
 > Schedule times are always **stored as UTC** internally. The CLI wizard and Web GUI schedule modal automatically convert to/from your configured timezone for display.
 
-### 8.2 Dashboard Queries
+### 9.2 Dashboard Queries
 
 The Dashboard tab supports saving custom traffic queries for repeated use. Each saved query stores filter parameters (policy decision, port, label, IP range) and can be run on demand from the Dashboard to populate the Top-10 widgets.
 
 Queries are stored in `config.json` → `settings.dashboard_queries` and are managed entirely through the Web GUI.
 
-### 8.3 Report Output
+### 9.3 Report Output
 
 Controls where reports are saved and how long they are kept.
 
@@ -527,7 +605,7 @@ Controls where reports are saved and how long they are kept.
 | `report.retention_days` | `30` | Auto-delete `.html`/`.zip` reports older than this many days after each scheduled run. Set to `0` to disable. |
 
 **Configure from Web GUI**: Settings → **Report Output** fieldset
-**Configure from CLI**: Settings menu → **[5] Report Output**
+**Configure from CLI**: System Settings menu → **4. System Settings**
 **Configure from `config.json`**:
 ```json
 {
@@ -540,7 +618,7 @@ Controls where reports are saved and how long they are kept.
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Cause | Solution |
 |:---|:---|:---|
@@ -553,3 +631,4 @@ Controls where reports are saved and how long they are kept.
 | No alerts received | Channel not activated | Ensure `alerts.active` array includes your channel(s) |
 | Report shows all VENs as online | Old cached state | Ensure `hours_since_last_heartbeat` is returned by your PCE version; check PCE API response for `agent.status` fields |
 | Schedule email fails: `'Finding' object has no attribute 'get'` | Outdated code | Pull latest — this was fixed in commit `98c0b47` |
+| Rule Scheduler shows `[SKIP]` log | Rule or parent Ruleset in Draft | Complete and Provision the policy edits in PCE Console; the schedule will resume automatically |

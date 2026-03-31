@@ -174,7 +174,13 @@ class ScheduleEngine:
                 else:
                     target = True
 
-            # Check current PCE state
+            # Check PCE state (draft check first, covering parent ruleset natively)
+            if self.api.has_draft_changes(href):
+                name_str = c.get('detail_name', c['name'])
+                log(f"{Colors.FAIL}{t('rs_engine_skip_draft', name=name_str, id=extract_id(href))}{Colors.ENDC}")
+                continue
+
+            # If no pending draft, check active state to determine toggle
             status, data = self.api.get_live_item(href)
             if status == 200 and data:
                 curr_status = data.get('enabled')

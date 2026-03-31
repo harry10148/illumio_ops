@@ -542,11 +542,16 @@ def _create_app(cm: ConfigManager) -> 'Flask':
 
     @app.route('/api/reports/generate', methods=['POST'])
     def api_generate_report():
-        d = request.json or {}
+        if request.is_json:
+            d = request.json or {}
+        else:
+            d = request.form.to_dict()
+            
         try:
             from src.report.report_generator import ReportGenerator
             from src.api_client import ApiClient
             from src.reporter import Reporter
+            import tempfile
             
             PKG_DIR = os.path.dirname(os.path.abspath(__file__))
             ROOT_DIR = os.path.dirname(PKG_DIR)
@@ -558,15 +563,27 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             
             gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
             
-            # Can be 'api' or 'csv'
             source = d.get('source', 'api')
             if source == 'csv':
-                return jsonify({"ok": False, "error": t("gui_csv_not_impl")}), 400
-            
-            start_date = d.get('start_date')
-            end_date = d.get('end_date')
-            
-            result = gen.generate_from_api(start_date, end_date)
+                if 'file' not in request.files:
+                    return jsonify({"ok": False, "error": "No CSV file uploaded"})
+                csv_file = request.files['file']
+                if csv_file.filename == '':
+                    return jsonify({"ok": False, "error": "Empty CSV filename"})
+                    
+                temp_path = os.path.join(tempfile.gettempdir(), csv_file.filename)
+                csv_file.save(temp_path)
+                try:
+                    result = gen.generate_from_csv(temp_path)
+                finally:
+                    try:
+                        os.remove(temp_path)
+                    except:
+                        pass
+            else:
+                start_date = d.get('start_date')
+                end_date = d.get('end_date')
+                result = gen.generate_from_api(start_date, end_date)
             
             if result.record_count == 0:
                 return jsonify({"ok": False, "error": t("gui_no_traffic_data")})
@@ -576,7 +593,7 @@ def _create_app(cm: ConfigManager) -> 'Flask':
             if not os.path.isabs(output_dir):
                 output_dir = os.path.join(ROOT_DIR, output_dir)
                 
-            paths = gen.export(result, fmt=fmt, output_dir=output_dir, send_email=d.get('send_email', False), reporter=reporter)
+            paths = gen.export(result, fmt=fmt, output_dir=output_dir, send_email=str(d.get('send_email', '')).lower() == 'true', reporter=reporter)
             
             filenames = [os.path.basename(p) for p in paths]
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
@@ -965,8 +982,10 @@ def _create_app(cm: ConfigManager) -> 'Flask':
                 else:
                     params["ip_address"] = ip_query
 
-            if "max_results" in d: params["max_results"] = d["max_results"]
-            else: params["max_results"] = 500
+            if "max_results" in d: 
+                params["max_results"] = d["max_results"]
+            else: 
+                params["max_results"] = 100000 if local_ip_filter else 500
 
             workloads = api.search_workloads(params)
             
@@ -1287,6 +1306,10 @@ def _create_app(cm: ConfigManager) -> 'Flask':
         href = data.get('href', '')
         if not href:
             return jsonify({"error": "href required"}), 400
+
+        # Block draft-only scheduling natively for GUI
+        if api.has_draft_changes(href) or not api.is_provisioned(href):
+            return jsonify({"ok": False, "error": t("rs_sch_draft_block")}), 400
 
         # Validate time format for recurring
         if data.get('type') == 'recurring':

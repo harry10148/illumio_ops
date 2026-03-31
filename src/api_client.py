@@ -43,7 +43,7 @@ class ApiClient:
     def _build_ssl_context(self):
         ctx = ssl.create_default_context()
         if not self.api_cfg.get('verify_ssl', True):
-            logger.warning("SSL verification disabled — API connections are not secure")
+            logger.debug("SSL verification disabled — API connections are not secure")
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
         return ctx
@@ -523,9 +523,28 @@ class ApiClient:
         logger.error(f"Provision failed for RuleSet {_extract_id(rs_href)}: status {prov_status}")
         return False
 
+    def has_draft_changes(self, href):
+        """Check if an item OR its parent RuleSet has pending draft changes."""
+        draft_href = href.replace("/active/", "/draft/")
+        status, data = self._api_get(draft_href)
+        if status == 200 and data and bool(data.get('update_type')):
+            return True
+        if "/sec_rules/" in draft_href:
+            parent_href = draft_href.split("/sec_rules/")[0]
+            status_p, data_p = self._api_get(parent_href)
+            if status_p == 200 and data_p and bool(data_p.get('update_type')):
+                return True
+        return False
+
     def toggle_and_provision(self, href, target_enabled, is_ruleset=False):
         """Enable/disable a rule or ruleset and provision the change."""
         draft_href = href.replace("/active/", "/draft/")
+        
+        # Check if it (or parent) has pending changes
+        if self.has_draft_changes(draft_href):
+            logger.warning(f"toggle_and_provision aborted: {_extract_id(href)} has pending draft changes.")
+            return False
+
         put_status = self._api_put(draft_href, {"enabled": target_enabled})
         if put_status != 204:
             logger.error(f"Toggle failed for {_extract_id(href)}: status {put_status}")
@@ -539,6 +558,8 @@ class ApiClient:
         status, data = self._api_get(draft_href)
         if status != 200 or not data:
             return False
+
+        has_pending_draft = self.has_draft_changes(draft_href)
 
         current_desc = data.get('description', '') or ''
 
@@ -556,8 +577,11 @@ class ApiClient:
 
         put_status = self._api_put(draft_href, {"description": new_desc})
         if put_status == 204:
-            rs_href = "/".join(draft_href.split("/")[:7])
-            return self.provision_changes(rs_href)
+            if not has_pending_draft:
+                rs_href = "/".join(draft_href.split("/")[:7])
+                return self.provision_changes(rs_href)
+            # Successfully updated rule note but skipped provision due to pending changes
+            return True
         return False
 
     def get_live_item(self, href):

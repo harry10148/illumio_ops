@@ -1,1 +1,22 @@
-{}
+{
+    "/orgs/1/sec_policy/draft/rule_sets/471": {
+        "type": "recurring",
+        "name": "CoreServices | VMware",
+        "is_ruleset": true,
+        "action": "allow",
+        "detail_rs": "CoreServices | VMware",
+        "detail_src": "All",
+        "detail_dst": "All",
+        "detail_svc": "All",
+        "detail_name": "CoreServices | VMware",
+        "days": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday"
+        ],
+        "start": "08:00",
+        "end": "18:00"
+    }
+}

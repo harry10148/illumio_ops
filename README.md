@@ -14,13 +14,14 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 | Feature | Description |
 |:---|:---|
-| **Triple Execution Modes** | Background daemon (`--monitor`), interactive CLI wizard, or Flask-powered **Web GUI** (`--gui`) |
+| **Triple Execution Modes** | Background daemon (`--monitor`), interactive CLI (6-item root menu with sub-menus), or Flask-powered **Web GUI** (`--gui`) |
 | **Security Event Monitoring** | Tracks PCE audit events with anchor-based timestamps — guaranteed zero duplicate alerts |
 | **High-Performance Traffic Engine** | Aggregates rules into a single bulk API query; O(1) memory streaming for large datasets |
 | **Advanced Report Engine** | 15-module traffic reports, 4-module audit reports, and VEN Status inventory reports — HTML + CSV raw data |
 | **19 Automated Security Findings** | B-series (ransomware, coverage, anomalies) + L-series (lateral movement, exfiltration, blast-radius) |
 | **Report Schedules** | Cron-style recurring reports (daily/weekly/monthly) with automatic email delivery |
-| **Workload Quarantine** | Isolate compromised workloads by applying Quarantine labels (Mild/Moderate/Severe) |
+| **Rule Scheduler** | Auto enable/disable PCE rules on time windows; **three-layer Draft protection** (CLI/GUI/engine) prevents accidental provisioning of in-progress edits |
+| **Workload Quarantine** | Isolate compromised workloads with Quarantine labels (Mild/Moderate/Severe); supports IP/CIDR/subnet search |
 | **Multi-Channel Alerts** | Email (SMTP), LINE Notifications, and Webhooks dispatched simultaneously |
 | **Multi-Language UI** | Instant English ↔ Traditional Chinese switching in Web GUI and HTML reports without reload |
 
