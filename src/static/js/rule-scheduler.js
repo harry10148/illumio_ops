@@ -307,7 +307,7 @@ async function rsSaveSchedule() {
   if (editId) body.id = parseInt(editId);
   try {
     const res = await fetch('/api/rule_scheduler/schedules', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() }, body: JSON.stringify(body)
     });
     const data = await res.json();
     if (data.ok) {
@@ -444,7 +444,7 @@ async function rsDeleteSelected() {
   if (!confirm((_translations.gui_rs_confirm_delete || 'Delete {count} schedule(s)?').replace('{count}', hrefs.length))) return;
   try {
     const res = await fetch('/api/rule_scheduler/schedules/delete', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hrefs })
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() }, body: JSON.stringify({ hrefs })
     });
     const data = await res.json();
     if (data.ok) {

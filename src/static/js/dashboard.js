@@ -683,10 +683,7 @@ async function saveDashboardQuery() {
     ex_src: $('dq-exsrc').value, ex_dst: $('dq-exdst').value
   };
 
-  // Quick API helper if not strictly using fetch directly
-  const r = await fetch('/api/dashboard/queries', {
-    method: 'POST', body: JSON.stringify(d), headers: { 'Content-Type': 'application/json' }
-  }).then(res => res.json());
+  const r = await post('/api/dashboard/queries', d);
 
   if (r.ok) {
     const m = $('m-query');
@@ -724,9 +721,7 @@ async function runTop10Query(idx) {
   bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_translations['gui_top10_loading'] || 'Loading...'}</td></tr>`;
 
   try {
-    const r = await fetch('/api/dashboard/top10', {
-      method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'application/json' }
-    }).then(res => res.json());
+    const r = await post('/api/dashboard/top10', payload);
     if (!r.ok) throw new Error(r.error || 'Unknown error');
 
     if (r.data && r.data.length) {
