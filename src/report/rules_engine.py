@@ -301,12 +301,30 @@ class RulesEngine:
         matched = df[mask]
         if not matched.empty:
             top_ports = matched['port'].value_counts().head(5).to_dict()
+            _port_names = {5938: 'TeamViewer', 5900: 'VNC', 5901: 'VNC-alt', 137: 'NetBIOS-NS',
+                           138: 'NetBIOS-DGM', 139: 'NetBIOS-SSN', 4899: 'Radmin'}
+            named = {_port_names.get(p, str(p)): c for p, c in top_ports.items()}
+            unique_src = matched['src_ip'].nunique()
+            unique_dst = matched['dst_ip'].nunique()
             return Finding(
                 rule_id='B002', rule_name='Ransomware Risk Port (High)',
                 severity='HIGH', category='Ransomware',
-                description=f"High-risk remote access ports allowed: {sorted(top_ports.keys())}",
-                recommendation="Review whether TeamViewer(5938), VNC(5900), NetBIOS(137-139) access is authorised and apply policy.",
-                evidence={'matched_flows': len(matched), 'top_ports': str(top_ports)},
+                description=(
+                    f"{len(matched)} flows on high-risk remote access ports are explicitly allowed: "
+                    f"{named}. These flows span {unique_src} unique source IPs → {unique_dst} unique "
+                    f"destinations. Remote access tools are the #1 initial access vector for ransomware "
+                    f"operators (e.g., Conti, LockBit) who exploit exposed VNC/TeamViewer to gain GUI "
+                    f"access without triggering endpoint alerts."
+                ),
+                recommendation=(
+                    "1) Verify each allowed flow has a documented business justification. "
+                    "2) Block TeamViewer (5938) and VNC (5900/5901) unless required for specific admin workflows — "
+                    "replace with MFA-protected jump servers. "
+                    "3) If NetBIOS (137-139) is allowed, migrate to SMBv3 over 445 with encryption. "
+                    "4) Create Illumio deny rules for these ports from all non-admin workloads."
+                ),
+                evidence={'matched_flows': len(matched), 'top_ports': str(top_ports),
+                          'unique_sources': unique_src, 'unique_destinations': unique_dst},
             )
         return None
 
@@ -317,12 +335,30 @@ class RulesEngine:
         mask = (df['port'].isin(medium_ports)) & (df['policy_decision'] == 'potentially_blocked')
         matched = df[mask]
         if not matched.empty:
+            top_ports = matched['port'].value_counts().head(5).to_dict()
+            _port_names = {22: 'SSH', 2049: 'NFS', 20: 'FTP-data', 21: 'FTP', 80: 'HTTP',
+                           8080: 'HTTP-alt', 8443: 'HTTPS-alt'}
+            named = {_port_names.get(p, str(p)): c for p, c in top_ports.items()}
+            unique_wl = matched['src_ip'].nunique() + matched['dst_ip'].nunique()
             return Finding(
                 rule_id='B003', rule_name='Ransomware Risk Port (Medium) — Uncovered',
                 severity='MEDIUM', category='Ransomware',
-                description=f"{len(matched)} flows on medium-risk ports are potentially_blocked (workloads in test mode).",
-                recommendation="Consider moving workloads to enforced mode to block these ports: SSH(22), NFS(2049), FTP(20/21), HTTP(80).",
-                evidence={'matched_flows': len(matched)},
+                description=(
+                    f"{len(matched)} flows on medium-risk ports are in 'potentially_blocked' state "
+                    f"(workloads still in test/visibility mode): {named}. "
+                    f"This affects approximately {unique_wl} workload IPs. "
+                    f"While these flows would be blocked in enforced mode, they represent real "
+                    f"network paths that ransomware could exploit if enforcement is delayed."
+                ),
+                recommendation=(
+                    "1) Prioritize moving workloads with potentially_blocked flows to enforced mode — "
+                    "start with the highest-risk ports (SSH, NFS). "
+                    "2) Review the 'potentially_blocked' flows to ensure no legitimate traffic "
+                    "will break when enforcement is applied. "
+                    "3) Create allow rules for verified legitimate traffic before switching to enforced mode. "
+                    "4) Set a deadline for enforcement — prolonged test mode leaves the network exposed."
+                ),
+                evidence={'matched_flows': len(matched), 'top_ports': str(top_ports)},
             )
         return None
 
@@ -332,12 +368,28 @@ class RulesEngine:
         total = len(unmanaged_src)
         if total > threshold:
             top_ips = unmanaged_src['src_ip'].value_counts().head(5).to_dict()
+            unique_dst = unmanaged_src['dst_ip'].nunique()
+            top_dst_ports = unmanaged_src['port'].value_counts().head(5).to_dict()
             return Finding(
                 rule_id='B004', rule_name='Unmanaged Source High Activity',
                 severity='MEDIUM', category='UnmanagedHost',
-                description=f"{total} flows originated from unmanaged sources (threshold: {threshold}).",
-                recommendation="Investigate unmanaged source hosts. Consider onboarding them to PCE or applying explicit deny policy.",
-                evidence={'total_flows': total, 'top_src_ips': str(top_ips)},
+                description=(
+                    f"{total} flows originated from unmanaged sources (threshold: {threshold}), "
+                    f"targeting {unique_dst} unique managed destinations on ports {list(top_dst_ports.keys())}. "
+                    f"Top unmanaged source IPs: {list(top_ips.keys())[:3]}. "
+                    f"Unmanaged hosts bypass Illumio policy enforcement — any traffic they send "
+                    f"cannot be micro-segmented, creating blind spots in your security posture."
+                ),
+                recommendation=(
+                    "1) Identify each unmanaged source IP — are they network devices, legacy servers, "
+                    "or shadow IT? "
+                    "2) Deploy VEN agents on servers that should be managed. "
+                    "3) For network devices that can't run a VEN, use IP lists and enforcement "
+                    "boundaries to control their access. "
+                    "4) Create explicit deny rules for any unmanaged-to-managed path that isn't required."
+                ),
+                evidence={'total_flows': total, 'top_src_ips': str(top_ips),
+                          'unique_managed_destinations': unique_dst, 'top_ports': str(top_dst_ports)},
             )
         return None
 
@@ -349,12 +401,29 @@ class RulesEngine:
         total = len(df)
         coverage_pct = (allowed / total * 100) if total > 0 else 0
         if coverage_pct < threshold:
+            blocked = (df['policy_decision'] == 'blocked').sum()
+            pb = (df['policy_decision'] == 'potentially_blocked').sum()
             return Finding(
                 rule_id='B005', rule_name='Low Policy Coverage',
                 severity='MEDIUM', category='Policy',
-                description=f"Policy coverage is {coverage_pct:.1f}% (allowed flows / total). Threshold: {threshold}%.",
-                recommendation="Review uncovered flows and create segmentation rules for critical application tiers.",
-                evidence={'coverage_pct': f'{coverage_pct:.1f}', 'allowed': allowed, 'total': total},
+                description=(
+                    f"Policy coverage is only {coverage_pct:.1f}% — out of {total:,} total flows, "
+                    f"only {allowed:,} are explicitly allowed by rules, while {blocked:,} are blocked "
+                    f"and {pb:,} are potentially blocked (test mode). "
+                    f"Low coverage means most traffic is flowing without explicit policy authorization, "
+                    f"making it impossible to distinguish legitimate traffic from attacker movement."
+                ),
+                recommendation=(
+                    "1) Focus first on critical tiers: databases, identity infrastructure (AD/LDAP), "
+                    "and externally-facing workloads. "
+                    "2) Use Illumio's Explorer to identify top unruled flows and create allow rules "
+                    "for verified traffic. "
+                    "3) Set a target coverage of >{threshold}% within 30 days. "
+                    "4) Enable enforcement gradually — start with ring-fencing high-value assets, "
+                    "then expand to general workloads."
+                ),
+                evidence={'coverage_pct': f'{coverage_pct:.1f}', 'allowed': allowed,
+                          'blocked': blocked, 'potentially_blocked': pb, 'total': total},
             )
         return None
 
@@ -367,12 +436,30 @@ class RulesEngine:
         high_src = per_src[per_src > threshold]
         if not high_src.empty:
             top = high_src.nlargest(3).to_dict()
+            total_lateral = len(lateral)
+            top_ports = lateral['port'].value_counts().head(5).to_dict()
             return Finding(
                 rule_id='B006', rule_name='High Lateral Movement',
                 severity='HIGH', category='LateralMovement',
-                description=f"{len(high_src)} source IPs connected to >{threshold} unique destinations via lateral movement ports.",
-                recommendation="Investigate these source IPs for potential lateral movement or compromised accounts. Apply micro-segmentation.",
-                evidence={'high_src_count': len(high_src), 'top_sources': str(top)},
+                description=(
+                    f"{len(high_src)} source IPs each connected to >{threshold} unique destinations "
+                    f"via lateral movement ports (SSH, RDP, SMB, WinRM), totalling {total_lateral:,} "
+                    f"flows on ports {list(top_ports.keys())}. "
+                    f"Top offenders: {list(top.keys())[:3]}. "
+                    f"This fan-out pattern is a strong indicator of host-hopping — attackers "
+                    f"pivoting through compromised workloads to reach higher-value targets."
+                ),
+                recommendation=(
+                    "1) Immediately investigate the top source IPs — check for running exploit tools, "
+                    "unexpected SSH sessions, or RDP brute-force attempts. "
+                    "2) Apply micro-segmentation to restrict lateral ports (22, 3389, 445, 5985) to "
+                    "only authorized admin workloads. "
+                    "3) Deploy ring-fencing rules around high-value assets (databases, domain controllers) "
+                    "to limit blast radius even if a workload is compromised. "
+                    "4) Enable Illumio enforcement on all workloads involved in this traffic."
+                ),
+                evidence={'high_src_count': len(high_src), 'top_sources': str(top),
+                          'total_lateral_flows': total_lateral, 'top_ports': str(top_ports)},
             )
         return None
 
@@ -385,12 +472,28 @@ class RulesEngine:
         high_users = per_user[per_user > threshold]
         if not high_users.empty:
             top = high_users.nlargest(3).to_dict()
+            top_ports = has_user[has_user['user_name'].isin(high_users.index)]['port'].value_counts().head(5).to_dict()
             return Finding(
                 rule_id='B007', rule_name='Single User High Destinations',
                 severity='HIGH', category='UserActivity',
-                description=f"{len(high_users)} users reached >{threshold} unique destinations.",
-                recommendation="Review these user accounts for unusual activity — potential credential abuse or data exfiltration.",
-                evidence={'high_user_count': len(high_users), 'top_users': str(top)},
+                description=(
+                    f"{len(high_users)} user accounts each reached >{threshold} unique destination IPs. "
+                    f"Top accounts: {list(top.keys())[:3]} (reaching {list(top.values())[:3]} destinations). "
+                    f"Ports used: {list(top_ports.keys())}. "
+                    f"Normal users typically access a small, predictable set of servers. "
+                    f"A single account reaching many destinations may indicate credential theft, "
+                    f"automated scanning, or data exfiltration via compromised credentials."
+                ),
+                recommendation=(
+                    "1) Cross-reference flagged accounts with HR/IT records — are these admin accounts "
+                    "or regular users? "
+                    "2) Check authentication logs for failed login attempts or impossible-travel alerts. "
+                    "3) For admin accounts, enforce just-in-time access and MFA for lateral sessions. "
+                    "4) Create Illumio user-based rules to limit which destinations each role can access. "
+                    "5) If compromise is suspected, rotate credentials immediately and isolate the workload."
+                ),
+                evidence={'high_user_count': len(high_users), 'top_users': str(top),
+                          'top_ports': str(top_ports)},
             )
         return None
 
@@ -404,12 +507,31 @@ class RulesEngine:
         anomalies = df[df['bytes_total'] > threshold_bytes]
         if not anomalies.empty:
             top = anomalies.nlargest(3, 'bytes_total')[['src_ip', 'dst_ip', 'bytes_total']].to_dict('records')
+            total_anomaly_bytes = anomalies['bytes_total'].sum()
+            top_ports = anomalies['port'].value_counts().head(5).to_dict()
             return Finding(
                 rule_id='B008', rule_name='High Bandwidth Anomaly',
                 severity='MEDIUM', category='Bandwidth',
-                description=f"{len(anomalies)} flows exceed {percentile}th percentile bytes ({_fmt_bytes(threshold_bytes)}).",
-                recommendation="Investigate high-volume flows for data exfiltration or backup activity.",
-                evidence={'anomaly_count': len(anomalies), 'percentile_threshold': _fmt_bytes(threshold_bytes), 'top_flows': str(top)},
+                description=(
+                    f"{len(anomalies)} flows exceed the {percentile}th percentile threshold "
+                    f"({_fmt_bytes(threshold_bytes)}), transferring a combined {_fmt_bytes(total_anomaly_bytes)}. "
+                    f"Top flow: {top[0]['src_ip']} → {top[0]['dst_ip']} ({_fmt_bytes(top[0]['bytes_total'])}). "
+                    f"Ports involved: {list(top_ports.keys())}. "
+                    f"Abnormally large data transfers may indicate data exfiltration, "
+                    f"unauthorized backups, or misconfigured replication jobs."
+                ),
+                recommendation=(
+                    "1) Verify the top bandwidth consumers — are they backup servers, replication, "
+                    "or database sync? Document expected high-volume flows. "
+                    "2) For unexplained transfers, check if the source is a compromised workload "
+                    "exfiltrating data to an external or lateral destination. "
+                    "3) Consider implementing bandwidth-aware rules or QoS policies for known "
+                    "high-volume services. "
+                    "4) Set up Illumio monitoring alerts for sustained anomalous volume."
+                ),
+                evidence={'anomaly_count': len(anomalies), 'percentile_threshold': _fmt_bytes(threshold_bytes),
+                          'total_anomaly_bytes': _fmt_bytes(total_anomaly_bytes), 'top_flows': str(top),
+                          'top_ports': str(top_ports)},
             )
         return None
 
@@ -418,12 +540,32 @@ class RulesEngine:
         cross = df[(df['src_env'] != '') & (df['dst_env'] != '') & (df['src_env'] != df['dst_env'])]
         if len(cross) > threshold:
             top_pairs = cross.groupby(['src_env', 'dst_env']).size().nlargest(5).to_dict()
+            top_ports = cross['port'].value_counts().head(5).to_dict()
+            unique_envs = set(cross['src_env'].unique()) | set(cross['dst_env'].unique())
             return Finding(
                 rule_id='B009', rule_name='Cross-Env Flow Volume',
                 severity='INFO', category='Policy',
-                description=f"{len(cross)} cross-environment flows detected (threshold: {threshold}).",
-                recommendation="Review cross-environment traffic to verify it matches intended data flow patterns.",
-                evidence={'cross_env_flows': len(cross), 'top_pairs': str(top_pairs)},
+                description=(
+                    f"{len(cross):,} cross-environment flows detected across {len(unique_envs)} "
+                    f"environments (threshold: {threshold}). "
+                    f"Top environment pairs: " +
+                    ', '.join(f"{k[0]}→{k[1]} ({v})" for k, v in list(top_pairs.items())[:3]) +
+                    f". Ports: {list(top_ports.keys())}. "
+                    f"Cross-environment traffic is expected for some services (monitoring, DNS, NTP) "
+                    f"but should be explicitly authorized. Uncontrolled cross-env flows break "
+                    f"environment isolation and can enable pivot attacks from lower to higher environments."
+                ),
+                recommendation=(
+                    "1) Audit each cross-env flow pair — document which ones are expected "
+                    "(e.g., Production monitoring pulling from Staging). "
+                    "2) Create explicit Illumio rules for approved cross-env paths with "
+                    "specific port restrictions. "
+                    "3) Block all other cross-env flows, especially database ports (see L004) and "
+                    "admin protocols (SSH, RDP). "
+                    "4) Use Illumio environment labels consistently to enforce isolation boundaries."
+                ),
+                evidence={'cross_env_flows': len(cross), 'top_pairs': str(top_pairs),
+                          'environments': str(sorted(unique_envs)), 'top_ports': str(top_ports)},
             )
         return None
 
@@ -874,6 +1016,10 @@ class RulesEngine:
             return []
         try:
             import yaml
+        except ImportError:
+            logger.warning("[RulesEngine] pyyaml not installed — semantic rules skipped")
+            return []
+        try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f) or {}
             rules = data.get('semantic_rules', []) or []

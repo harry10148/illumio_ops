@@ -140,6 +140,7 @@ STRINGS: dict[str, dict[str, str]] = {
 
     # ── Security Findings – shared labels ────────────────────────────────────
     "rpt_rule_check_label": {"en": "What this rule checks:", "zh_TW": "此規則檢查項目："},
+    "rpt_recommendation_label": {"en": "Recommendation:", "zh_TW": "建議措施："},
 
     # ── Security Findings – rule how-text (B-series) ──────────────────────────
     "rpt_rule_B001_how": {

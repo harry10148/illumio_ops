@@ -84,8 +84,8 @@ TRAFFIC_CSS = """\
     text-transform: uppercase; letter-spacing: .04em; }
   .ev-pill b { color: var(--cyan-110); }
   .finding-rec { background: var(--tan); border-left: 3px solid var(--orange);
-    padding: 10px 12px; border-radius: 4px; font-size: 12px; color: var(--cyan-120); }
-  .finding-rec::before { content: "\\2192  "; font-weight: 700; }
+    padding: 10px 12px; border-radius: 4px; font-size: 12px; color: var(--cyan-120); line-height: 1.6; }
+
   .cat-group { margin-bottom: 6px; }
   .sev-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
   .sev-box { text-align: center; padding: 10px 18px; border-radius: 8px; background: #fff;

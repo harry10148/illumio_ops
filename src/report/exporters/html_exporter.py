@@ -612,10 +612,13 @@ class HtmlExporter:
                         f'<b data-i18n="rpt_rule_check_label">{check_label_en}</b>'
                         f' <span data-i18n="{how_key}">{how_en}</span></p>'
                     )
+                rec_label_en = _S.get('rpt_recommendation_label', {}).get('en', 'Recommendation:')
                 cards_html += (
                     f'<p class="finding-desc">{f.description}</p>'
                     + evidence_html
-                    + f'<div class="finding-rec">{f.recommendation}</div>'
+                    + f'<div class="finding-rec">'
+                    f'<b data-i18n="rpt_recommendation_label">{rec_label_en}</b> '
+                    f'{f.recommendation}</div>'
                     f'</div>'
                 )
             cards_html += '</div>'

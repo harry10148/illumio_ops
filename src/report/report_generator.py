@@ -318,14 +318,16 @@ class ReportGenerator:
     # ── private — parsers ────────────────────────────────────────────────────
 
     def _parse_csv(self, csv_path: str):
-        import yaml
         from src.report.parsers.csv_parser import CSVParser
+        mapping = {}
         mapping_path = os.path.join(self._config_dir, 'csv_column_mapping.yaml')
         if os.path.exists(mapping_path):
-            with open(mapping_path, 'r', encoding='utf-8') as f:
-                mapping = yaml.safe_load(f) or {}
-        else:
-            mapping = {}
+            try:
+                import yaml
+                with open(mapping_path, 'r', encoding='utf-8') as f:
+                    mapping = yaml.safe_load(f) or {}
+            except ImportError:
+                logger.warning("[ReportGenerator] pyyaml not installed — CSV column mapping skipped")
         return CSVParser(mapping).parse(csv_path)
 
     def _parse_api(self, records: list):
@@ -343,6 +345,9 @@ class ReportGenerator:
             import yaml
             with open(path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f) or {}
+        except ImportError:
+            logger.warning("[ReportGenerator] pyyaml not installed — using default report config")
+            return {}
         except Exception as e:
             logger.error(f"[ReportGenerator] Failed to load report_config.yaml: {e}")
             return {}
