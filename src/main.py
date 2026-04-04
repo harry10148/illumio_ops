@@ -219,11 +219,12 @@ def report_generation_menu(cm):
             t("main_menu_9"),
             t("main_menu_10"),
             t("main_menu_11"),
+            t("main_menu_pu"),
             t("main_menu_12"),
             t("main_menu_0")
         ]
         draw_panel("Illumio PCE Ops", lines)
-        sel = safe_input(f"\n{t('please_select')}", int, range(0, 5))
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 6))
 
         if sel is None or sel == 0:
             break
@@ -234,6 +235,8 @@ def report_generation_menu(cm):
         elif sel == 3:
             _run_ven_status_menu(cm)
         elif sel == 4:
+            _run_policy_usage_menu(cm)
+        elif sel == 5:
             manage_report_schedules_menu(cm)
 
 def main_menu():
@@ -669,6 +672,112 @@ def _run_ven_status_menu(cm):
     except Exception as e:
         print(f"{Colors.FAIL}{t('error_generic', error=str(e))}{Colors.ENDC}")
         logger.exception("VEN status report error")
+
+    input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
+
+
+def _run_policy_usage_menu(cm):
+    """Interactive sub-menu for Policy Usage Report."""
+    import datetime as _dt
+    try:
+        import pandas  # noqa: F401
+    except ImportError:
+        print(f"{Colors.FAIL}{t('report_requires_pandas')}{Colors.ENDC}")
+        input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
+        return
+
+    from src.report.policy_usage_generator import PolicyUsageGenerator
+    from src.api_client import ApiClient
+
+    PKG_DIR = os.path.dirname(os.path.abspath(__file__))
+    ROOT_DIR = os.path.dirname(PKG_DIR)
+    config_dir = os.path.join(ROOT_DIR, 'config')
+    output_dir = cm.config.get('report', {}).get('output_dir', 'reports')
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.join(ROOT_DIR, output_dir)
+
+    # --- Data source selection ---
+    print(f"\n{Colors.CYAN}{t('gui_gen_pu_title')}{Colors.ENDC}")
+    print(t("pu_cli_source_prompt"))
+    source_sel = safe_input(f"\n{t('please_select')}", int, range(1, 3))
+    if source_sel is None:
+        return
+
+    if source_sel == 1:
+        # API mode: per-rule traffic query
+        now = _dt.datetime.now(_dt.timezone.utc)
+        default_end = now.strftime('%Y-%m-%d')
+        default_start = (now - _dt.timedelta(days=30)).strftime('%Y-%m-%d')
+        start_str = safe_input(f"  {t('report_start_date', date=default_start)}", str)
+        if start_str is None:
+            return
+        start_str = start_str or default_start
+        end_str = safe_input(f"  {t('report_end_date', date=default_end)}", str)
+        if end_str is None:
+            return
+        end_str = end_str or default_end
+        try:
+            start_date = _dt.datetime.strptime(start_str.strip(), '%Y-%m-%d').strftime('%Y-%m-%dT00:00:00Z')
+            end_date   = _dt.datetime.strptime(end_str.strip(),   '%Y-%m-%d').strftime('%Y-%m-%dT23:59:59Z')
+        except ValueError:
+            print(f"{Colors.FAIL}{t('report_invalid_date')}{Colors.ENDC}")
+            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
+            return
+
+        fmt_str = safe_input(t("report_format_prompt", fmt="html"), str) or 'html'
+        if fmt_str not in ('html', 'csv', 'all'):
+            fmt_str = 'html'
+
+        print(f"\n{Colors.CYAN}{t('rpt_pu_fetching_rulesets')}{Colors.ENDC}")
+        try:
+            api = ApiClient(cm)
+            gen = PolicyUsageGenerator(cm, api_client=api, config_dir=config_dir)
+            result = gen.generate_from_api(start_date=start_date, end_date=end_date)
+            if result.record_count > 0:
+                paths = gen.export(result, fmt=fmt_str, output_dir=output_dir)
+                if paths:
+                    print(f"\n{Colors.GREEN}{t('report_saved')}{Colors.ENDC}")
+                    for p in paths:
+                        print(f"  {p}")
+                else:
+                    print(f"{Colors.FAIL}{t('export_failed')}{Colors.ENDC}")
+            else:
+                print(t("gui_no_pu_data"))
+        except Exception as e:
+            print(f"{Colors.FAIL}{t('error_generic', error=str(e))}{Colors.ENDC}")
+            logger.exception("Policy usage report error")
+
+    elif source_sel == 2:
+        # CSV mode: import workloader output
+        csv_path = safe_input(f"  {t('pu_cli_csv_path')}", str)
+        if not csv_path:
+            return
+        csv_path = csv_path.strip().strip('"').strip("'")
+        if not os.path.isfile(csv_path):
+            print(f"{Colors.FAIL}{t('pu_cli_csv_not_found', path=csv_path)}{Colors.ENDC}")
+            input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
+            return
+
+        fmt_str = safe_input(t("report_format_prompt", fmt="html"), str) or 'html'
+        if fmt_str not in ('html', 'csv', 'all'):
+            fmt_str = 'html'
+
+        try:
+            gen = PolicyUsageGenerator(cm, config_dir=config_dir)
+            result = gen.generate_from_csv(csv_path)
+            if result.record_count > 0:
+                paths = gen.export(result, fmt=fmt_str, output_dir=output_dir)
+                if paths:
+                    print(f"\n{Colors.GREEN}{t('report_saved')}{Colors.ENDC}")
+                    for p in paths:
+                        print(f"  {p}")
+                else:
+                    print(f"{Colors.FAIL}{t('export_failed')}{Colors.ENDC}")
+            else:
+                print(t("gui_no_pu_data"))
+        except Exception as e:
+            print(f"{Colors.FAIL}{t('error_generic', error=str(e))}{Colors.ENDC}")
+            logger.exception("Policy usage CSV import error")
 
     input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
 

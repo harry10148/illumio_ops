@@ -134,11 +134,37 @@ VEN_CSS = """\
 """
 
 
+POLICY_USAGE_CSS = """\
+  td { word-break: break-word; }
+  .note { margin: 10px 0; }
+  .note-warn { border-left-color: var(--red); }
+  .note-info { border-left-color: var(--green-80); }
+  .badge-hit    { display: inline-block; background: var(--green-10); color: var(--green);
+                  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .badge-unused { display: inline-block; background: var(--red-10); color: var(--red);
+                  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .pu-kpi-row   { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 16px; }
+  .pu-kpi-box   { background: var(--card-bg); border: 1px solid var(--border);
+                  border-radius: 8px; padding: 10px 16px; min-width: 130px; text-align: center; }
+  .pu-kpi-val   { font-size: 22px; font-weight: 700; color: var(--cyan-120); }
+  .pu-kpi-lbl   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .caveat-box   { background: #fff8e1; border-left: 4px solid #f59e0b;
+                  padding: 10px 14px; border-radius: 4px; margin: 12px 0;
+                  font-size: 12px; color: #78350f; }
+  .attention-box { background: var(--card-bg); border: 1px solid var(--border);
+                   border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+  .attention-box h4 { margin: 0 0 8px; font-size: 13px; }
+  .attention-row { display: flex; justify-content: space-between; padding: 3px 0;
+                   border-bottom: 1px solid var(--border); font-size: 12px; }
+"""
+
+
 def build_css(exporter_type: str) -> str:
     """Build the complete CSS block for a given exporter type."""
     extra = {
-        'traffic': TRAFFIC_CSS,
-        'audit': AUDIT_CSS,
-        'ven': VEN_CSS,
+        'traffic':      TRAFFIC_CSS,
+        'audit':        AUDIT_CSS,
+        'ven':          VEN_CSS,
+        'policy_usage': POLICY_USAGE_CSS,
     }.get(exporter_type, '')
     return f"{FONT_LINK}\n{BASE_CSS}{extra}</style>\n"

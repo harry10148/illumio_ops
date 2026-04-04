@@ -402,6 +402,35 @@ STRINGS: dict[str, dict[str, str]] = {
         "zh_TW": "Illumio PCE Ops — VEN 狀態報表",
     },
 
+    # ── Policy Usage Report ───────────────────────────────────────────────────
+    "rpt_pu_title":         {"en": "Illumio Policy Usage Report",       "zh_TW": "Illumio 策略使用率報表"},
+    "rpt_pu_nav_summary":   {"en": "📊 Executive Summary",              "zh_TW": "📊 執行摘要"},
+    "rpt_pu_nav_overview":  {"en": "1 Usage Overview",                  "zh_TW": "1 使用率總覽"},
+    "rpt_pu_nav_hit":       {"en": "2 Hit Rules",                       "zh_TW": "2 已命中規則"},
+    "rpt_pu_nav_unused":    {"en": "3 Unused Rules",                    "zh_TW": "3 未使用規則"},
+    "rpt_pu_sec_overview":  {"en": "1 · Policy Usage Overview",         "zh_TW": "1 · 策略使用率總覽"},
+    "rpt_pu_sec_hit":       {"en": "2 · Hit Rules Detail",              "zh_TW": "2 · 已命中規則明細"},
+    "rpt_pu_sec_unused":    {"en": "3 · Unused Rules Detail",           "zh_TW": "3 · 未使用規則明細"},
+    "rpt_pu_footer":        {"en": "Illumio PCE Ops — Policy Usage Report", "zh_TW": "Illumio PCE Ops — 策略使用率報表"},
+    "rpt_pu_total_rules":   {"en": "Total Active Rules",                "zh_TW": "有效規則總數"},
+    "rpt_pu_hit_rules":     {"en": "Hit Rules",                         "zh_TW": "已命中規則"},
+    "rpt_pu_unused_rules":  {"en": "Unused Rules",                      "zh_TW": "未使用規則"},
+    "rpt_pu_hit_rate":      {"en": "Hit Rate",                          "zh_TW": "命中率"},
+    "rpt_pu_lookback":      {"en": "Lookback Period",                   "zh_TW": "回溯期間"},
+    "rpt_pu_attention":     {"en": "Top Rulesets by Unused Rules",      "zh_TW": "未使用規則最多的規則集"},
+    "rpt_pu_caveat_title":  {"en": "⚠ Retention Period Caveat",         "zh_TW": "⚠ 流量保留期限說明"},
+    "rpt_pu_caveat_body": {
+        "en":    "Rules with zero traffic hits in the analysed period. "
+                 "This classification is limited by the PCE traffic retention period — "
+                 "a rule that had hits before the lookback window will appear as unused. "
+                 "Review carefully before removing any rule.",
+        "zh_TW": "未使用的判定受限於 PCE 流量保留期限。"
+                 "在回溯期間之前命中的規則將顯示為未使用。"
+                 "刪除任何規則前請務必謹慎評估。",
+    },
+    "rpt_pu_no_hit_rules":    {"en": "No rules were hit during this period.", "zh_TW": "此期間沒有任何規則被命中。"},
+    "rpt_pu_no_unused_rules": {"en": "All rules had traffic hits — no unused rules found.", "zh_TW": "所有規則均有流量命中，沒有未使用規則。"},
+
     # ── VEN Status Report column headers ─────────────────────────────────────
     "rpt_col_ip":              {"en": "IP",              "zh_TW": "IP 位址"},
     "rpt_col_labels":         {"en": "Labels",           "zh_TW": "標籤"},
@@ -410,6 +439,18 @@ STRINGS: dict[str, dict[str, str]] = {
     "rpt_col_policy_received":{"en": "Policy Received",  "zh_TW": "策略更新時間"},
     "rpt_col_paired_at":      {"en": "Paired At",        "zh_TW": "配對時間"},
     "rpt_col_ven_version":    {"en": "VEN Version",      "zh_TW": "VEN 版本"},
+
+    # ── Policy Usage column headers ───────────────────────────────────────────
+    "rpt_col_rule_no":     {"en": "No",           "zh_TW": "No"},
+    "rpt_col_rule_name":   {"en": "Rule ID",     "zh_TW": "規則 ID"},
+    "rpt_col_description": {"en": "Description", "zh_TW": "描述"},
+    "rpt_col_ruleset":     {"en": "Ruleset",      "zh_TW": "規則集"},
+    "rpt_col_providers":   {"en": "Destination",  "zh_TW": "目的"},
+    "rpt_col_consumers":   {"en": "Source",       "zh_TW": "來源"},
+    "rpt_col_hit_count":   {"en": "Hit Count",    "zh_TW": "命中次數"},
+    "rpt_col_created_at":  {"en": "Created At",   "zh_TW": "建立時間"},
+    "rpt_col_status":      {"en": "Status",       "zh_TW": "狀態"},
+    "rpt_col_percentage":  {"en": "Percentage",   "zh_TW": "佔比"},
 
     # ── Column header translations (used by _df_to_html) ──────────────────────
     "rpt_col_port":               {"en": "Port",                "zh_TW": "通訊埠"},
@@ -552,7 +593,8 @@ STRINGS: dict[str, dict[str, str]] = {
     # ── Email template strings ────────────────────────────────────────────────
     "rpt_email_traffic_subject":  {"en": "Illumio Traffic Flow Report",              "zh_TW": "Illumio 流量分析報表"},
     "rpt_email_audit_subject":    {"en": "Illumio Audit & System Events Report",     "zh_TW": "Illumio 稽核與系統事件報表"},
-    "rpt_email_ven_subject":      {"en": "Illumio VEN Status Report",                "zh_TW": "Illumio VEN 狀態報表"},
+    "rpt_email_ven_subject":         {"en": "Illumio VEN Status Report",                  "zh_TW": "Illumio VEN 狀態報表"},
+    "rpt_email_policy_usage_subject": {"en": "Illumio Policy Usage Report",              "zh_TW": "Illumio 策略使用率報表"},
     "rpt_email_no_findings":      {"en": "No findings.",                             "zh_TW": "無發現項目。"},
     "rpt_email_footer":           {"en": "Full report attached as HTML file. · Illumio PCE Ops", "zh_TW": "完整報表已附加為 HTML 檔案。· Illumio PCE Ops"},
 }

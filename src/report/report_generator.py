@@ -213,7 +213,10 @@ class ReportGenerator:
             print(t("rpt_html_saved", path=path))
 
         if fmt in ('csv', 'all'):
-            path = CsvExporter(result.module_results, report_label='Traffic').export(output_dir)
+            export_data = dict(result.module_results)
+            if result.dataframe is not None and not result.dataframe.empty:
+                export_data['raw_traffic'] = result.dataframe
+            path = CsvExporter(export_data, report_label='Traffic').export(output_dir)
             paths.append(path)
             print(t("rpt_csv_saved", path=path))
 

@@ -174,10 +174,28 @@
       text-wrap: balance;
     }
 
-    .header .meta {
-      color: var(--dim);
-      font-size: .85rem;
-      font-family: var(--body-font);
+    .pce-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--bg3, rgba(45,69,76,.35));
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 14px;
+      font-size: .82rem;
+      color: var(--fg);
+      font-family: var(--mono-font, 'Courier New', monospace);
+      max-width: 420px;
+      min-width: 160px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      cursor: default;
+      user-select: text;
+    }
+    #hdr-meta-url {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .header-right {

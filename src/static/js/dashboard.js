@@ -1,4 +1,21 @@
 /* ─── Dashboard ───────────────────────────────────────────────────── */
+function formatBytes(bytes) {
+  if (bytes == null || isNaN(bytes)) return '—';
+  bytes = parseFloat(bytes);
+  if (bytes < 0) return '—';
+  if (bytes >= 1024 ** 4) return (bytes / 1024 ** 4).toFixed(2) + ' TB';
+  if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(2) + ' GB';
+  if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(1) + ' MB';
+  if (bytes >= 1024)      return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+}
+function formatVolumeMB(mb) {
+  if (mb == null || isNaN(mb)) return '—';
+  mb = parseFloat(mb);
+  if (mb < 0) return '—';
+  const bytes = mb * 1024 * 1024;
+  return formatBytes(bytes);
+}
 /* ─── Reports Logic ─────────────────────────────────────────────── */
 async function loadReports() {
   showSkeleton('rt-body', 4);
@@ -106,7 +123,7 @@ function renderSchedules() {
     tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--dim)">${_translations['gui_sched_empty'] || 'No report schedules.'}</td></tr>`;
     return;
   }
-  const typeLabels = { traffic: 'Traffic', audit: 'Audit', ven_status: 'VEN Status' };
+  const typeLabels = { traffic: 'Traffic', audit: 'Audit', ven_status: 'VEN Status', policy_usage: 'Policy Usage' };
   tbody.innerHTML = _schedules.map(s => {
     const typeLabel = typeLabels[s.report_type] || s.report_type;
     let freq = s.schedule_type;
@@ -334,9 +351,10 @@ let _genReportType = null;
 function openReportGenModal(type) {
   _genReportType = type;
   const meta = {
-    traffic: { titleKey: 'gui_gen_traffic_title', title: 'Generate Traffic Report',  icon: '#icon-play',   dates: true  },
-    audit:   { titleKey: 'gui_gen_audit_title',   title: 'Generate Audit Summary',   icon: '#icon-shield', dates: true  },
-    ven:     { titleKey: 'gui_gen_ven_title',     title: 'Generate VEN Status Report', icon: '#icon-cpu',  dates: false },
+    traffic:      { titleKey: 'gui_gen_traffic_title', title: 'Generate Traffic Report',       icon: '#icon-play',   dates: true  },
+    audit:        { titleKey: 'gui_gen_audit_title',   title: 'Generate Audit Summary',        icon: '#icon-shield', dates: true  },
+    ven:          { titleKey: 'gui_gen_ven_title',     title: 'Generate VEN Status Report',    icon: '#icon-cpu',    dates: false },
+    policy_usage: { titleKey: 'gui_gen_pu_title',      title: 'Generate Policy Usage Report',  icon: '#icon-shield', dates: true  },
   };
   const m = meta[type] || meta.traffic;
   $('m-gen-title').innerHTML =
@@ -385,15 +403,17 @@ function toggleTrafficSource() {
 
 async function confirmReportGen() {
   const typeLabels = {
-    traffic: _translations['gui_gen_traffic_title'] || 'Generating Traffic Report…',
-    audit:   _translations['gui_gen_audit_title']   || 'Generating Audit Report…',
-    ven:     _translations['gui_gen_ven_title']     || 'Generating VEN Status Report…',
+    traffic:      _translations['gui_gen_traffic_title'] || 'Generating Traffic Report…',
+    audit:        _translations['gui_gen_audit_title']   || 'Generating Audit Report…',
+    ven:          _translations['gui_gen_ven_title']     || 'Generating VEN Status Report…',
+    policy_usage: _translations['gui_gen_pu_title']      || 'Generating Policy Usage Report…',
   };
   _showGenProgress(typeLabels[_genReportType] || 'Generating Report…');
   closeModal('m-gen-report');
-  if      (_genReportType === 'traffic') await _doGenerateTraffic();
-  else if (_genReportType === 'audit')   await _doGenerateAudit();
-  else if (_genReportType === 'ven')     await _doGenerateVen();
+  if      (_genReportType === 'traffic')      await _doGenerateTraffic();
+  else if (_genReportType === 'audit')        await _doGenerateAudit();
+  else if (_genReportType === 'ven')          await _doGenerateVen();
+  else if (_genReportType === 'policy_usage') await _doGeneratePolicyUsage();
 }
 
 function _collectReportFilters() {
@@ -643,12 +663,36 @@ async function _doGenerateVen() {
   }
 }
 
+async function _doGeneratePolicyUsage() {
+  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching policy data from PCE…');
+  try {
+    const start = $('m-gen-start') ? $('m-gen-start').value : null;
+    const end   = $('m-gen-end')   ? $('m-gen-end').value   : null;
+    const r = await post('/api/policy_usage_report/generate', { start_date: start, end_date: end });
+    if (r.ok) {
+      const kpiText = (r.kpis || []).map(k => `${k.label}: ${k.value}`).join(' | ');
+      _hideGenProgress(true, kpiText || 'Done');
+      toast(`Policy Usage Report generated! ${r.record_count} rules analysed.`);
+      loadReports();
+    } else {
+      _hideGenProgress(false, r.error || 'Generation failed');
+      toast(r.error || 'Generation failed', 'err');
+    }
+  } catch(e) {
+    _hideGenProgress(false, e.message);
+    toast('Error: ' + e, 'err');
+  }
+}
+
 async function loadDashboard() {
   // Status section — failures must not block queries/translations from loading
   try {
     const d = await api('/api/status');
     if (d) {
-      $('hdr-meta').textContent = `v${d.version} | ${d.api_url}`;
+      const _urlEl = $('hdr-meta-url');
+      if (_urlEl && d.api_url) _urlEl.textContent = d.api_url;
+      const _badge = $('hdr-meta');
+      if (_badge) _badge.title = `PCE: ${d.api_url || _urlEl?.textContent}  |  v${d.version}`;
       $('d-rules').textContent = d.rules_count;
       $('d-health').textContent = d.health_check ? 'ON' : 'OFF';
       $('d-lang').textContent = (d.language || 'en').toUpperCase();
@@ -672,7 +716,6 @@ async function loadDashboard() {
     }
   } catch (e) {
     console.warn('[loadDashboard] status failed:', e);
-    $('hdr-meta').textContent = '';
   }
 
   await loadTranslations();
@@ -797,7 +840,7 @@ async function loadDashboardSnapshot() {
       if (bwRows.length) {
         bwB.innerHTML = bwRows.map(row => {
           const bytes = row['Bytes Total'] ?? row['bytes_total'] ?? 0;
-          const bytesStr = bytes >= 1048576 ? (bytes/1048576).toFixed(1)+' MB' : bytes >= 1024 ? (bytes/1024).toFixed(1)+' KB' : bytes+' B';
+          const bytesStr = formatBytes(bytes);
           const dec = row['Decision'] || row['policy_decision'] || '';
           let dColor = dec === 'allowed' ? 'var(--success)' : dec === 'blocked' ? 'var(--danger)' : 'var(--warn)';
           return `<tr>
@@ -828,8 +871,8 @@ async function loadDashboardQueries() {
   const rt = await window.fetch('/api/dashboard/queries');
   _dashboardQueries = await rt.json() || [];
   renderDashboardQueries();
-  // Auto-run all widgets on page load
-  if (_dashboardQueries.length > 0) runAllQueries();
+  // Load cached results (no auto-query)
+  for (let i = 0; i < _dashboardQueries.length; i++) _restoreCachedTop10(i);
 }
 
 function renderDashboardQueries() {
@@ -844,7 +887,7 @@ function renderDashboardQueries() {
       else if (q.pd === 1) badgeColor = "var(--warn)";
       else if (q.pd === 0) badgeColor = "var(--success)";
 
-      let rankLabel = q.rank_by === 'bandwidth' ? (_translations['gui_rank_bw'] || 'Max Bandwidth (Mbps)') : (q.rank_by === 'volume' ? (_translations['gui_rank_vol'] || 'Total Volume (MB)') : (_translations['gui_rank_conn'] || 'Connection Count'));
+      let rankLabel = q.rank_by === 'bandwidth' ? (_translations['gui_rank_bw'] || 'Max Bandwidth (Mbps)') : (q.rank_by === 'volume' ? (_translations['gui_rank_vol'] || 'Total Volume') : (_translations['gui_rank_conn'] || 'Connection Count'));
       html += `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">
          <div style="display:flex;align-items:center;min-height:30px;">
@@ -943,6 +986,7 @@ async function saveDashboardQuery() {
   const r = await post('/api/dashboard/queries', d);
 
   if (r.ok) {
+    _clearAllTop10Cache();
     const m = $('m-query');
     if (m) m.classList.remove('show');
     await loadDashboardQueries();
@@ -954,11 +998,103 @@ async function deleteTop10Query(idx) {
   if (!confirm("Delete this widget?")) return;
   const r = await fetch('/api/dashboard/queries/' + idx, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrfToken() } }).then(res => res.json());
   if (r.ok) {
+    _clearAllTop10Cache();
     const m = $('m-query');
     if (m) m.classList.remove('show');
     await loadDashboardQueries();
   }
   else alert("Delete failed");
+}
+
+/* ── Top 10 cache helpers ── */
+function _top10CacheKey(idx) { return 'top10_cache_' + idx; }
+
+function _saveTop10Cache(idx, data, total) {
+  try {
+    localStorage.setItem(_top10CacheKey(idx), JSON.stringify({ data, total, ts: Date.now() }));
+  } catch (_) { /* quota exceeded — ignore */ }
+}
+
+function _clearAllTop10Cache() {
+  for (let i = 0; i < 50; i++) localStorage.removeItem(_top10CacheKey(i));
+}
+
+function _restoreCachedTop10(idx) {
+  const raw = localStorage.getItem(_top10CacheKey(idx));
+  if (!raw) return;
+  try {
+    const c = JSON.parse(raw);
+    if (c.data && c.data.length) {
+      _renderTop10Body(idx, c.data, c.total, c.ts);
+    } else {
+      const ms = $(`d-qstate-${idx}`);
+      if (ms) ms.textContent = (_translations['gui_top10_no_records'] || 'No records found.') + '  (' + _fmtCacheTs(c.ts) + ')';
+    }
+  } catch (_) { /* corrupt cache — ignore */ }
+}
+
+function _fmtCacheTs(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleString();
+}
+
+function _renderTop10Body(idx, data, total, ts) {
+  const ms = $(`d-qstate-${idx}`), bd = $(`d-qbody-${idx}`);
+  if (!ms || !bd) return;
+
+  let html = '';
+  data.forEach((m, i) => {
+    const pBadge = m.pd === 2 ? `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${_translations['gui_pd_blocked'] || 'Blocked'}</span>` :
+      m.pd === 1 ? `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;">${_translations['gui_pd_potential'] || 'Potential'}</span>` :
+        m.pd === 0 ? `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${_translations['gui_pd_allowed'] || 'Allowed'}</span>` : m.pd;
+
+    const sLabels = renderLabelsHtml(m.s_labels);
+    const dLabels = renderLabelsHtml(m.d_labels);
+
+    let isoBtn = '';
+    if (m.s_href && m.d_href) {
+      isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href}', false, '${m.d_href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
+    } else if (m.s_href || m.d_href) {
+      isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href || m.d_href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
+    }
+
+    const formatActor = (name, ip, href, labelsHtml, process, user) => {
+      let procStr = '';
+      if (process || user) {
+        let p = process ? `<span style="color:var(--accent); font-weight:bold;"><i class="fas fa-microchip"></i> Process: ${escapeHtml(process)}</span>` : '';
+        let u = user ? `<span style="color:var(--accent2);"><i class="fas fa-user"></i> User: ${escapeHtml(user)}</span>` : '';
+        let sep = (p && u) ? '<br>' : '';
+        procStr = `<div style="font-size:10px; margin-top:4px;">${p}${sep}${u}</div>`;
+      }
+      let a = href ? `<a href="#" style="color:var(--text);font-weight:bold;font-size:11px;">${escapeHtml(name)}</a>` : `<strong style="font-size:11px;">${escapeHtml(name)}</strong>`;
+      return `${a}<br><small style="color:var(--dim);">${escapeHtml(ip)}</small>${procStr}<div style="margin-top:2px;">${labelsHtml}</div>`;
+    };
+
+    let svc_str = escapeHtml(m.svc);
+    if (m.svc.length > 25) {
+      let arr = m.svc.split(',').map(s => s.trim());
+      let encJson = encodeURIComponent(JSON.stringify(arr));
+      svc_str = `<span onclick="showCellPopover(event, 'SVC', JSON.parse(decodeURIComponent('${encJson}')))" style="cursor:pointer; border-bottom:1px dotted var(--dim); color:var(--accent);">${escapeHtml(m.svc.substring(0, 23))}...</span>`;
+    }
+
+    html += `
+      <tr>
+        <td>${i + 1}</td>
+        <td style="font-weight:bold;color:#6f42c1;">${m.val_fmt}</td>
+        <td style="font-size:10px;white-space:nowrap;">${formatDateZ(m.first_seen)}<br>${formatDateZ(m.last_seen)}</td>
+        <td>${formatActor(m.s_name, m.s_ip, m.s_href, sLabels, m.s_process, m.s_user)}</td>
+        <td>${formatActor(m.d_name, m.d_ip, m.d_href, dLabels, m.d_process, m.d_user)}</td>
+        <td>${svc_str}</td>
+        <td>${pBadge}</td>
+        <td>${isoBtn}</td>
+      </tr>`;
+  });
+  bd.innerHTML = html;
+  let status = (_translations['gui_top10_found'] || 'Found {count} records. (Top 10)').replace('{count}', total);
+  if (ts) status += '  (' + _fmtCacheTs(ts) + ')';
+  ms.textContent = status;
+  initTableResizers();
 }
 
 async function runAllQueries() {
@@ -982,60 +1118,13 @@ async function runTop10Query(idx) {
     if (!r.ok) throw new Error(r.error || 'Unknown error');
 
     if (r.data && r.data.length) {
-      let html = '';
-      r.data.forEach((m, i) => {
-        const pBadge = m.pd === 2 ? `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${_translations['gui_pd_blocked'] || 'Blocked'}</span>` :
-          m.pd === 1 ? `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;">${_translations['gui_pd_potential'] || 'Potential'}</span>` :
-            m.pd === 0 ? `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${_translations['gui_pd_allowed'] || 'Allowed'}</span>` : m.pd;
-
-        const sLabels = renderLabelsHtml(m.s_labels);
-        const dLabels = renderLabelsHtml(m.d_labels);
-
-        let isoBtn = '';
-        if (m.s_href && m.d_href) {
-          isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href}', false, '${m.d_href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
-        } else if (m.s_href || m.d_href) {
-          isoBtn = `<button class="btn btn-secondary btn-sm" onclick="openQuarantineModal('${m.s_href || m.d_href}')"><span data-i18n="gui_btn_isolate">Isolate</span></button>`;
-        }
-
-        const formatActor = (name, ip, href, labelsHtml, process, user) => {
-          let procStr = '';
-          if (process || user) {
-            let p = process ? `<span style="color:var(--accent); font-weight:bold;"><i class="fas fa-microchip"></i> Process: ${escapeHtml(process)}</span>` : '';
-            let u = user ? `<span style="color:var(--accent2);"><i class="fas fa-user"></i> User: ${escapeHtml(user)}</span>` : '';
-            let sep = (p && u) ? '<br>' : '';
-            procStr = `<div style="font-size:10px; margin-top:4px;">${p}${sep}${u}</div>`;
-          }
-          let a = href ? `<a href="#" style="color:var(--text);font-weight:bold;font-size:11px;">${escapeHtml(name)}</a>` : `<strong style="font-size:11px;">${escapeHtml(name)}</strong>`;
-          return `${a}<br><small style="color:var(--dim);">${escapeHtml(ip)}</small>${procStr}<div style="margin-top:2px;">${labelsHtml}</div>`;
-        };
-
-        let svc_str = escapeHtml(m.svc);
-        if (m.svc.length > 25) {
-          let arr = m.svc.split(',').map(s => s.trim());
-          let encJson = encodeURIComponent(JSON.stringify(arr));
-          svc_str = `<span onclick="showCellPopover(event, 'SVC', JSON.parse(decodeURIComponent('${encJson}')))" style="cursor:pointer; border-bottom:1px dotted var(--dim); color:var(--accent);">${escapeHtml(m.svc.substring(0, 23))}...</span>`;
-        }
-
-        html += `
-      <tr>
-        <td>${i + 1}</td>
-        <td style="font-weight:bold;color:#6f42c1;">${m.val_fmt}</td>
-        <td style="font-size:10px;white-space:nowrap;">${formatDateZ(m.first_seen)}<br>${formatDateZ(m.last_seen)}</td>
-        <td>${formatActor(m.s_name, m.s_ip, m.s_href, sLabels, m.s_process, m.s_user)}</td>
-        <td>${formatActor(m.d_name, m.d_ip, m.d_href, dLabels, m.d_process, m.d_user)}</td>
-        <td>${svc_str}</td>
-        <td>${pBadge}</td>
-        <td>${isoBtn}</td>
-      </tr>`;
-      });
-      bd.innerHTML = html;
-      ms.textContent = (_translations['gui_top10_found'] || 'Found {count} records. (Top 10)').replace('{count}', r.total);
+      _saveTop10Cache(idx, r.data, r.total);
+      _renderTop10Body(idx, r.data, r.total, Date.now());
     } else {
+      _saveTop10Cache(idx, [], 0);
       bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_translations['gui_top10_no_records'] || 'No records found.'}</td></tr>`;
-      ms.textContent = _translations['gui_done'] || 'Done.';
+      ms.textContent = (_translations['gui_done'] || 'Done.') + '  (' + _fmtCacheTs(Date.now()) + ')';
     }
-    initTableResizers();
   } catch (e) {
     ms.textContent = 'Error: ' + e.message;
     bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px;">${_translations['gui_top10_error'] || 'Error querying data.'}</td></tr>`;

@@ -157,6 +157,16 @@ def _err(msg, status=400):
     return jsonify({"ok": False, "error": msg}), status
 
 
+def _get_active_pce_url(cm: 'ConfigManager') -> str:
+    """Return the active PCE profile URL, falling back to config['api']['url']."""
+    active_id = cm.config.get('active_pce_id')
+    if active_id is not None:
+        for p in cm.config.get('pce_profiles', []):
+            if p.get('id') == active_id:
+                return p.get('url', '') or cm.config.get('api', {}).get('url', '')
+    return cm.config.get('api', {}).get('url', '')
+
+
 def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     app = Flask(__name__, template_folder=os.path.join(_PKG_DIR, 'templates'), static_folder=os.path.join(_PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
@@ -214,7 +224,9 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     # ─── Frontend SPA ─────────────────────────────────────────────────────
     @app.route('/')
     def index():
-        return render_template('index.html')
+        cm.load()
+        pce_url = _get_active_pce_url(cm)
+        return render_template('index.html', pce_url=pce_url)
 
     # ─── Auth Routes ──────────────────────────────────────────────────────
     @app.route('/login', methods=['GET'])
@@ -331,7 +343,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
         return jsonify({
             "version": __version__,
-            "api_url": cm.config['api']['url'],
+            "api_url": _get_active_pce_url(cm),
             "rules_count": len(cm.config['rules']),
             "health_check": cm.config['settings'].get('enable_health_check', True),
             "language": cm.config.get('settings', {}).get('language', 'en'),
@@ -956,6 +968,38 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             logger.error(f"VEN status report failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
+    # ─── API: Policy Usage Report ──────────────────────────────────────────
+    @app.route('/api/policy_usage_report/generate', methods=['POST'])
+    def api_generate_policy_usage_report():
+        d = request.json or {}
+        try:
+            from src.report.policy_usage_generator import PolicyUsageGenerator
+            from src.api_client import ApiClient
+
+            cm.load()
+            api = ApiClient(cm)
+            config_dir = _resolve_config_dir()
+            gen = PolicyUsageGenerator(cm, api_client=api, config_dir=config_dir)
+
+            start_date = d.get('start_date')
+            end_date   = d.get('end_date')
+
+            result = gen.generate_from_api(start_date=start_date, end_date=end_date)
+
+            if result.record_count == 0:
+                return jsonify({"ok": False, "error": t("gui_no_pu_data")})
+
+            output_dir = _resolve_reports_dir(cm)
+            paths = gen.export(result, fmt='all', output_dir=output_dir)
+            filenames = [os.path.basename(p) for p in paths]
+            kpis = result.module_results.get('mod00', {}).get('kpis', [])
+
+            return jsonify({"ok": True, "files": filenames,
+                            "record_count": result.record_count, "kpis": kpis})
+        except Exception as e:
+            logger.error(f"Policy usage report failed: {e}", exc_info=True)
+            return jsonify({"ok": False, "error": str(e)})
+
     # ─── API: Report Schedules ─────────────────────────────────────────────
 
     @app.route('/api/report-schedules', methods=['GET'])
@@ -1205,7 +1249,18 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 else: pd_int = 2 # default to Blocked if unknown or explicitly blocked
                 
                 if rank_by == "bandwidth": val_fmt = f"{item.get('max_bandwidth_mbps', 0):.2f} Mbps"
-                elif rank_by == "volume": val_fmt = f"{item.get('total_volume_mb', 0):.2f} MB"
+                elif rank_by == "volume":
+                    vol_bytes = (item.get('total_volume_mb', 0) or 0) * 1024 * 1024
+                    if vol_bytes >= 1024 ** 4:
+                        val_fmt = f"{vol_bytes / 1024 ** 4:.2f} TB"
+                    elif vol_bytes >= 1024 ** 3:
+                        val_fmt = f"{vol_bytes / 1024 ** 3:.2f} GB"
+                    elif vol_bytes >= 1024 ** 2:
+                        val_fmt = f"{vol_bytes / 1024 ** 2:.1f} MB"
+                    elif vol_bytes >= 1024:
+                        val_fmt = f"{vol_bytes / 1024:.1f} KB"
+                    else:
+                        val_fmt = f"{int(vol_bytes)} B"
                 else: val_fmt = f"{item.get('total_connections', 0)}"
                 
                 first_seen = item.get("first_seen", "")
@@ -2165,7 +2220,7 @@ function renderDashboardQueries() {
           else if(q.pd === 1) badgeColor = "var(--warn)";
           else if(q.pd === 0) badgeColor = "var(--success)";
           
-          let rankLabel = q.rank_by === 'bandwidth' ? 'Max Bandwidth (Mbps)' : (q.rank_by === 'volume' ? 'Total Volume (MB)' : 'Connection Count');
+          let rankLabel = q.rank_by === 'bandwidth' ? 'Max Bandwidth (Mbps)' : (q.rank_by === 'volume' ? 'Total Volume' : 'Connection Count');
           html += `
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">
              <div style="display:flex;align-items:center;min-height:30px;">

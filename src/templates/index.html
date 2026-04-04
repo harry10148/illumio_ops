@@ -91,8 +91,13 @@
       </svg>
       Illumio PCE Ops
     </h1>
+    <div id="hdr-meta" class="pce-badge" title="Connected PCE: {{ pce_url }}">
+      <svg class="icon" style="width:14px;height:14px;flex-shrink:0;color:var(--accent2);" aria-hidden="true">
+        <use href="#icon-shield"></use>
+      </svg>
+      <span id="hdr-meta-url">{{ pce_url or '—' }}</span>
+    </div>
     <div class="header-right">
-      <span class="meta" id="hdr-meta">Loading...</span>
       <div class="ui-pref" aria-label="Theme mode selector">
         <label for="ui-theme-mode">Theme</label>
         <select id="ui-theme-mode" onchange="onUiThemeModeChange(this.value)">
@@ -550,6 +555,9 @@
         <button class="btn btn-primary btn-sm" id="btn-gen-ven" onclick="openReportGenModal('ven')" style="background:var(--accent);">
           <svg class="icon"><use href="#icon-cpu"></use></svg> <span data-i18n="gui_btn_ven_report">VEN Status</span>
         </button>
+        <button class="btn btn-primary btn-sm" id="btn-gen-pu" onclick="openReportGenModal('policy_usage')" style="background:var(--accent2);">
+          <svg class="icon"><use href="#icon-shield"></use></svg> <span data-i18n="gui_btn_pu_report">Policy Usage</span>
+        </button>
       </div>
       <div class="table-container">
         <table class="rule-table">
@@ -617,6 +625,7 @@
             <option value="traffic" data-i18n="gui_sched_rt_traffic">Traffic Flow Report</option>
             <option value="audit" data-i18n="gui_sched_rt_audit">Audit Report</option>
             <option value="ven_status" data-i18n="gui_sched_rt_ven">VEN Status Report</option>
+            <option value="policy_usage" data-i18n="gui_sched_rt_pu">Policy Usage Report</option>
           </select>
         </div>
         <div class="form-group">
@@ -1011,7 +1020,7 @@
             placeholder="E.g. Core Services Top Clients"></div>
         <div class="form-group"><label data-i18n="gui_rank_by">Rank By</label><select id="dq-rank">
             <option value="count" data-i18n="gui_rank_count">Connection Count</option>
-            <option value="volume" data-i18n="gui_rank_volume">Total Volume (MB)</option>
+            <option value="volume" data-i18n="gui_rank_volume">Total Volume</option>
             <option value="bandwidth" data-i18n="gui_rank_bw">Max Bandwidth (Mbps)</option>
           </select></div>
       </div>

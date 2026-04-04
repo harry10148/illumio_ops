@@ -193,6 +193,16 @@ class ReportScheduler:
             paths = gen.export(result, output_dir=output_dir)
             return result, paths
 
+        elif report_type == "policy_usage":
+            from src.report.policy_usage_generator import PolicyUsageGenerator
+            gen = PolicyUsageGenerator(self.cm, api_client=api, config_dir=self._config_dir)
+            result = gen.generate_from_api(start_date=start_date, end_date=end_date)
+            if result.record_count == 0:
+                logger.warning(f"[Scheduler] '{name}': no active rules found — skipping export")
+                return None, []
+            paths = gen.export(result, fmt=fmt, output_dir=output_dir)
+            return result, paths
+
         else:
             logger.error(f"[Scheduler] Unknown report_type: {report_type}")
             return None, []
@@ -210,7 +220,8 @@ class ReportScheduler:
         # Build HTML body
         esc = lambda s: _html.escape(str(s), quote=True)
         type_label = {"traffic": t("rpt_email_traffic_subject"), "audit": t("rpt_email_audit_subject"),
-                      "ven_status": t("rpt_email_ven_subject")}.get(report_type, "Report")
+                      "ven_status": t("rpt_email_ven_subject"),
+                      "policy_usage": t("rpt_email_pu_subject")}.get(report_type, "Report")
         start_disp = start_date[:10] if start_date else "N/A"
         end_disp = end_date[:10] if end_date else "N/A"
 

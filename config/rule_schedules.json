@@ -18,5 +18,25 @@
         ],
         "start": "08:00",
         "end": "18:00"
+    },
+    "/orgs/1/sec_policy/draft/rule_sets/202/sec_rules/855": {
+        "type": "recurring",
+        "name": "yeryery",
+        "is_ruleset": false,
+        "action": "allow",
+        "detail_rs": "Default | Kubernetes",
+        "detail_src": "app:Kube-Prom-Stack, env:Kubernetes, role:Prometheus",
+        "detail_dst": "role:Apiserver",
+        "detail_svc": "S-HTTPS (TCP/443)",
+        "detail_name": "yeryery",
+        "days": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday"
+        ],
+        "start": "08:00",
+        "end": "18:00"
     }
 }
