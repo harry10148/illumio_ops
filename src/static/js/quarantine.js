@@ -364,12 +364,15 @@ function renderQwPage() {
     }
     let labelsHtml = renderLabelsHtml(w.labels);
 
-    // Find IPv4 default interface IP
+    // Show all IPv4 addresses (skip IPv6 / link-local that contain ':')
     let ipStr = "";
     if (w.interfaces && w.interfaces.length > 0) {
-      let intf = w.interfaces.find(i => i.address && i.address.includes('.'));
-      if (!intf) intf = w.interfaces.find(i => i.address) || w.interfaces[0];
-      ipStr = `${escapeHtml(intf.address)} <span style="font-size:10px;color:var(--dim)">(${escapeHtml(intf.name)})</span>`;
+      const v4 = w.interfaces.filter(i => i.address && i.address.includes('.') && !i.address.includes(':'));
+      if (v4.length > 0) {
+        ipStr = v4.map(i =>
+          `<div style="white-space:nowrap;">${escapeHtml(i.address)}<span style="font-size:10px;color:var(--dim);margin-left:4px;">(${escapeHtml(i.name)})</span></div>`
+        ).join('');
+      }
     }
 
     const mgmtText = w.managed ? (_translations['gui_management_managed'] || 'Managed') : (_translations['gui_management_unmanaged'] || 'Unmanaged');

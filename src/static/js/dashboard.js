@@ -151,6 +151,11 @@ function onSchedFreqChange() {
   $('row-day-of-month').style.display = (f === 'monthly') ? '' : 'none';
 }
 
+function onSchedReportTypeChange() {
+  const isTraffic = $('sched-report-type').value === 'traffic';
+  $('sched-filter-section').style.display = isTraffic ? '' : 'none';
+}
+
 function onSchedEmailChange() {
   $('row-recipients').style.display = $('sched-email').checked ? '' : 'none';
 }
@@ -179,6 +184,18 @@ function openSchedModal(sched) {
   const recips = sched && sched.email_recipients ? sched.email_recipients.join('\n') : '';
   $('sched-recipients').value = recips;
   $('row-recipients').style.display = emailOn ? '' : 'none';
+
+  // Show filter section only for traffic reports; reset then populate from saved schedule
+  const isTraffic = (sched ? (sched.report_type || 'traffic') : 'traffic') === 'traffic';
+  $('sched-filter-section').style.display = isTraffic ? '' : 'none';
+  ['sched-pd-blocked','sched-pd-potential','sched-pd-allowed'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.checked = false;
+  });
+  ['sched-proto','sched-src','sched-dst','sched-port','sched-ex-src','sched-ex-dst','sched-ex-port'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  if (isTraffic && sched && sched.filters) _populateSchedFilters(sched.filters);
+
   onSchedFreqChange();
   $('m-sched').classList.add('show');
 }
@@ -197,6 +214,7 @@ async function saveSchedule() {
   const recipsRaw = $('sched-recipients').value.trim();
   const recipients = recipsRaw ? recipsRaw.split('\n').map(r => r.trim()).filter(Boolean) : [];
 
+  const schedFilters = $('sched-report-type').value === 'traffic' ? _collectSchedFilters() : null;
   const payload = {
     name,
     report_type: $('sched-report-type').value,
@@ -210,9 +228,10 @@ async function saveSchedule() {
     email_report: $('sched-email').checked,
     email_recipients: recipients,
     enabled: true,
+    ...(schedFilters ? { filters: schedFilters } : {}),
   };
 
-  const _headers = { 'Content-Type': 'application/json' };
+  const _headers = { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() };
   let r;
   try {
     if (_editSchedId) {
@@ -234,7 +253,7 @@ async function saveSchedule() {
 }
 
 async function toggleSchedule(id) {
-  const r = await api(`/api/report-schedules/${id}/toggle`, { method: 'POST' });
+  const r = await api(`/api/report-schedules/${id}/toggle`, { method: 'POST', headers: { 'X-CSRF-Token': _csrfToken() } });
   if (r && r.ok) {
     toast(_translations['gui_sched_toggled'] || 'Schedule updated.');
     loadSchedules();
@@ -244,7 +263,7 @@ async function toggleSchedule(id) {
 async function deleteSchedule(id, name) {
   const msg = (_translations['gui_sched_confirm_delete'] || 'Delete schedule "{name}"?').replace('{name}', name);
   if (!confirm(msg)) return;
-  const r = await api(`/api/report-schedules/${id}`, { method: 'DELETE' });
+  const r = await api(`/api/report-schedules/${id}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrfToken() } });
   if (r && r.ok) {
     toast(_translations['gui_sched_deleted'] || 'Schedule deleted.');
     loadSchedules();
@@ -252,12 +271,60 @@ async function deleteSchedule(id, name) {
 }
 
 async function runScheduleNow(id) {
-  const r = await api(`/api/report-schedules/${id}/run`, { method: 'POST' });
+  const r = await api(`/api/report-schedules/${id}/run`, { method: 'POST', headers: { 'X-CSRF-Token': _csrfToken() } });
   if (r && r.ok) {
     toast(_translations['gui_sched_run_ok'] || 'Schedule started.');
     setTimeout(loadSchedules, 3000);
   } else {
     toast((_translations['gui_sched_run_failed'] || 'Schedule failed: {error}').replace('{error}', (r && r.error) || '?'), true);
+  }
+}
+
+/* ─── Report Generation Progress Overlay ─────────────────────────── */
+
+function _showGenProgress(typeLabel) {
+  let el = document.getElementById('_gen-progress-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_gen-progress-overlay';
+    el.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9000',
+      'background:rgba(0,0,0,.52)', 'display:flex',
+      'align-items:center', 'justify-content:center',
+    ].join(';');
+    el.innerHTML = `
+      <div style="background:var(--bg2,#fff);border-radius:14px;padding:36px 48px;
+                  text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.3);max-width:340px;width:90%;">
+        <div id="_gen-spinner" style="width:52px;height:52px;border:5px solid var(--border,#e0e0e0);
+             border-top-color:var(--primary,#FF5500);border-radius:50%;
+             animation:spin .8s linear infinite;margin:0 auto 20px;"></div>
+        <div id="_gen-label" style="font-size:1rem;font-weight:600;color:var(--fg,#333);margin-bottom:8px;"></div>
+        <div id="_gen-step" style="font-size:0.8rem;color:var(--dim,#999);min-height:1.2em;"></div>
+      </div>`;
+    document.body.appendChild(el);
+  }
+  document.getElementById('_gen-label').textContent = typeLabel;
+  document.getElementById('_gen-step').textContent = '';
+  el.style.display = 'flex';
+}
+
+function _updateGenStep(msg) {
+  const el = document.getElementById('_gen-step');
+  if (el) el.textContent = msg;
+}
+
+function _hideGenProgress(success, msg) {
+  const el = document.getElementById('_gen-progress-overlay');
+  if (!el) return;
+  if (success !== null) {
+    // Show brief result state before hiding
+    const spinner = document.getElementById('_gen-spinner');
+    const step    = document.getElementById('_gen-step');
+    if (spinner) spinner.style.borderTopColor = success ? 'var(--success,#28a745)' : 'var(--danger,#dc3545)';
+    if (step)    step.textContent = msg || '';
+    setTimeout(() => { el.style.display = 'none'; }, 900);
+  } else {
+    el.style.display = 'none';
   }
 }
 
@@ -277,11 +344,20 @@ function openReportGenModal(type) {
   
   if (type === 'traffic') {
     $('m-gen-source-row').style.display = '';
+    $('m-gen-filters').style.display = '';
     toggleTrafficSource();
+    // Reset filter fields
+    ['rpt-pd-blocked','rpt-pd-potential','rpt-pd-allowed'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.checked = false;
+    });
+    ['rpt-proto','rpt-src','rpt-dst','rpt-port','rpt-ex-src','rpt-ex-dst','rpt-ex-port'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
   } else {
     $('m-gen-source-row').style.display = 'none';
     $('m-gen-csv-upload').style.display = 'none';
     $('m-gen-dates').style.display = m.dates ? '' : 'none';
+    $('m-gen-filters').style.display = 'none';
   }
   
   $('m-gen-note').style.display  = m.dates ? 'none' : '';
@@ -308,116 +384,295 @@ function toggleTrafficSource() {
 }
 
 async function confirmReportGen() {
+  const typeLabels = {
+    traffic: _translations['gui_gen_traffic_title'] || 'Generating Traffic Report…',
+    audit:   _translations['gui_gen_audit_title']   || 'Generating Audit Report…',
+    ven:     _translations['gui_gen_ven_title']     || 'Generating VEN Status Report…',
+  };
+  _showGenProgress(typeLabels[_genReportType] || 'Generating Report…');
   closeModal('m-gen-report');
   if      (_genReportType === 'traffic') await _doGenerateTraffic();
   else if (_genReportType === 'audit')   await _doGenerateAudit();
   else if (_genReportType === 'ven')     await _doGenerateVen();
 }
 
-async function _doGenerateTraffic() {
-  const btn = $('m-gen-confirm');
-  const src = document.querySelector('input[name="traffic-source"]:checked')?.value || 'api';
-  const origHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
+function _collectReportFilters() {
+  const get = id => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+  const pdBlocked  = document.getElementById('rpt-pd-blocked');
+  const pdPotential = document.getElementById('rpt-pd-potential');
+  const pdAllowed  = document.getElementById('rpt-pd-allowed');
 
+  let pds = [];
+  if (pdBlocked  && pdBlocked.checked)   pds.push('blocked');
+  if (pdPotential && pdPotential.checked) pds.push('potentially_blocked');
+  if (pdAllowed  && pdAllowed.checked)   pds.push('allowed');
+  if (!pds.length) pds = null; // null means all
+
+  const src    = get('rpt-src');
+  const dst    = get('rpt-dst');
+  const port   = get('rpt-port');
+  const proto  = get('rpt-proto');
+  const exSrc  = get('rpt-ex-src');
+  const exDst  = get('rpt-ex-dst');
+  const exPort = get('rpt-ex-port');
+
+  // Heuristic: if value contains digit+dot or slash, treat as IP/CIDR; else as label key:value
+  const parseSrcDst = val => {
+    if (!val) return { labels: [], ip: '' };
+    if (/[\d.\/:]/.test(val)) return { labels: [], ip: val };
+    return { labels: [val], ip: '' };
+  };
+
+  const srcP   = parseSrcDst(src);
+  const dstP   = parseSrcDst(dst);
+  const exSrcP = parseSrcDst(exSrc);
+  const exDstP = parseSrcDst(exDst);
+
+  const hasFilter = pds || src || dst || port || proto || exSrc || exDst || exPort;
+  if (!hasFilter) return null;
+
+  return {
+    policy_decisions: pds,
+    src_labels:    srcP.labels,
+    dst_labels:    dstP.labels,
+    src_ip:        srcP.ip,
+    dst_ip:        dstP.ip,
+    port:          port,
+    proto:         proto ? parseInt(proto) : null,
+    ex_src_labels: exSrcP.labels,
+    ex_src_ip:     exSrcP.ip,
+    ex_dst_labels: exDstP.labels,
+    ex_dst_ip:     exDstP.ip,
+    ex_port:       exPort,
+  };
+}
+
+function _collectSchedFilters() {
+  const get = id => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+  const pdBlocked  = document.getElementById('sched-pd-blocked');
+  const pdPotential = document.getElementById('sched-pd-potential');
+  const pdAllowed  = document.getElementById('sched-pd-allowed');
+
+  let pds = [];
+  if (pdBlocked  && pdBlocked.checked)   pds.push('blocked');
+  if (pdPotential && pdPotential.checked) pds.push('potentially_blocked');
+  if (pdAllowed  && pdAllowed.checked)   pds.push('allowed');
+  if (!pds.length) pds = null;
+
+  const src    = get('sched-src');
+  const dst    = get('sched-dst');
+  const port   = get('sched-port');
+  const proto  = get('sched-proto');
+  const exSrc  = get('sched-ex-src');
+  const exDst  = get('sched-ex-dst');
+  const exPort = get('sched-ex-port');
+
+  const parseSrcDst = val => {
+    if (!val) return { labels: [], ip: '' };
+    if (/[\d.\/:]/.test(val)) return { labels: [], ip: val };
+    return { labels: [val], ip: '' };
+  };
+
+  const srcP   = parseSrcDst(src);
+  const dstP   = parseSrcDst(dst);
+  const exSrcP = parseSrcDst(exSrc);
+  const exDstP = parseSrcDst(exDst);
+
+  const hasFilter = pds || src || dst || port || proto || exSrc || exDst || exPort;
+  if (!hasFilter) return null;
+
+  return {
+    policy_decisions: pds,
+    src_labels:    srcP.labels,
+    dst_labels:    dstP.labels,
+    src_ip:        srcP.ip,
+    dst_ip:        dstP.ip,
+    port:          port,
+    proto:         proto ? parseInt(proto) : null,
+    ex_src_labels: exSrcP.labels,
+    ex_src_ip:     exSrcP.ip,
+    ex_dst_labels: exDstP.labels,
+    ex_dst_ip:     exDstP.ip,
+    ex_port:       exPort,
+  };
+}
+
+function _populateSchedFilters(filters) {
+  if (!filters) return;
+  const setChk = (id, arr, val) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = Array.isArray(arr) && arr.includes(val);
+  };
+  setChk('sched-pd-blocked',  filters.policy_decisions, 'blocked');
+  setChk('sched-pd-potential', filters.policy_decisions, 'potentially_blocked');
+  setChk('sched-pd-allowed',  filters.policy_decisions, 'allowed');
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  const srcLabel = (filters.src_labels || []).join('');
+  setVal('sched-src',    srcLabel || filters.src_ip || '');
+  const dstLabel = (filters.dst_labels || []).join('');
+  setVal('sched-dst',    dstLabel || filters.dst_ip || '');
+  setVal('sched-port',   filters.port || '');
+  setVal('sched-proto',  filters.proto != null ? String(filters.proto) : '');
+  const exSrcLabel = (filters.ex_src_labels || []).join('');
+  setVal('sched-ex-src', exSrcLabel || filters.ex_src_ip || '');
+  const exDstLabel = (filters.ex_dst_labels || []).join('');
+  setVal('sched-ex-dst', exDstLabel || filters.ex_dst_ip || '');
+  setVal('sched-ex-port', filters.ex_port || '');
+}
+
+async function _doGenerateTraffic() {
+  const src = document.querySelector('input[name="traffic-source"]:checked')?.value || 'api';
   try {
     if (src === 'csv') {
       const fileInput = $('m-gen-csv-file');
       if (!fileInput.files || fileInput.files.length === 0) {
+        _hideGenProgress(false, 'No file selected');
         toast('Please select a CSV file first.', 'err');
-        throw new Error("No file selected");
+        return;
       }
+      _updateGenStep(_translations['gui_gen_step_parsing'] || 'Parsing CSV file…');
       const formData = new FormData();
       formData.append('source', 'csv');
       formData.append('format', 'all');
       formData.append('file', fileInput.files[0]);
-      
+
+      _updateGenStep(_translations['gui_gen_step_analysing'] || 'Running analysis modules…');
       const r = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'X-CSRF-Token': _csrfToken() },
         body: formData
       }).then(res => res.json());
-      
-      if (r.ok) { toast(`Traffic Report generated from CSV! ${r.record_count} flows.`); loadReports(); }
-      else toast(r.error || 'Generation failed', 'err');
+
+      if (r.ok) {
+        const msg = `${r.record_count} flows`;
+        _hideGenProgress(true, msg);
+        toast(`Traffic Report generated from CSV! ${msg}.`);
+        loadReports();
+      } else {
+        _hideGenProgress(false, r.error || 'Generation failed');
+        toast(r.error || 'Generation failed', 'err');
+      }
     } else {
       const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
       if (!startVal || !endVal || startVal > endVal) {
-        toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); throw new Error("Invalid dates");
+        _hideGenProgress(false, 'Invalid date range');
+        toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err');
+        return;
       }
       const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
       const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
-      
-      const r = await post('/api/reports/generate', {source:'api', format:'all', start_date:startDate, end_date:endDate});
-      if (r.ok) { toast(`Traffic Report generated! ${r.record_count} flows.`); loadReports(); }
-      else toast(r.error || 'Generation failed', 'err');
+
+      _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching traffic from PCE…');
+      // Simulate step progression for long-running API calls
+      const _stepTimer = setTimeout(() => _updateGenStep(_translations['gui_gen_step_analysing'] || 'Running analysis modules…'), 5000);
+
+      const reportFilters = _collectReportFilters();
+      const r = await post('/api/reports/generate', {
+        source: 'api', format: 'all',
+        start_date: startDate, end_date: endDate,
+        ...(reportFilters ? { filters: reportFilters } : {}),
+      });
+      clearTimeout(_stepTimer);
+      if (r.ok) {
+        const msg = `${r.record_count} flows`;
+        _hideGenProgress(true, msg);
+        toast(`Traffic Report generated! ${msg}.`);
+        loadReports();
+      } else {
+        _hideGenProgress(false, r.error || 'Generation failed');
+        toast(r.error || 'Generation failed', 'err');
+      }
     }
   } catch(e) {
-    if(e.message !== "No file selected" && e.message !== "Invalid dates") toast('Error: ' + e, 'err');
+    _hideGenProgress(false, e.message);
+    toast('Error: ' + e, 'err');
   }
-  btn.disabled = false;
-  btn.innerHTML = origHtml;
 }
 
 async function _doGenerateAudit() {
-  const btn = $('m-gen-confirm');
   const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
   if (!startVal || !endVal || startVal > endVal) {
-    toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err'); return;
+    _hideGenProgress(false, 'Invalid date range');
+    toast(_translations['gui_invalid_date_range'] || 'Invalid date range.', 'err');
+    return;
   }
   const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
   const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
-  const origHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
+  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching audit events from PCE…');
   try {
+    const _stepTimer = setTimeout(() => _updateGenStep(_translations['gui_gen_step_analysing'] || 'Running analysis modules…'), 3000);
     const r = await post('/api/audit_report/generate', {start_date:startDate, end_date:endDate});
-    if (r.ok) { toast(`Audit Report generated! ${r.record_count} events.`); loadReports(); }
-    else toast(r.error || 'Generation failed', 'err');
-  } catch(e) { toast('Error: ' + e, 'err'); }
-  btn.disabled = false;
-  btn.innerHTML = origHtml;
+    clearTimeout(_stepTimer);
+    if (r.ok) {
+      const msg = `${r.record_count} events`;
+      _hideGenProgress(true, msg);
+      toast(`Audit Report generated! ${msg}.`);
+      loadReports();
+    } else {
+      _hideGenProgress(false, r.error || 'Generation failed');
+      toast(r.error || 'Generation failed', 'err');
+    }
+  } catch(e) {
+    _hideGenProgress(false, e.message);
+    toast('Error: ' + e, 'err');
+  }
 }
 
 async function _doGenerateVen() {
-  const btn = $('m-gen-confirm');
-  const origHtml = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;vertical-align:middle"></div> Generating…';
+  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching VEN status from PCE…');
   try {
     const r = await post('/api/ven_status_report/generate', {});
     if (r.ok) {
       const kpiText = (r.kpis || []).map(k => `${k.label}: ${k.value}`).join(' | ');
-      toast(`VEN Status Report generated! ${kpiText}`); loadReports();
-    } else toast(r.error || 'Generation failed', 'err');
-  } catch(e) { toast('Error: ' + e, 'err'); }
-  btn.disabled = false;
-  btn.innerHTML = origHtml;
+      _hideGenProgress(true, kpiText || 'Done');
+      toast(`VEN Status Report generated! ${kpiText}`);
+      loadReports();
+    } else {
+      _hideGenProgress(false, r.error || 'Generation failed');
+      toast(r.error || 'Generation failed', 'err');
+    }
+  } catch(e) {
+    _hideGenProgress(false, e.message);
+    toast('Error: ' + e, 'err');
+  }
 }
 
 async function loadDashboard() {
-  const d = await api('/api/status');
-  $('hdr-meta').textContent = `v${d.version} | ${d.api_url}`;
-  $('d-rules').textContent = d.rules_count;
-  $('d-health').textContent = d.health_check ? 'ON' : 'OFF';
-  $('d-lang').textContent = (d.language || 'en').toUpperCase();
-  if (d.timezone) _timezone = d.timezone;
-  applyThemeMode(getStoredThemeMode());
+  // Status section — failures must not block queries/translations from loading
+  try {
+    const d = await api('/api/status');
+    if (d) {
+      $('hdr-meta').textContent = `v${d.version} | ${d.api_url}`;
+      $('d-rules').textContent = d.rules_count;
+      $('d-health').textContent = d.health_check ? 'ON' : 'OFF';
+      $('d-lang').textContent = (d.language || 'en').toUpperCase();
+      if (d.timezone) _timezone = d.timezone;
+      applyThemeMode(getStoredThemeMode());
 
-  if (d.cooldowns && d.cooldowns.length > 0) {
-    const activeCds = d.cooldowns.filter(c => c.remaining_mins > 0).length;
-    if (activeCds > 0) {
-      const title = _translations['gui_cooldown_title'] || 'Rules in Cooldown';
-      $('cd-field').style.display = 'block';
-      $('cd-list').innerHTML = `<div class="card" style="border-color:var(--warn);"><div class="label" style="color:var(--warn);"><span style="margin-right:4px;">⏳</span>${title}</div><div class="value" style="color:var(--warn);">${activeCds}</div></div>`;
-    } else {
-      $('cd-field').style.display = 'none';
-      $('cd-list').innerHTML = '';
+      if (d.cooldowns && d.cooldowns.length > 0) {
+        const activeCds = d.cooldowns.filter(c => c.remaining_mins > 0).length;
+        if (activeCds > 0) {
+          const title = _translations['gui_cooldown_title'] || 'Rules in Cooldown';
+          $('cd-field').style.display = 'block';
+          $('cd-list').innerHTML = `<div class="card" style="border-color:var(--warn);"><div class="label" style="color:var(--warn);"><span style="margin-right:4px;">⏳</span>${title}</div><div class="value" style="color:var(--warn);">${activeCds}</div></div>`;
+        } else {
+          $('cd-field').style.display = 'none';
+          $('cd-list').innerHTML = '';
+        }
+      } else {
+        $('cd-field').style.display = 'none';
+        $('cd-list').innerHTML = '';
+      }
     }
-  } else {
-    $('cd-field').style.display = 'none';
-    $('cd-list').innerHTML = '';
+  } catch (e) {
+    console.warn('[loadDashboard] status failed:', e);
+    $('hdr-meta').textContent = '';
   }
 
   await loadTranslations();
@@ -573,6 +828,8 @@ async function loadDashboardQueries() {
   const rt = await window.fetch('/api/dashboard/queries');
   _dashboardQueries = await rt.json() || [];
   renderDashboardQueries();
+  // Auto-run all widgets on page load
+  if (_dashboardQueries.length > 0) runAllQueries();
 }
 
 function renderDashboardQueries() {

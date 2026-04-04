@@ -60,11 +60,20 @@ def validate(df: pd.DataFrame, raise_on_error: bool = False) -> list[str]:
             raise ValueError(msg)
         return issues
 
+    # Drop duplicate columns before validation
+    if df.columns.duplicated().any():
+        logger.warning("[Validator] Duplicate columns detected — keeping first occurrence")
+        df = df.loc[:, ~df.columns.duplicated()]
+
     for col, expected_kind in REQUIRED_COLUMNS.items():
         if col not in df.columns:
             issues.append(f"Missing required column: '{col}'")
         else:
-            dtype = df[col].dtype
+            col_data = df[col]
+            if isinstance(col_data, pd.DataFrame):
+                issues.append(f"Column '{col}' has duplicates — keeping first")
+                col_data = col_data.iloc[:, 0]
+            dtype = col_data.dtype
             if expected_kind == 'numeric':
                 if not pd.api.types.is_numeric_dtype(dtype):
                     issues.append(f"Column '{col}' expected numeric, got {dtype}")
@@ -92,6 +101,10 @@ def coerce(df: pd.DataFrame) -> pd.DataFrame:
     Safe to call after validate() flags warnings.
     """
     df = df.copy()
+
+    # Drop duplicate columns (keep first)
+    if df.columns.duplicated().any():
+        df = df.loc[:, ~df.columns.duplicated()]
 
     defaults = {
         'src_ip': '', 'src_hostname': '', 'src_managed': False,

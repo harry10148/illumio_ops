@@ -146,8 +146,14 @@ class ReportGenerator:
 
     def generate_from_api(self, start_date: Optional[str] = None,
                           end_date: Optional[str] = None,
-                          max_results: int = 200_000) -> ReportResult:
-        """Fetch traffic from PCE API and run the full analysis pipeline."""
+                          max_results: int = 200_000,
+                          filters: Optional[dict] = None) -> ReportResult:
+        """Fetch traffic from PCE API and run the full analysis pipeline.
+
+        filters: optional dict with traffic filter keys (src_labels, dst_labels,
+                 src_ip, dst_ip, port, proto, ex_src_labels, ex_dst_labels,
+                 ex_src_ip, ex_dst_ip, ex_port, policy_decisions).
+        """
         if self.api is None:
             raise RuntimeError("api_client is required for generate_from_api()")
 
@@ -161,7 +167,7 @@ class ReportGenerator:
         print(t("rpt_querying_traffic", start=start_date, end=end_date))
 
         records = self.api.fetch_traffic_for_report(
-            start_time_str=start_date, end_time_str=end_date)
+            start_time_str=start_date, end_time_str=end_date, filters=filters)
 
         if not records:
             logger.warning("[ReportGenerator] No records returned from API")

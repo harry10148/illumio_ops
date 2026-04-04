@@ -64,8 +64,26 @@ def _fmt_bytes(b) -> str:
     return f'{int(b)} B'
 
 
+def _fmt_bw(mbps) -> str:
+    """Convert Mbps value to auto-scaled human-readable string (Mbps / Gbps / Tbps), 2 decimal places."""
+    try:
+        mbps = float(mbps)
+    except (TypeError, ValueError):
+        return str(mbps) if mbps is not None else '—'
+    if mbps < 0:
+        return '—'
+    if mbps >= 1_000_000:
+        return f'{mbps / 1_000_000:.2f} Tbps'
+    if mbps >= 1_000:
+        return f'{mbps / 1_000:.2f} Gbps'
+    return f'{mbps:.2f} Mbps'
+
+
 # Column name fragments that contain raw byte values and should be auto-formatted
 _BYTE_COL_KEYWORDS = {'byte', 'bytes', 'total bytes', 'bytes total', 'bytes/conn'}
+
+# Column name fragments that contain Mbps bandwidth values and should be auto-scaled
+_BW_COL_KEYWORDS = {'bandwidth (mbps)', 'bandwidth(mbps)', 'bw (mbps)'}
 
 
 def _cov_stat(label: str, value: str) -> str:
@@ -180,6 +198,9 @@ def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
     # Determine which columns contain raw byte values (auto-format them)
     byte_cols = {col for col in df.columns
                  if any(kw in col.lower() for kw in _BYTE_COL_KEYWORDS)}
+    # Determine which columns contain Mbps bandwidth values (auto-scale units)
+    bw_cols = {col for col in df.columns
+               if any(kw in col.lower() for kw in _BW_COL_KEYWORDS)}
 
     html = '<table><thead><tr>'
     for col in df.columns:
@@ -197,6 +218,8 @@ def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
                 html += f'<td><span class="badge badge-{str(val).upper()}">{val}</span></td>'
             elif col in byte_cols:
                 html += f'<td>{_fmt_bytes(val)}</td>'
+            elif col in bw_cols:
+                html += f'<td>{_fmt_bw(val)}</td>'
             else:
                 html += f'<td>{val}</td>'
         html += '</tr>'
@@ -517,12 +540,13 @@ class HtmlExporter:
                          _fmt_bytes(m.get('total_bytes', 0)))
         if max_bw is not None:
             out += _cov_stat('<span data-i18n="rpt_tr_max_bw">Max Bandwidth</span>',
-                             f'{max_bw} Mbps')
+                             _fmt_bw(max_bw))
         if avg_bw is not None:
             out += _cov_stat('<span data-i18n="rpt_tr_avg_bw">Avg Bandwidth</span>',
-                             f'{avg_bw} Mbps')
+                             _fmt_bw(avg_bw))
         if p95_bw is not None:
-            out += _cov_stat('<span data-i18n="rpt_tr_p95_bw">P95 Bandwidth</span>', f'{p95_bw} Mbps')
+            out += _cov_stat('<span data-i18n="rpt_tr_p95_bw">P95 Bandwidth</span>',
+                             _fmt_bw(p95_bw))
         out += '</div>'
 
         out += ('<h3 data-i18n="rpt_tr_top_by_bytes">Top by Total Bytes</h3>'

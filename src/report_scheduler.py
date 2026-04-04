@@ -130,6 +130,9 @@ class ReportScheduler:
         end_date = now_utc.strftime("%Y-%m-%dT23:59:59Z")
         start_date = (now_utc - datetime.timedelta(days=lookback_days)).strftime("%Y-%m-%dT00:00:00Z")
 
+        # Read optional traffic filters from schedule config
+        schedule_filters = schedule.get('filters') or None
+
         logger.info(f"[Scheduler] Running schedule '{name}' ({report_type}), range={start_date}→{end_date}")
 
         try:
@@ -137,7 +140,8 @@ class ReportScheduler:
             api = ApiClient(self.cm)
 
             result, paths = self._generate_report(
-                report_type, api, fmt, output_dir, start_date, end_date, name)
+                report_type, api, fmt, output_dir, start_date, end_date, name,
+                filters=schedule_filters)
 
             if result is None:
                 return False
@@ -156,12 +160,12 @@ class ReportScheduler:
 
     # ── Report type dispatch ────────────────────────────────────────────────
 
-    def _generate_report(self, report_type, api, fmt, output_dir, start_date, end_date, name):
+    def _generate_report(self, report_type, api, fmt, output_dir, start_date, end_date, name, filters=None):
         """Dispatch to the appropriate generator. Returns (result, paths) or (None, [])."""
         if report_type == "traffic":
             from src.report.report_generator import ReportGenerator
             gen = ReportGenerator(self.cm, api_client=api, config_dir=self._config_dir)
-            result = gen.generate_from_api(start_date=start_date, end_date=end_date)
+            result = gen.generate_from_api(start_date=start_date, end_date=end_date, filters=filters)
             if result.record_count == 0:
                 logger.warning(f"[Scheduler] '{name}': no traffic data — skipping export")
                 return None, []

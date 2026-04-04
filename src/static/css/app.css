@@ -525,6 +525,14 @@
       text-overflow: ellipsis;
     }
 
+    .rule-table th:first-child,
+    .rule-table td:first-child {
+      text-align: center;
+      padding: var(--row-cell-y) 4px;
+      text-overflow: clip;
+      overflow: visible;
+    }
+
     .rule-table th {
       color: var(--dim);
       font-weight: 700;

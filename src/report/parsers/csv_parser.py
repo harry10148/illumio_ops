@@ -106,10 +106,23 @@ class CSVParser:
         """Map raw CSV headers → unified schema names.  Extra label columns
         become src_extra_labels / dst_extra_labels dicts per row."""
         rename = {}
+        seen_targets: set = set()
         for col in raw.columns:
-            if col in self._col_map:
-                rename[col] = self._col_map[col]
+            target = self._col_map.get(col)
+            if target and target not in seen_targets:
+                rename[col] = target
+                seen_targets.add(target)
+            elif target and target in seen_targets:
+                logger.debug(f"[CSVParser] Skipping duplicate mapping: '{col}' → '{target}'")
         df = raw.rename(columns=rename)
+
+        # Drop any remaining duplicate columns (keep first)
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        mapped = len(rename)
+        unmapped = [c for c in raw.columns if c not in rename]
+        logger.info(f"[CSVParser] Mapped {mapped}/{len(raw.columns)} columns; "
+                     f"unmapped: {unmapped[:10]}{'...' if len(unmapped) > 10 else ''}")
 
         # Detect extra label columns not in the standard mapping
         src_extras, dst_extras = self._detect_extra_labels(raw.columns)

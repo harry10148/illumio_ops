@@ -270,7 +270,112 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "<b>Illumio Best Practice:</b> Review rule_set and sec_rule changes for overly broad scopes (null HREF = All Applications/Environments/Locations). When sec_policy.create (provision) events occur, check workloads_affected — a high number may indicate unintended policy impact. Monitor sec_rule.delete events to detect unauthorized policy weakening.",
         "zh_TW": "<b>Illumio 最佳實踐：</b>審查 rule_set 和 sec_rule 變更是否範圍過大（null HREF = 所有應用程式/環境/位置）。當 sec_policy.create（部署）事件發生時，請檢查 workloads_affected — 數量過高可能表示非預期的策略影響。監控 sec_rule.delete 事件以偵測未經授權的策略弱化。",
     },
+
+    # ── Policy Lifecycle concept explanation ─────────────────────────────────
+    "rpt_au_lifecycle_title": {
+        "en": "📘 Illumio Policy Lifecycle: Draft vs Provision",
+        "zh_TW": "📘 Illumio 策略生命週期：草稿 vs 正式部署",
+    },
+    "rpt_au_lifecycle_draft_title": {
+        "en": "1️⃣ Draft Changes (Not Yet Enforced)",
+        "zh_TW": "1️⃣ 草稿變更（尚未生效）",
+    },
+    "rpt_au_lifecycle_draft_body": {
+        "en": (
+            "When an admin creates, edits, or deletes a rule in the PCE console <b>without clicking Provision</b>, "
+            "the system logs <code>rule_set.*</code> and <code>sec_rule.*</code> events. "
+            "These only represent changes to the policy <em>draft</em> — "
+            "<b>no firewall rules have been pushed to any VEN yet.</b><br><br>"
+            "⚠ <b>Watch for:</b> Broad scopes such as <em>All Applications / All Environments / All Locations</em> "
+            "(displayed as <code>null</code> in the API). A draft with such scope, once provisioned, "
+            "could affect a large number of workloads."
+        ),
+        "zh_TW": (
+            "當管理員在 PCE 主控台中新增、修改或刪除規則，但<b>尚未點擊「Provision（部署）」</b>時，"
+            "系統會記錄 <code>rule_set.*</code> 和 <code>sec_rule.*</code> 事件。"
+            "這些事件僅代表策略<em>草稿</em>的變動 — "
+            "<b>目前仍未有任何防火牆規則被推送至任何 VEN。</b><br><br>"
+            "⚠ <b>注意：</b>草稿若範圍過大（如「所有應用程式 / 所有環境 / 所有位置」，API 顯示為 <code>null</code>），"
+            "一旦部署，可能影響大量工作負載。"
+        ),
+    },
+    "rpt_au_lifecycle_prov_title": {
+        "en": "2️⃣ Provision — Policy Goes Live (sec_policy.create)",
+        "zh_TW": "2️⃣ 正式部署 — 策略生效（sec_policy.create）",
+    },
+    "rpt_au_lifecycle_prov_body": {
+        "en": (
+            "When an admin clicks <b>Provision</b>, all draft changes are packaged into a new versioned policy "
+            "and pushed to workload VENs. The PCE logs a <code>sec_policy.create</code> event — "
+            "not <code>update</code>, because each provision creates a <em>new policy version</em>.<br><br>"
+            "🔑 <b>Key field to check:</b> <code>workloads_affected</code> — "
+            "this tells you exactly how many hosts received the new policy. "
+            "A surprisingly large number signals that the provisioned rules may have an unexpectedly broad scope. "
+            "<b>If this was not a planned large-scale change, investigate immediately.</b>"
+        ),
+        "zh_TW": (
+            "當管理員點擊 <b>Provision（部署）</b>，所有草稿變更將被封裝成一個帶有唯一版本號的新策略，"
+            "並推送至各工作負載的 VEN。PCE 記錄 <code>sec_policy.create</code> 事件 — "
+            "而非 <code>update</code>，因為每次部署都會建立一個<em>全新的策略版本</em>。<br><br>"
+            "🔑 <b>關鍵欄位：</b><code>workloads_affected</code> — "
+            "明確記錄本次部署影響了幾台主機。"
+            "若數字異常龐大，代表新策略的影響範圍超出預期。"
+            "<b>如果這並非計畫中的大規模變更，請立即介入調查。</b>"
+        ),
+    },
+    "rpt_au_draft_section":   {"en": "Draft Rule Changes",              "zh_TW": "草稿規則變更"},
+    "rpt_au_draft_desc": {
+        "en": "These events represent policy edits in draft state. No enforcement changes have occurred yet — they only take effect after Provision.",
+        "zh_TW": "以下事件代表尚在草稿狀態的策略編輯。目前無任何執行變更 — 必須等到 Provision（部署）後才會生效。",
+    },
+    "rpt_au_workloads_affected": {"en": "Workloads Affected",           "zh_TW": "受影響工作負載數"},
+    "rpt_au_high_impact_title": {
+        "en": "🚨 High-Impact Provisions",
+        "zh_TW": "🚨 高影響範圍部署",
+    },
+    "rpt_au_high_impact_desc": {
+        "en": "The following provision events affected an unusually large number of workloads. Verify these were intended large-scale policy changes.",
+        "zh_TW": "以下部署事件影響了異常大量的工作負載，請確認這些是預期中的大規模策略變更。",
+    },
+    "rpt_au_provision_impact_stat": {
+        "en": "Total Workloads Affected (all provisions):",
+        "zh_TW": "所有部署累計影響工作負載數：",
+    },
+
+    # ── Audit report — enhanced context labels ──────────────────────────────
+    "rpt_au_unique_src_ips":    {"en": "Unique Admin IPs:",               "zh_TW": "不重複管理 IP："},
+    "rpt_au_failed_detail":     {"en": "Failed Login Details",            "zh_TW": "登入失敗詳情"},
+    "rpt_au_failed_detail_desc": {
+        "en": "Enriched with source IP and notification context. Check for brute-force patterns or suspicious source IPs.",
+        "zh_TW": "包含來源 IP 與通知上下文。請檢查暴力破解模式或可疑來源 IP。",
+    },
+    "rpt_au_src_ip_note": {
+        "en": "<b>Source IP Tracking:</b> The <code>src_ip</code> column shows where the admin/API connected from. "
+              "Multiple logins or policy changes from unexpected IPs may indicate compromised credentials or insider threats.",
+        "zh_TW": "<b>來源 IP 追蹤：</b><code>src_ip</code> 欄位顯示管理員/API 的連線來源。"
+              "若從非預期 IP 發起多次登入或策略變更，可能表示憑證遭竊或內部威脅。",
+    },
+    "rpt_au_change_detail_note": {
+        "en": "<b>Change Tracking:</b> The <code>change_detail</code> column shows before → after values for "
+              "modified resources. Look for changes to broad scopes (null = All) or sensitive labels (Production, PCI).",
+        "zh_TW": "<b>變更追蹤：</b><code>change_detail</code> 欄位顯示修改前 → 修改後的值。"
+              "注意範圍過大的變更（null = 全部）或涉及敏感標籤（Production、PCI）的修改。",
+    },
     "rpt_au_footer":        {"en": "Illumio PCE Ops — Audit Report", "zh_TW": "Illumio PCE Ops — 稽核報表"},
+    "rpt_au_attention_title": {"en": "⚠ Attention Required",         "zh_TW": "⚠ 需關注項目"},
+    "rpt_au_actor":           {"en": "Actor",                         "zh_TW": "操作者"},
+    "rpt_au_rec":             {"en": "Recommendation",                "zh_TW": "建議處理"},
+    "rpt_au_risk_critical":   {"en": "CRITICAL",                      "zh_TW": "嚴重"},
+    "rpt_au_risk_high":       {"en": "HIGH",                          "zh_TW": "高"},
+    "rpt_au_risk_medium":     {"en": "MEDIUM",                        "zh_TW": "中"},
+    "rpt_au_risk_low":        {"en": "LOW",                           "zh_TW": "低"},
+    "rpt_au_risk_info":       {"en": "INFO",                          "zh_TW": "資訊"},
+    "rpt_au_status":          {"en": "Status",                        "zh_TW": "狀態"},
+    "rpt_au_high_risk":       {"en": "High-Risk Events",              "zh_TW": "高風險事件"},
+    "rpt_au_no_attention":    {
+        "en":    "No critical or high-risk events detected in this period.",
+        "zh_TW": "本期間未發現嚴重或高風險事件。",
+    },
 
     # ── VEN report ───────────────────────────────────────────────────────────
     "rpt_ven_title":          {"en": "Illumio VEN Status Inventory Report",
@@ -375,8 +480,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "rpt_col_unmanaged_source":   {"en": "Unmanaged Source",    "zh_TW": "非受管來源"},
     "rpt_col_managed_dest_ip":    {"en": "Managed Destination IP", "zh_TW": "受管目標 IP"},
     "rpt_col_conn_from_unmanaged": {"en": "Connections from Unmanaged Src", "zh_TW": "來自非受管來源連線數"},
-    "rpt_col_event_type":         {"en": "Event Type",          "zh_TW": "事件類型"},
-    "rpt_col_count":              {"en": "Count",               "zh_TW": "數量"},
+    "rpt_col_event_type":              {"en": "Event Type",             "zh_TW": "事件類型"},
+    "rpt_col_count":                   {"en": "Count",                  "zh_TW": "數量"},
+    "rpt_col_status":                  {"en": "Status",                 "zh_TW": "狀態"},
+    "rpt_col_workloads_affected":      {"en": "Workloads Affected",     "zh_TW": "受影響工作負載數"},
+    "rpt_col_src_ip":                  {"en": "Source IP",              "zh_TW": "來源 IP"},
+    "rpt_col_change_detail":           {"en": "Change Detail",          "zh_TW": "變更明細"},
+    "rpt_col_api_method":              {"en": "API Method",             "zh_TW": "API 方法"},
+    "rpt_col_agent_hostname":          {"en": "Agent Host",             "zh_TW": "Agent 主機"},
+    "rpt_col_notification_detail":     {"en": "Details",                "zh_TW": "詳細資訊"},
+    "rpt_col_source_ips":              {"en": "Source IPs",             "zh_TW": "來源 IP 數"},
 
     # ── Dynamic column headers (cross-label matrix, traffic distribution) ─────
     "rpt_col_src_env":            {"en": "Src Env",             "zh_TW": "來源環境"},

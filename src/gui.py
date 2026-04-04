@@ -16,6 +16,8 @@ import logging
 import hashlib
 import ipaddress
 import secrets
+import socket as _socket
+import struct
 
 try:
     from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect
@@ -84,6 +86,45 @@ def _check_ip_allowed(allowed_ips: list, remote_addr: str) -> bool:
             continue
     return False
 
+def _rst_drop():
+    """Close the underlying TCP socket with RST (SO_LINGER 0) and raise to
+    prevent Flask from sending any HTTP response.  To a port scanner the
+    connection appears reset — identical to 'connection refused' — so the
+    port does not register as an open HTTP service.
+    """
+    try:
+        environ = request.environ
+        # Werkzeug exposes the raw socket in several possible locations
+        sock = environ.get('werkzeug.socket')
+        if sock is None:
+            wsgi_in = environ.get('wsgi.input')
+            for attr in ('raw', '_sock', 'raw._sock'):
+                obj = wsgi_in
+                for part in attr.split('.'):
+                    obj = getattr(obj, part, None)
+                    if obj is None:
+                        break
+                if isinstance(obj, _socket.socket):
+                    sock = obj
+                    break
+        if sock is not None:
+            # l_onoff=1, l_linger=0 → kernel sends RST on close, not FIN
+            sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_LINGER,
+                            struct.pack('ii', 1, 0))
+            try:
+                sock.shutdown(_socket.SHUT_RDWR)
+            except OSError:
+                pass
+    except Exception:
+        pass
+    # Raise — Flask will attempt to write the 500 but the socket is gone
+    raise _RstDrop()
+
+
+class _RstDrop(Exception):
+    """Sentinel: request was silently dropped via TCP RST."""
+
+
 _PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 _ROOT_DIR = os.path.dirname(_PKG_DIR)
 
@@ -126,15 +167,24 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     app.secret_key = cm.config.get("web_gui", {}).get("secret_key", secrets.token_hex(32))
     app.jinja_env.globals.update(t=t)
 
+    @app.errorhandler(_RstDrop)
+    def handle_rst_drop(e):
+        # Socket is already closed with RST — return an empty Response object
+        # so Flask stops processing without logging an unhandled error
+        from flask import Response as _Resp
+        return _Resp('', status=200)
+
     @app.before_request
     def security_check():
         if request.endpoint == 'static' or request.path.startswith('/static/'):
             return
 
-        # IP Allowlist check
+        # IP Allowlist check — silently drop with TCP RST (no HTTP response)
+        # so port scanners cannot detect an HTTP service on this port
         allowed_ips = cm.config.get("web_gui", {}).get("allowed_ips", [])
         if not _check_ip_allowed(allowed_ips, request.remote_addr):
-            return _err(t("gui_err_forbidden"), 403)
+            logger.warning(f"[GUI] Blocked untrusted IP: {request.remote_addr}")
+            _rst_drop()  # closes socket with RST, raises _RstDrop
 
         # Auth check (always enforced for all GUI modes)
         # Bypass login routes
@@ -757,7 +807,30 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             else:
                 start_date = d.get('start_date')
                 end_date = d.get('end_date')
-                result = gen.generate_from_api(start_date, end_date)
+
+                # Extract optional traffic filters (API source only)
+                report_filters = None
+                raw_filters = d.get('filters') or {}
+                if raw_filters:
+                    report_filters = {
+                        'policy_decisions': raw_filters.get('policy_decisions') or None,
+                        'src_labels': [s for s in (raw_filters.get('src_labels') or []) if s],
+                        'dst_labels': [s for s in (raw_filters.get('dst_labels') or []) if s],
+                        'src_ip': (raw_filters.get('src_ip') or '').strip(),
+                        'dst_ip': (raw_filters.get('dst_ip') or '').strip(),
+                        'port': (raw_filters.get('port') or '').strip(),
+                        'proto': raw_filters.get('proto'),
+                        'ex_src_labels': [s for s in (raw_filters.get('ex_src_labels') or []) if s],
+                        'ex_dst_labels': [s for s in (raw_filters.get('ex_dst_labels') or []) if s],
+                        'ex_src_ip': (raw_filters.get('ex_src_ip') or '').strip(),
+                        'ex_dst_ip': (raw_filters.get('ex_dst_ip') or '').strip(),
+                        'ex_port': (raw_filters.get('ex_port') or '').strip(),
+                    }
+                    # Discard if all values are empty/falsy
+                    if not any(v for v in report_filters.values() if v):
+                        report_filters = None
+
+                result = gen.generate_from_api(start_date=start_date, end_date=end_date, filters=report_filters)
 
             if result.record_count == 0:
                 return jsonify({"ok": False, "error": t("gui_no_traffic_data")})
@@ -861,6 +934,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         d = request.json or {}
         try:
             cm.load()
+            # Preserve optional traffic filters if provided
+            raw_filters = d.get('filters') or {}
+            if raw_filters:
+                d['filters'] = raw_filters
+            elif 'filters' in d:
+                del d['filters']
             sched = cm.add_report_schedule(d)
             return jsonify({"ok": True, "schedule": sched})
         except Exception as e:

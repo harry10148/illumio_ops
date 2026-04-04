@@ -204,10 +204,9 @@ class ConfigManager:
             ("rule_agent_suspend",    "agent.suspend",            "immediate", 1,  10, 30,  "all",     "all"),
             ("rule_agent_clone",      "agent.clone_detected",     "immediate", 1,  10, 30,  "all",     "all"),
             # ── Agent Health ────────────────────────────────────────────────────────
-            ("rule_agent_heartbeat",  "system_task.agent_missed_heartbeats_check", "immediate", 1, 10, 30, "all", "all"),
-            ("rule_agent_offline",    "system_task.agent_offline_check",           "immediate", 1, 10, 30, "all", "all"),
+            ("rule_agent_heartbeat",  "system_task.agent_missed_heartbeats_check", "count", 3, 30, 60, "all", "all"),
+            ("rule_agent_offline",    "system_task.agent_offline_check",           "count", 3, 30, 60, "all", "all"),
             ("rule_lost_agent",       "lost_agent.found",         "immediate", 1,  10, 60,  "all",     "all"),
-            ("rule_agent_goodbye",    "agent.goodbye",            "immediate", 1,  10, 30,  "all",     "all"),
             # ── User & API Auth (support status filter) ─────────────────────────────
             ("rule_login_failed",     "user.sign_in,user.login",  "count",     5,  10, 30,  "failure", "all"),
             ("rule_api_auth_failed",  "request.authentication_failed", "count", 5, 10, 30,  "all",     "all"),
@@ -215,14 +214,22 @@ class ConfigManager:
             ("rule_policy_fail",      "agent.refresh_policy",     "immediate", 1,  10, 30,  "failure", "all"),
             ("rule_ruleset_change",   "rule_set.create,rule_set.update,rule_set.delete", "immediate", 1, 10, 60, "all", "all"),
             ("rule_policy_provision", "sec_policy.create",        "immediate", 1,  10, 60,  "all",     "all"),
+            # ── API & Auth ───────────────────────────────────────────────────────────
+            ("rule_api_authz_failed",       "request.authorization_failed",                    "count",     3,  10, 30, "all", "all"),
+            ("rule_api_key_change",         "api_key.create,api_key.delete",                   "immediate", 1,  10, 60, "all", "all"),
+            # ── Policy Security ───────────────────────────────────────────────────────
+            ("rule_sec_rule_change",        "sec_rule.create,sec_rule.update,sec_rule.delete", "immediate", 1,  10, 60, "all", "all"),
+            ("rule_bulk_unpair",            "workloads.unpair,agents.unpair",                  "immediate", 1,  10, 60, "all", "all"),
+            ("rule_auth_settings_change",   "authentication_settings.update",                  "immediate", 1,  10, 60, "all", "all"),
         ]
-        
+
         for i, (name_key, etype, ttype, cnt, win, cd, f_stat, f_sev) in enumerate(bps):
             self.config["rules"].append({
                 "id": ts + i, "type": "event", "name": t(name_key),
                 "filter_key": "event_type", "filter_value": etype,
                 "filter_status": f_stat, "filter_severity": f_sev,
-                "desc": "Official Best Practice", "rec": "Check logs",
+                "desc": t(name_key + "_desc", default="Official Best Practice"),
+                "rec": t(name_key + "_rec", default="Check logs"),
                 "threshold_type": ttype, "threshold_count": cnt,
                 "threshold_window": win, "cooldown_minutes": cd
             })
@@ -230,8 +237,9 @@ class ConfigManager:
         self.config["rules"].append({
             "id": ts + 100, "type": "traffic", "name": t("rule_high_blocked"), "pd": 2,
             "port": None, "proto": None, "src_label": None, "dst_label": None,
-            "desc": "High volume of blocked traffic detected.",
-            "rec": "Review segmentation rules", "threshold_type": "count", "threshold_count": 25,
+            "desc": t("rule_high_blocked_desc", default="High volume of blocked traffic detected."),
+            "rec": t("rule_high_blocked_rec", default="Review segmentation rules"),
+            "threshold_type": "count", "threshold_count": 25,
             "threshold_window": 10, "cooldown_minutes": 30
         })
         self.save()

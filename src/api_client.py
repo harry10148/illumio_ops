@@ -134,11 +134,19 @@ class ApiClient:
             print(f"{Colors.FAIL}{t('api_fetch_events_error', error=str(e))}{Colors.ENDC}")
             return []
 
-    def execute_traffic_query_stream(self, start_time_str, end_time_str, policy_decisions):
+    def execute_traffic_query_stream(self, start_time_str, end_time_str, policy_decisions, filters=None):
         """
         Executes an async traffic query and yields results row by row to save memory.
+        filters: optional dict — used for Python-side post-filtering, NOT sent to PCE API.
+                 PCE sources/destinations/services are always sent empty to avoid API format
+                 compatibility issues. Filtering is applied after download in fetch_traffic_for_report().
         """
         import urllib.parse
+
+        # Override policy_decisions if provided in filters (PCE does support this natively)
+        f = filters or {}
+        if f.get("policy_decisions"):
+            policy_decisions = f["policy_decisions"]
 
         payload = {
             "start_date": start_time_str, "end_date": end_time_str,
@@ -156,13 +164,17 @@ class ApiClient:
             url = f"{self.base_url}/traffic_flows/async_queries"
             status, body = self._request(url, method="POST", data=payload, timeout=10)
 
-            if status not in (201, 202):
+            if status not in (200, 201, 202):
                 text = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
                 logger.error(f"API Error {status}: {text}")
                 print(t("api_error_status", status=status, text=text))
                 return
 
             result = json.loads(body)
+            # Some PCE versions return 200 with status="queued" (not 201/202)
+            if result.get("status") in ("queued", "pending") and not result.get("href"):
+                logger.error(f"Async query accepted but no href returned: {result}")
+                return
             job_url = result.get("href")
             print(t('waiting_traffic', default='Waiting for traffic calculation...'), end="", flush=True)
 
@@ -240,22 +252,120 @@ class ApiClient:
             print(t("api_query_exception", error=str(e)))
             return
 
+    @staticmethod
+    def _flow_matches_filters(flow: dict, filters: dict) -> bool:
+        """
+        Python-side filter applied after PCE download.
+        Mirrors the label/IP logic from Analyzer.check_flow_match().
+        filters keys: src_labels, dst_labels, src_ip, dst_ip, port, proto,
+                      ex_src_labels, ex_dst_labels, ex_src_ip, ex_dst_ip, ex_port.
+        Label format: "key:value" or "key=value".
+        """
+        src = flow.get('src', {})
+        dst = flow.get('dst', {})
+        svc = flow.get('service', {})
+
+        def _label_match(side: dict, label_str: str) -> bool:
+            """Return True if the flow side has a label matching 'key:value'."""
+            for sep in (':', '='):
+                if sep in label_str:
+                    fk, fv = label_str.split(sep, 1)
+                    fk, fv = fk.strip(), fv.strip()
+                    for lbl in side.get('workload', {}).get('labels', []):
+                        if lbl.get('key') == fk and lbl.get('value') == fv:
+                            return True
+                    return False
+            return False
+
+        def _ip_match(side: dict, ip_str: str) -> bool:
+            if side.get('ip') == ip_str:
+                return True
+            for ipl in side.get('ip_lists', []):
+                if ipl.get('name') == ip_str:
+                    return True
+            return False
+
+        # ── Include filters (must match if specified) ─────────────────────────
+        for lbl in (filters.get('src_labels') or []):
+            if lbl and not _label_match(src, lbl):
+                return False
+        for lbl in (filters.get('dst_labels') or []):
+            if lbl and not _label_match(dst, lbl):
+                return False
+        if filters.get('src_ip') and not _ip_match(src, filters['src_ip']):
+            return False
+        if filters.get('dst_ip') and not _ip_match(dst, filters['dst_ip']):
+            return False
+
+        port_filter = filters.get('port', '')
+        if port_filter:
+            try:
+                flow_port = svc.get('port') or flow.get('dst_port')
+                if flow_port is None or int(flow_port) != int(port_filter):
+                    return False
+            except (ValueError, TypeError):
+                pass
+
+        proto_filter = filters.get('proto')
+        if proto_filter:
+            try:
+                flow_proto = svc.get('proto') or flow.get('proto')
+                if flow_proto is None or int(flow_proto) != int(proto_filter):
+                    return False
+            except (ValueError, TypeError):
+                pass
+
+        # ── Exclude filters (must NOT match) ──────────────────────────────────
+        for lbl in (filters.get('ex_src_labels') or []):
+            if lbl and _label_match(src, lbl):
+                return False
+        for lbl in (filters.get('ex_dst_labels') or []):
+            if lbl and _label_match(dst, lbl):
+                return False
+        if filters.get('ex_src_ip') and _ip_match(src, filters['ex_src_ip']):
+            return False
+        if filters.get('ex_dst_ip') and _ip_match(dst, filters['ex_dst_ip']):
+            return False
+
+        ex_port = filters.get('ex_port', '')
+        if ex_port:
+            try:
+                flow_port = svc.get('port') or flow.get('dst_port')
+                if flow_port is not None and int(flow_port) == int(ex_port):
+                    return False
+            except (ValueError, TypeError):
+                pass
+
+        return True
+
     def fetch_traffic_for_report(self, start_time_str, end_time_str,
-                                 policy_decisions=None):
+                                 policy_decisions=None, filters=None):
         """
         Convenience wrapper for report generation.
-        Collects all results from execute_traffic_query_stream() into a list.
-        Returns: list[dict] — all flow records, or empty list on failure.
+        Fetches all traffic from PCE then applies Python-side filters.
+        Returns: list[dict] — filtered flow records, or empty list on failure.
         """
         if policy_decisions is None:
             policy_decisions = ["blocked", "potentially_blocked", "allowed"]
 
         stream = self.execute_traffic_query_stream(
-            start_time_str, end_time_str, policy_decisions
+            start_time_str, end_time_str, policy_decisions, filters=filters
         )
         if stream is None:
             return []
-        return list(stream)
+
+        records = list(stream)
+
+        # Apply Python-side filters if specified (PCE API-level filtering is not used
+        # because label key/value format is not reliably accepted by the async query API)
+        if filters:
+            before = len(records)
+            records = [r for r in records if self._flow_matches_filters(r, filters)]
+            after = len(records)
+            if before != after:
+                logger.info(f"[ReportFilter] {before} → {after} flows after applying filters")
+
+        return records
 
     # ═══════════════════════════════════════════════════════════════════════════════
     # Quarantine Feature: Labels and Workloads

@@ -236,7 +236,7 @@
           <table class="rule-table">
             <thead>
               <tr>
-                <th style="width:30px;text-align:center;"><input type="checkbox" id="qt-chkall"
+                <th style="width:44px;text-align:center;"><input type="checkbox" id="qt-chkall"
                     onchange="toggleQChecks('qt-chk')"></th>
                 <th style="width:120px" data-i18n="gui_metric">Metric</th>
                 <th style="width:110px" data-i18n="gui_first_last_seen">First/Last Seen</th>
@@ -476,7 +476,7 @@
       <table class="rule-table">
         <thead>
           <tr>
-            <th style="width:30px"><input type="checkbox" id="r-chkall" onchange="toggleAll(this)"></th>
+            <th style="width:44px"><input type="checkbox" id="r-chkall" onchange="toggleAll(this)"></th>
             <th data-i18n="gui_col_type">Type</th>
             <th data-i18n="gui_col_name">Name</th>
             <th style="width:110px" data-i18n="gui_col_status">Status</th>
@@ -555,7 +555,7 @@
         <table class="rule-table">
           <thead>
             <tr>
-              <th style="width:30px;"><input type="checkbox" id="rt-chkall" onchange="toggleReportChecks(this)"></th>
+              <th style="width:44px;"><input type="checkbox" id="rt-chkall" onchange="toggleReportChecks(this)"></th>
               <th data-i18n="gui_col_filename">Filename</th>
               <th data-i18n="gui_col_date_created">Date Created</th>
               <th data-i18n="gui_col_size">Size</th>
@@ -613,7 +613,7 @@
       <div class="form-row">
         <div class="form-group">
           <label data-i18n="gui_sched_report_type">Report Type</label>
-          <select id="sched-report-type" style="width:100%;">
+          <select id="sched-report-type" style="width:100%;" onchange="onSchedReportTypeChange()">
             <option value="traffic" data-i18n="gui_sched_rt_traffic">Traffic Flow Report</option>
             <option value="audit" data-i18n="gui_sched_rt_audit">Audit Report</option>
             <option value="ven_status" data-i18n="gui_sched_rt_ven">VEN Status Report</option>
@@ -680,6 +680,52 @@
         <textarea id="sched-recipients" rows="3" style="width:100%;resize:vertical;"
           placeholder="one@example.com&#10;two@example.com"></textarea>
         <small style="color:var(--dim)" data-i18n="gui_sched_recipients_hint">One email per line.</small>
+      </div>
+
+      <div id="sched-filter-section" style="display:none; margin-top:12px; padding:10px; background:var(--surface2,var(--bg2)); border-radius:6px; border:1px solid var(--border);">
+        <div style="font-size:12px; font-weight:600; color:var(--fg); margin-bottom:8px;" data-i18n="rpt_filter_toggle">Traffic Filters (optional)</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_pd">Policy Decision</label>
+            <div style="margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
+              <label style="font-size:11px;"><input type="checkbox" id="sched-pd-blocked"> <span data-i18n="rpt_pd_blocked">Blocked</span></label>
+              <label style="font-size:11px;"><input type="checkbox" id="sched-pd-potential"> <span data-i18n="rpt_pd_potential">Potentially Blocked</span></label>
+              <label style="font-size:11px;"><input type="checkbox" id="sched-pd-allowed"> <span data-i18n="rpt_pd_allowed">Allowed</span></label>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_proto">Protocol</label>
+            <select id="sched-proto" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px;">
+              <option value="" data-i18n="rpt_proto_all">All Protocols</option>
+              <option value="6">TCP</option>
+              <option value="17">UDP</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_src">Source</label>
+            <input type="text" id="sched-src" placeholder="env=Production" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_dst">Destination</label>
+            <input type="text" id="sched-dst" placeholder="app=Database" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_port">Port</label>
+            <input type="text" id="sched-port" placeholder="443" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_src">Exclude Source</label>
+            <input type="text" id="sched-ex-src" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_dst">Exclude Destination</label>
+            <input type="text" id="sched-ex-dst" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_port">Exclude Port</label>
+            <input type="text" id="sched-ex-port" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+        </div>
       </div>
 
       <div class="modal-actions">
@@ -1305,6 +1351,54 @@
             <input type="date" id="m-gen-end">
           </div>
         </div>
+      </div>
+      <div id="m-gen-filters" style="display:none; margin-top:10px;">
+        <details>
+          <summary style="cursor:pointer; font-size:12px; color:var(--dim); padding:4px 0;" data-i18n="rpt_filter_toggle">▶ Traffic Filters (optional)</summary>
+          <div style="margin-top:8px; padding:10px; background:var(--surface2,var(--bg2)); border-radius:6px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_pd">Policy Decision</label>
+              <div style="margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
+                <label style="font-size:11px;"><input type="checkbox" id="rpt-pd-blocked" value="blocked"> <span data-i18n="rpt_pd_blocked">Blocked</span></label>
+                <label style="font-size:11px;"><input type="checkbox" id="rpt-pd-potential" value="potentially_blocked"> <span data-i18n="rpt_pd_potential">Potentially Blocked</span></label>
+                <label style="font-size:11px;"><input type="checkbox" id="rpt-pd-allowed" value="allowed"> <span data-i18n="rpt_pd_allowed">Allowed</span></label>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_proto">Protocol</label>
+              <select id="rpt-proto" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px;">
+                <option value="" data-i18n="rpt_proto_all">All Protocols</option>
+                <option value="6">TCP</option>
+                <option value="17">UDP</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_src">Source (label key:val or IP)</label>
+              <input type="text" id="rpt-src" placeholder="env=Production" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_dst">Destination (label key=value or IP)</label>
+              <input type="text" id="rpt-dst" placeholder="app=Database" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_port">Port</label>
+              <input type="text" id="rpt-port" placeholder="443" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div></div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_src">Exclude Source</label>
+              <input type="text" id="rpt-ex-src" placeholder="env=Dev" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_dst">Exclude Destination</label>
+              <input type="text" id="rpt-ex-dst" placeholder="" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_port">Exclude Port</label>
+              <input type="text" id="rpt-ex-port" placeholder="" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+          </div>
+        </details>
       </div>
       <p id="m-gen-note" style="display:none;font-size:0.85rem;color:var(--dim);margin-top:8px;" data-i18n="gui_gen_snapshot_note">
         Live snapshot — queries all managed VENs' current status, no date range needed.

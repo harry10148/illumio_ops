@@ -2,6 +2,10 @@
 src/report/analysis/audit/audit_mod00_executive.py
 Module 0: Executive Summary for Audit Report
 Combines insights from mod01, mod02, and mod03.
+
+Enhanced KPIs leveraging newly extracted fields:
+- Unique Admin Source IPs (insider threat baseline)
+- Total Workloads Affected by provisioned policies
 """
 import pandas as pd
 import datetime
@@ -37,9 +41,25 @@ def audit_executive_summary(results: dict, df: pd.DataFrame) -> dict:
     provisions = mod03.get('provision_count', 0)
     kpis.append({'label': 'Policy Provisions', 'value': str(provisions)})
 
-    # KPI 7: Rule Changes
+    # KPI 7: Rule Changes (Draft)
     rule_changes = mod03.get('rule_change_count', 0)
-    kpis.append({'label': 'Rule Changes', 'value': str(rule_changes)})
+    kpis.append({'label': 'Rule Changes (Draft)', 'value': str(rule_changes)})
+
+    # KPI 8: High-Risk Events
+    kpis.append({'label': 'High-Risk Events', 'value': str(mod03.get('high_risk_count', 0))})
+
+    # KPI 9: Total Workloads Affected (all provisions combined)
+    total_wa = mod03.get('total_workloads_affected', 0)
+    if total_wa > 0:
+        kpis.append({'label': 'Workloads Affected', 'value': f"{total_wa:,}"})
+
+    # KPI 10: Unique Admin Source IPs
+    unique_ips = 0
+    if 'src_ip' in df.columns:
+        non_empty = df['src_ip'].astype(str).str.strip().replace('', pd.NA).dropna()
+        unique_ips = int(non_empty.nunique())
+    if unique_ips > 0:
+        kpis.append({'label': 'Unique Admin IPs', 'value': str(unique_ips)})
 
     # Top Event Types overall
     top_events = pd.DataFrame()
@@ -53,9 +73,55 @@ def audit_executive_summary(results: dict, df: pd.DataFrame) -> dict:
         severity_dist = df['severity'].value_counts().reset_index()
         severity_dist.columns = ['Severity', 'Count']
 
+    # ── Build attention items — MEDIUM+ risk events that need review ──────────
+    from src.report.analysis.audit.audit_risk import AUDIT_RISK_MAP, RISK_ORDER, get_risk
+
+    attention_items = []
+    if not df.empty and 'event_type' in df.columns:
+        for etype, (risk, desc, rec) in AUDIT_RISK_MAP.items():
+            if RISK_ORDER.get(risk, 99) > RISK_ORDER.get('MEDIUM', 2):
+                continue  # Skip LOW and INFO
+            subset = df[df['event_type'] == etype]
+            if subset.empty:
+                continue
+            count = len(subset)
+            actors = []
+            if 'created_by' in subset.columns:
+                actors = subset['created_by'].dropna().unique().tolist()[:3]
+
+            # Enrich with workloads_affected for sec_policy.create
+            extra = ''
+            if etype == 'sec_policy.create' and 'workloads_affected' in subset.columns:
+                total = subset['workloads_affected'].sum()
+                if total:
+                    extra = f" ({int(total)} workload(s) affected)"
+
+            # Enrich with source IPs for admin-initiated events
+            src_ips = []
+            if 'src_ip' in subset.columns:
+                src_ips = (
+                    subset['src_ip'].astype(str).str.strip()
+                    .replace('', pd.NA).dropna()
+                    .unique().tolist()[:3]
+                )
+
+            attention_items.append({
+                'risk': risk,
+                'event_type': etype,
+                'count': count,
+                'summary': desc + extra,
+                'actors': [str(a) for a in actors],
+                'src_ips': [str(ip) for ip in src_ips],
+                'recommendation': rec,
+            })
+
+    # Sort by risk level
+    attention_items.sort(key=lambda x: RISK_ORDER.get(x['risk'], 99))
+
     return {
         'generated_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'kpis': kpis,
         'top_events_overall': top_events,
         'severity_distribution': severity_dist,
+        'attention_items': attention_items,
     }

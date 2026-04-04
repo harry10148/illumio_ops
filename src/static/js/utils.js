@@ -211,21 +211,20 @@ document.addEventListener('click', function (e) {
 });
 
 async function init() {
-  await loadTranslations();
-  await loadStatus();
-  await loadDashboardQueries();
-  setInterval(loadStatus, 30000);
   const params = new URLSearchParams(window.location.search);
   const tab = params.get('tab');
-  if (tab && ['dashboard', 'rules', 'reports', 'settings', 'rule-scheduler'].includes(tab)) {
-    switchTab(tab, false);
-  }
+  const validTabs = ['dashboard', 'rules', 'reports', 'settings', 'rule-scheduler'];
+  const initialTab = (tab && validTabs.includes(tab)) ? tab : 'dashboard';
+  switchTab(initialTab, false);
   const qtab = params.get('qtab');
   if (qtab && ['traffic', 'workloads', 'legacy'].includes(qtab)) {
     switchQTab(qtab, false);
   }
-  hideAll();
+  // Refresh dashboard status every 30s
+  setInterval(() => { if (document.querySelector('.tab.active[data-tab="dashboard"]')) loadDashboard(); }, 30000);
 }
+
+document.addEventListener('DOMContentLoaded', init);
 
 function hideAll() {
   // Helper to close popovers when clicking outside

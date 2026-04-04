@@ -94,8 +94,12 @@ class VenStatusGenerator:
             agent = w.get('agent') or {}
             st = agent.get('status') or {}
 
-            # Collect interface IPs
-            ips = [iface.get('address', '') for iface in w.get('interfaces', []) if iface.get('address')]
+            # Collect IPv4 interface IPs only (skip IPv6 / link-local)
+            ips = [
+                iface.get('address', '')
+                for iface in w.get('interfaces', [])
+                if iface.get('address') and ':' not in iface['address']
+            ]
             ip_str = ', '.join(ips) or w.get('public_ip', '')
 
             # Flatten labels
