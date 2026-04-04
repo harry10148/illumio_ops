@@ -317,13 +317,23 @@ class Analyzer:
 
                 if count_val >= rule["threshold_count"] and count_val > 0:
                     if self._check_cooldown(rule):
+                        first = matches[0] if matches else {}
+                        cb = first.get("created_by") or {}
+                        resource = first.get("resource") or {}
+                        src_ip = first.get("src_ip") or ""
+                        # For user/request events, resource.user.username is the attempted account
+                        res_user = (resource.get("user") or {}).get("username") or ""
+                        cb_user = (cb.get("user") or {}).get("username") or ""
+                        cb_agent = (cb.get("agent") or {}).get("hostname") or ""
+                        actor = res_user or cb_user or cb_agent or "System"
+                        source = actor + (f" | {src_ip}" if src_ip else "")
                         self.reporter.add_event_alert({
-                            "time": matches[0].get("timestamp") if matches else "N/A",
+                            "time": first.get("timestamp", "N/A"),
                             "rule": rule["name"],
                             "desc": rule.get("desc"),
-                            "severity": matches[0].get("severity", "info") if matches else "info",
+                            "severity": first.get("severity", "info"),
                             "count": count_val,
-                            "source": matches[0].get("created_by", {}).get("agent", {}).get("hostname", "System") if matches else "N/A",
+                            "source": source,
                             "raw_data": matches[:5]
                         })
 

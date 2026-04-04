@@ -281,9 +281,25 @@ class Reporter:
             for a in self.event_alerts:
                 sev = clean(str(a.get('severity', '')).upper())
                 cnt = a.get('count', 0)
-                lines.append(f"  [{clean(a.get('time',''))}] {clean(a.get('rule',''))} ({sev} ×{cnt})")
+                lines.append(f"  [{clean(a.get('time','')[:19])}] {clean(a.get('rule',''))} ({sev} ×{cnt})")
                 if a.get('desc'):
                     lines.append(f"  {clean(a['desc'])}")
+                source = clean(a.get('source', ''))
+                if source and source != 'System':
+                    lines.append(f"  來源: {source}")
+                # Show first event details (username / IP)
+                raw = a.get('raw_data') or []
+                if raw:
+                    ev0 = raw[0]
+                    resource = ev0.get('resource') or {}
+                    res_user = (resource.get('user') or {}).get('username') or ''
+                    cb_user = ((ev0.get('created_by') or {}).get('user') or {}).get('username') or ''
+                    username = res_user or cb_user
+                    src_ip = ev0.get('src_ip') or ''
+                    if username:
+                        lines.append(f"  帳號: {clean(username)}")
+                    if src_ip:
+                        lines.append(f"  IP: {clean(src_ip)}")
 
         if self.traffic_alerts:
             lines.append(f"\n🛡 {t('traffic_alerts_header')}")
@@ -508,9 +524,15 @@ class Reporter:
                 if name:
                     extras.append(f"Resource: {name}")
             elif event_type.startswith(('user.', 'request.')):
+                resource = ev.get('resource') or {}
+                res_user = (resource.get('user') or {}).get('username') or ''
+                cb_user = ((ev.get('created_by') or {}).get('user') or {}).get('username') or ''
+                username = res_user or cb_user
                 src_ip = ev.get('src_ip') or ''
+                if username:
+                    extras.append(f"User: {username}")
                 if src_ip:
-                    extras.append(f"Source IP: {src_ip}")
+                    extras.append(f"IP: {src_ip}")
             elif event_type.startswith('agent.'):
                 wl_name = (after or before).get('hostname') or (after or before).get('name') or ''
                 if wl_name:
