@@ -557,26 +557,24 @@ class Analyzer:
             port = svc.get('port', 'All') or f.get('dst_port', 'All')
 
             # Detailed Attribution
-            s_proc = (src.get('process_name') or "").lower()
-            s_user = (src.get('user_name') or "").lower()
-            d_proc = (dst.get('process_name') or svc.get('process_name') or "").lower()
-            d_user = (dst.get('user_name') or svc.get('user_name') or "").lower()
+            # process_name / user_name come from the service object (source-side VEN telemetry)
+            # They do NOT live in src or dst objects
+            svc_proc = (svc.get('process_name') or "").lower()
+            svc_user = (svc.get('user_name') or "").lower()
             svc_name = (svc.get("name") or "").lower()
 
             if search_query:
                 s_ip = str(src.get('ip', '')).lower()
                 d_ip = str(dst.get('ip', '')).lower()
-                
+
                 matches_search = (
-                    search_query in s_name.lower() or 
+                    search_query in s_name.lower() or
                     search_query in d_name.lower() or
-                    search_query in s_ip or 
+                    search_query in s_ip or
                     search_query in d_ip or
                     search_query == str(port).lower() or
-                    search_query in s_proc or
-                    search_query in s_user or
-                    search_query in d_proc or
-                    search_query in d_user or
+                    search_query in svc_proc or
+                    search_query in svc_user or
                     search_query in svc_name
                 )
                 
@@ -599,16 +597,18 @@ class Analyzer:
                 "ip": src.get('ip'),
                 "href": src.get('workload', {}).get('href'),
                 "labels": src.get('workload', {}).get('labels', []),
-                "process": src.get('process_name') or "",
-                "user": src.get('user_name') or ""
+                # process/user from service object = source workload's VEN telemetry
+                "process": svc.get('process_name') or "",
+                "user": svc.get('user_name') or ""
             }
             f_copy['destination'] = {
                 "name": d_name,
                 "ip": dst.get('ip'),
                 "href": dst.get('workload', {}).get('href'),
                 "labels": dst.get('workload', {}).get('labels', []),
-                "process": dst.get('process_name') or svc.get('process_name') or "",
-                "user": dst.get('user_name') or svc.get('user_name') or ""
+                # destination has no process/user attribution in Illumio flow records
+                "process": "",
+                "user": ""
             }
             f_copy['service'] = {
                 "port": port,
