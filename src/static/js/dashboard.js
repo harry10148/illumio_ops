@@ -370,7 +370,8 @@ function openReportGenModal(type) {
     ['rpt-pd-blocked','rpt-pd-potential','rpt-pd-allowed'].forEach(id => {
       const el = document.getElementById(id); if (el) el.checked = false;
     });
-    ['rpt-proto','rpt-src','rpt-dst','rpt-port','rpt-ex-src','rpt-ex-dst','rpt-ex-port'].forEach(id => {
+    ['rpt-proto','rpt-src','rpt-dst','rpt-port','rpt-ex-src','rpt-ex-dst','rpt-ex-port',
+     'rpt-any-label','rpt-any-ip','rpt-ex-any-label','rpt-ex-any-ip'].forEach(id => {
       const el = document.getElementById(id); if (el) el.value = '';
     });
   } else {
@@ -433,13 +434,17 @@ function _collectReportFilters() {
   if (pdAllowed  && pdAllowed.checked)   pds.push('allowed');
   if (!pds.length) pds = null; // null means all
 
-  const src    = get('rpt-src');
-  const dst    = get('rpt-dst');
-  const port   = get('rpt-port');
-  const proto  = get('rpt-proto');
-  const exSrc  = get('rpt-ex-src');
-  const exDst  = get('rpt-ex-dst');
-  const exPort = get('rpt-ex-port');
+  const src        = get('rpt-src');
+  const dst        = get('rpt-dst');
+  const port       = get('rpt-port');
+  const proto      = get('rpt-proto');
+  const exSrc      = get('rpt-ex-src');
+  const exDst      = get('rpt-ex-dst');
+  const exPort     = get('rpt-ex-port');
+  const anyLabel   = get('rpt-any-label');
+  const anyIp      = get('rpt-any-ip');
+  const exAnyLabel = get('rpt-ex-any-label');
+  const exAnyIp    = get('rpt-ex-any-ip');
 
   // Heuristic: if value contains digit+dot or slash, treat as IP/CIDR; else as label key:value
   const parseSrcDst = val => {
@@ -453,7 +458,7 @@ function _collectReportFilters() {
   const exSrcP = parseSrcDst(exSrc);
   const exDstP = parseSrcDst(exDst);
 
-  const hasFilter = pds || src || dst || port || proto || exSrc || exDst || exPort;
+  const hasFilter = pds || src || dst || port || proto || exSrc || exDst || exPort || anyLabel || anyIp || exAnyLabel || exAnyIp;
   if (!hasFilter) return null;
 
   return {
@@ -469,6 +474,10 @@ function _collectReportFilters() {
     ex_dst_labels: exDstP.labels,
     ex_dst_ip:     exDstP.ip,
     ex_port:       exPort,
+    any_label:     anyLabel || null,
+    any_ip:        anyIp || null,
+    ex_any_label:  exAnyLabel || null,
+    ex_any_ip:     exAnyIp || null,
   };
 }
 
@@ -487,13 +496,17 @@ function _collectSchedFilters() {
   if (pdAllowed  && pdAllowed.checked)   pds.push('allowed');
   if (!pds.length) pds = null;
 
-  const src    = get('sched-src');
-  const dst    = get('sched-dst');
-  const port   = get('sched-port');
-  const proto  = get('sched-proto');
-  const exSrc  = get('sched-ex-src');
-  const exDst  = get('sched-ex-dst');
-  const exPort = get('sched-ex-port');
+  const src        = get('sched-src');
+  const dst        = get('sched-dst');
+  const port       = get('sched-port');
+  const proto      = get('sched-proto');
+  const exSrc      = get('sched-ex-src');
+  const exDst      = get('sched-ex-dst');
+  const exPort     = get('sched-ex-port');
+  const anyLabel   = get('sched-any-label');
+  const anyIp      = get('sched-any-ip');
+  const exAnyLabel = get('sched-ex-any-label');
+  const exAnyIp    = get('sched-ex-any-ip');
 
   const parseSrcDst = val => {
     if (!val) return { labels: [], ip: '' };
@@ -506,7 +519,7 @@ function _collectSchedFilters() {
   const exSrcP = parseSrcDst(exSrc);
   const exDstP = parseSrcDst(exDst);
 
-  const hasFilter = pds || src || dst || port || proto || exSrc || exDst || exPort;
+  const hasFilter = pds || src || dst || port || proto || exSrc || exDst || exPort || anyLabel || anyIp || exAnyLabel || exAnyIp;
   if (!hasFilter) return null;
 
   return {
@@ -522,6 +535,10 @@ function _collectSchedFilters() {
     ex_dst_labels: exDstP.labels,
     ex_dst_ip:     exDstP.ip,
     ex_port:       exPort,
+    any_label:     anyLabel || null,
+    any_ip:        anyIp || null,
+    ex_any_label:  exAnyLabel || null,
+    ex_any_ip:     exAnyIp || null,
   };
 }
 
@@ -545,7 +562,11 @@ function _populateSchedFilters(filters) {
   setVal('sched-ex-src', exSrcLabel || filters.ex_src_ip || '');
   const exDstLabel = (filters.ex_dst_labels || []).join('');
   setVal('sched-ex-dst', exDstLabel || filters.ex_dst_ip || '');
-  setVal('sched-ex-port', filters.ex_port || '');
+  setVal('sched-ex-port',     filters.ex_port || '');
+  setVal('sched-any-label',   filters.any_label || '');
+  setVal('sched-any-ip',      filters.any_ip || '');
+  setVal('sched-ex-any-label', filters.ex_any_label || '');
+  setVal('sched-ex-any-ip',   filters.ex_any_ip || '');
 }
 
 async function _doGenerateTraffic() {

@@ -738,6 +738,22 @@
             <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_port">Exclude Port</label>
             <input type="text" id="sched-ex-port" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
           </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="gui_any_label">Either Side Label (src OR dst)</label>
+            <input type="text" id="sched-any-label" placeholder="env=Production" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="gui_any_ip">Either Side IP (src OR dst)</label>
+            <input type="text" id="sched-any-ip" placeholder="10.0.1.5" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="gui_ex_any_label">Exclude Either Side Label</label>
+            <input type="text" id="sched-ex-any-label" placeholder="env=Dev" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px; color:var(--dim);" data-i18n="gui_ex_any_ip">Exclude Either Side IP</label>
+            <input type="text" id="sched-ex-any-ip" placeholder="192.168.0.0/16" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+          </div>
         </div>
       </div>
 
@@ -1433,6 +1449,22 @@
             <div>
               <label style="font-size:11px; color:var(--dim);" data-i18n="rpt_filter_ex_port">Exclude Port</label>
               <input type="text" id="rpt-ex-port" placeholder="" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="gui_any_label">Either Side Label (src OR dst)</label>
+              <input type="text" id="rpt-any-label" placeholder="env=Production" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="gui_any_ip">Either Side IP (src OR dst)</label>
+              <input type="text" id="rpt-any-ip" placeholder="10.0.1.5" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="gui_ex_any_label">Exclude Either Side Label</label>
+              <input type="text" id="rpt-ex-any-label" placeholder="env=Dev" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px; color:var(--dim);" data-i18n="gui_ex_any_ip">Exclude Either Side IP</label>
+              <input type="text" id="rpt-ex-any-ip" placeholder="192.168.0.0/16" style="width:100%; padding:4px; font-size:11px; background:var(--surface,var(--bg2)); color:var(--fg); border:1px solid var(--border); border-radius:4px; margin-top:4px; box-sizing:border-box;">
             </div>
           </div>
         </details>
