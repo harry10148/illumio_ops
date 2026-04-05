@@ -8,6 +8,7 @@ const jsStr = s => (s == null ? '' : String(s))
   .replace(/"/g, '&quot;');  // " → &quot; (keeps HTML attribute valid)
 let rsCurrentPage = 1;
 let rsSearchQuery = '';
+let rsSearchScope = 'rs_name';
 let rsSelectedRsId = null;
 
 function rsLoadTab() {
@@ -74,11 +75,76 @@ function reportsSubTab(which) {
 }
 
 /* ── Search & fetch rulesets ── */
+function rsDoSearch() {
+  const scope = $('rs-search-scope') ? $('rs-search-scope').value : 'rs_name';
+  const q = $('rs-search') ? $('rs-search').value.trim() : '';
+  if (scope === 'rule_id' || scope === 'rule_desc') {
+    rsFetchRulesBySearch(q, scope === 'rule_id' ? 'id' : 'desc');
+  } else {
+    rsSearchQuery = (scope === 'rs_id') ? q : q;
+    rsSearchScope = scope;
+    rsCurrentPage = 1;
+    rsFetchRulesets();
+  }
+}
+
+function rsResetSearch() {
+  if ($('rs-search')) $('rs-search').value = '';
+  rsSearchQuery = '';
+  rsSearchScope = 'rs_name';
+  rsCurrentPage = 1;
+  rsFetchRulesets();
+}
+
 function rsSearchRulesets(q) {
   if (q === undefined) q = ($('rs-search') ? $('rs-search').value.trim() : '');
   rsSearchQuery = q;
   rsCurrentPage = 1;
   rsFetchRulesets();
+}
+
+async function rsFetchRulesBySearch(q, scope) {
+  const tbody = $('rs-rulesets-body');
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_searching || 'Searching rules...') + '</td></tr>';
+  $('rs-pagination').innerHTML = '';
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30000);
+    const res = await fetch('/api/rule_scheduler/rules/search?' + new URLSearchParams({ q, scope }), { signal: ctrl.signal });
+    clearTimeout(timer);
+    const data = await res.json();
+    tbody.innerHTML = '';
+    if (!data.items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_no_results || 'No results found.') + '</td></tr>';
+      return;
+    }
+    data.items.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.onclick = function() { rsViewRuleset(item.rs_id); };
+      const ruleTypeBadge = item.rule_type === 'override_deny'
+        ? '<span class="rs-badge rs-badge-block" style="font-size:.7rem;">Override Deny</span>'
+        : item.rule_type === 'deny'
+          ? '<span class="rs-badge rs-badge-off" style="font-size:.7rem;">Deny</span>'
+          : '<span class="rs-badge rs-badge-on" style="font-size:.7rem;">Allow</span>';
+      const stBadge = item.enabled
+        ? '<span class="rs-badge rs-badge-on">ON</span>'
+        : '<span class="rs-badge rs-badge-off">OFF</span>';
+      tr.innerHTML =
+        '<td></td>' +
+        '<td style="color:var(--accent2);font-weight:600;">' + item.rule_id + '</td>' +
+        '<td></td>' +
+        '<td>' + stBadge + '</td>' +
+        '<td>' + item.rs_name.length > 20 ? escapeHtml(item.rs_name.substring(0,20)) + '…' : escapeHtml(item.rs_name) + '</td>' +
+        '<td>' + ruleTypeBadge + ' ' + escapeHtml(item.description || '(' + (_translations.gui_rs_no_desc || 'no desc') + ')') + '</td>';
+      tbody.appendChild(tr);
+    });
+    $('rs-pagination').innerHTML = '<span class="rs-pg-info">' + data.items.length + ' ' + (_translations.gui_rs_rule_results || 'rule(s) found') + '</span>';
+    initTableResizers();
+  } catch (e) {
+    const msg = e.name === 'AbortError' ? 'Request timed out' : e.message;
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
+  }
 }
 
 async function rsFetchRulesets() {
@@ -147,7 +213,7 @@ async function rsViewRuleset(rsId) {
   $('rs-detail').style.display = '';
   $('rs-detail-title').textContent = _translations.gui_rs_loading || 'Loading...';
   $('rs-detail-meta').innerHTML = '';
-  $('rs-rules-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_rules || 'Loading rules...') + '</td></tr>';
+  $('rs-rules-body').innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_rules || 'Loading rules...') + '</td></tr>';
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 30000);
@@ -192,11 +258,18 @@ async function rsViewRuleset(rsId) {
       const dstHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(dstLabel) + '\',\'' + jsStr(r.dest) + '\')">' + rsTruncate(r.dest, 25) + '</td>';
       const svcHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(svcLabel) + '\',\'' + jsStr(r.service) + '\')">' + rsTruncate(r.service, 25) + '</td>';
 
+      const ruleTypeBadge = r.rule_type === 'override_deny'
+        ? '<span class="rs-badge rs-badge-block">' + (_translations.gui_rs_rule_type_override_deny || 'Override Deny') + '</span>'
+        : r.rule_type === 'deny'
+          ? '<span class="rs-badge rs-badge-off">' + (_translations.gui_rs_rule_type_deny || 'Deny') + '</span>'
+          : '<span class="rs-badge rs-badge-on">' + (_translations.gui_rs_rule_type_allow || 'Allow') + '</span>';
       tr.innerHTML =
         '<td>' + schIcon + '</td>' +
+        '<td style="color:var(--dim);font-size:.8rem;">' + (r.no || '') + '</td>' +
         '<td>' + r.id + '</td>' +
         '<td>' + prov + '</td>' +
         '<td>' + st + '</td>' +
+        '<td>' + ruleTypeBadge + '</td>' +
         descHtml + srcHtml + dstHtml + svcHtml +
         '<td><button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(r.href) + '\',\'' + jsStr(r.description || 'Rule ' + r.id) + '\',false,\'' + jsStr(rsRow.name) + '\',\'' + jsStr(r.source) + '\',\'' + jsStr(r.dest) + '\',\'' + jsStr(r.service) + '\')">' + (_translations.gui_rs_schedule_btn || 'Schedule') + '</button></td>';
       tbody.appendChild(tr);
@@ -206,7 +279,7 @@ async function rsViewRuleset(rsId) {
   } catch (e) {
     const msg = e.name === 'AbortError' ? 'Request timed out' : e.message;
     $('rs-detail-title').textContent = 'Error';
-    $('rs-rules-body').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
+    $('rs-rules-body').innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
     toast('Failed to load ruleset detail: ' + msg, true);
   }
 }
@@ -341,11 +414,13 @@ async function rsLoadSchedules() {
       const T = _translations;
       const typeStr = s.is_ruleset ? (T.gui_rs_type_ruleset || 'RuleSet') : (T.gui_rs_type_rule || 'Rule');
       // Live status badge
-      const liveBadge = s.live_enabled === true
-        ? '<span class="rs-badge rs-badge-on">ON</span>'
-        : s.live_enabled === false
-          ? '<span class="rs-badge rs-badge-off">OFF</span>'
-          : '<span style="color:var(--dim)">--</span>';
+      const liveBadge = s.pce_status === 'deleted'
+        ? '<span class="rs-badge rs-badge-deleted">' + (_translations.gui_rs_status_deleted || '已刪除') + '</span>'
+        : s.live_enabled === true
+          ? '<span class="rs-badge rs-badge-on">ON</span>'
+          : s.live_enabled === false
+            ? '<span class="rs-badge rs-badge-off">OFF</span>'
+            : '<span style="color:var(--dim)">--</span>';
       // Action badge
       let actionBadge = '';
       if (s.type === 'recurring') {

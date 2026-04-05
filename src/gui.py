@@ -1574,16 +1574,65 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         for rs in page_items:
             stype = db.get_schedule_type(rs)
             ut = rs.get('update_type')
+            all_rules_count = (len(rs.get('rules', [])) + len(rs.get('sec_rules', [])) +
+                               len(rs.get('deny_rules', [])))
             results.append({
                 "href": rs['href'],
                 "id": extract_id(rs['href']),
                 "name": rs.get('name', ''),
                 "enabled": rs.get('enabled', False),
-                "rules_count": len(rs.get('rules', [])),
+                "rules_count": all_rules_count,
                 "schedule_type": stype,
                 "provision_state": "DRAFT" if ut else "ACTIVE"
             })
         return jsonify({"items": results, "total": total, "page": page, "size": size})
+
+    @app.route('/api/rule_scheduler/rules/search')
+    def rs_rules_search():
+        db, api, _ = _get_rs_components()
+        q = request.args.get('q', '').strip()
+        scope = request.args.get('scope', 'desc')  # 'id' or 'desc'
+        if not q:
+            return jsonify({"items": []})
+        try:
+            api.update_label_cache(silent=True)
+        except Exception:
+            pass
+        all_rs = api.get_all_rulesets()
+        results = []
+        q_lower = q.lower()
+        for rs in all_rs:
+            rs_id = extract_id(rs['href'])
+            rs_name = rs.get('name', '')
+            typed_rules = []
+            for r in rs.get('sec_rules', []) + rs.get('rules', []):
+                typed_rules.append((r, 'allow'))
+            for r in rs.get('deny_rules', []):
+                rule_type = 'override_deny' if r.get('override') else 'deny'
+                typed_rules.append((r, rule_type))
+            # Assign no per type section
+            no_counters = {'allow': 0, 'deny': 0, 'override_deny': 0}
+            for r, rule_type in typed_rules:
+                no_counters[rule_type] += 1
+                rule_id = extract_id(r['href'])
+                desc = r.get('description', '') or ''
+                matched = (scope == 'id' and q == rule_id) or \
+                          (scope == 'desc' and q_lower in desc.lower())
+                if matched:
+                    dest_field = r.get('destinations', r.get('consumers', []))
+                    results.append({
+                        "rs_id": rs_id,
+                        "rs_name": rs_name,
+                        "rule_id": rule_id,
+                        "rule_no": no_counters[rule_type],
+                        "rule_type": rule_type,
+                        "enabled": r.get('enabled', False),
+                        "description": desc,
+                        "source": api.resolve_actor_str(dest_field),
+                        "dest": api.resolve_actor_str(r.get('providers', [])),
+                        "service": api.resolve_service_str(r.get('ingress_services', [])),
+                    })
+        return jsonify({"items": results})
 
     @app.route('/api/rule_scheduler/rulesets/<rs_id>')
     def rs_ruleset_detail(rs_id):
@@ -1611,19 +1660,31 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         }
 
         rules = []
-        for r in rs.get('rules', []):
+        scheduled_hrefs = db.get_all()
+        typed_rules = []
+        for r in rs.get('sec_rules', []) + rs.get('rules', []):
+            typed_rules.append((r, 'allow'))
+        for r in rs.get('deny_rules', []):
+            rule_type = 'override_deny' if r.get('override') else 'deny'
+            typed_rules.append((r, rule_type))
+
+        no_counters = {'allow': 0, 'deny': 0, 'override_deny': 0}
+        for r, rule_type in typed_rules:
+            no_counters[rule_type] += 1
             r_ut = r.get('update_type')
             dest_field = r.get('destinations', r.get('consumers', []))
             rules.append({
                 "href": r['href'],
                 "id": extract_id(r['href']),
+                "no": no_counters[rule_type],
                 "enabled": r.get('enabled', False),
                 "description": r.get('description', ''),
                 "provision_state": "DRAFT" if r_ut else "ACTIVE",
-                "is_scheduled": r['href'] in db.get_all(),
+                "is_scheduled": r['href'] in scheduled_hrefs,
                 "source": api.resolve_actor_str(dest_field),
                 "dest": api.resolve_actor_str(r.get('providers', [])),
                 "service": api.resolve_service_str(r.get('ingress_services', [])),
+                "rule_type": rule_type,
                 "type": "rule"
             })
         return jsonify({"ruleset": rs_row, "rules": rules})
@@ -1643,6 +1704,17 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if status == 200 and data:
                     entry['live_enabled'] = data.get('enabled')
                     entry['live_name'] = data.get('name', conf.get('name', ''))
+                    if conf.get('pce_status') == 'deleted':
+                        conf['pce_status'] = 'active'
+                        db.put(href, conf)
+                        entry['pce_status'] = 'active'
+                elif status == 404:
+                    entry['live_enabled'] = None
+                    entry['live_name'] = conf.get('name', '')
+                    if conf.get('pce_status') != 'deleted':
+                        conf['pce_status'] = 'deleted'
+                        db.put(href, conf)
+                    entry['pce_status'] = 'deleted'
                 else:
                     entry['live_enabled'] = None
                     entry['live_name'] = conf.get('name', '')

@@ -469,6 +469,9 @@ class _RuleSchedulerCLI:
 
                 status, live_data = self.api.get_live_item(h)
                 if status == 200 and live_data:
+                    if c.get('pce_status') == 'deleted':
+                        c['pce_status'] = 'active'
+                        self.db.put(h, c)
                     live_name = live_data.get('name', c['name'])
                     raw_name = truncate(f"[RS] {live_name}", 25)
                     display_name = f"{Colors.BOLD}{raw_name:<25}{Colors.ENDC}"
@@ -476,6 +479,9 @@ class _RuleSchedulerCLI:
                     raw_name = truncate(f"[RS] {c.get('name', rs_name)} (Failed)", 25)
                     display_name = f"{Colors.WARNING}{raw_name:<25}{Colors.ENDC}"
                 else:
+                    if c.get('pce_status') != 'deleted':
+                        c['pce_status'] = 'deleted'
+                        self.db.put(h, c)
                     raw_name = truncate(f"[RS] {t('rs_list_deleted')}", 25)
                     display_name = f"{Colors.FAIL}{raw_name:<25}{Colors.ENDC}"
 
@@ -501,6 +507,9 @@ class _RuleSchedulerCLI:
 
                 status, live_data = self.api.get_live_item(h)
                 if status == 200 and live_data:
+                    if c.get('pce_status') == 'deleted':
+                        c['pce_status'] = 'active'
+                        self.db.put(h, c)
                     dest_field = live_data.get('destinations', live_data.get('consumers', []))
                     src = truncate(self.api.resolve_actor_str(dest_field), 12)
                     dst = truncate(self.api.resolve_actor_str(live_data.get('providers', [])), 12)
@@ -526,6 +535,9 @@ class _RuleSchedulerCLI:
                     raw_name = truncate(f" └─ (Failed connection)", 25)
                     display_name = f"{Colors.WARNING}{raw_name:<25}{Colors.ENDC}"
                 else:
+                    if c.get('pce_status') != 'deleted':
+                        c['pce_status'] = 'deleted'
+                        self.db.put(h, c)
                     type_str = f"{Colors.FAIL}{'-':<6}{Colors.ENDC}"
                     src = dst = svc = "-"
                     raw_name = truncate(f" └─ {t('rs_list_rule_deleted')}", 25)
