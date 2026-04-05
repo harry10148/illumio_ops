@@ -11,10 +11,34 @@ import datetime
 import json
 import logging
 import os
+import re
 
 from src.i18n import t
 
 logger = logging.getLogger(__name__)
+
+
+def _tz_offset_hours(tz_str: str) -> float:
+    """Return UTC offset in hours for a timezone string like 'UTC+8' or 'UTC-5'.
+    Returns 0 for 'UTC' or 'local' (server local time is handled separately)."""
+    if not tz_str or tz_str in ('local', 'UTC'):
+        return 0.0
+    m = re.match(r'^UTC([+-])(\d+(?:\.\d+)?)$', tz_str)
+    if not m:
+        return 0.0
+    return float(m.group(1) + m.group(2))
+
+
+def _now_in_schedule_tz(tz_str: str) -> datetime.datetime:
+    """Return current naive datetime adjusted to the configured schedule timezone."""
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    if not tz_str or tz_str == 'local':
+        # Fall back to server local time
+        return datetime.datetime.now()
+    if tz_str == 'UTC':
+        return now_utc.replace(tzinfo=None)
+    offset = _tz_offset_hours(tz_str)
+    return (now_utc + datetime.timedelta(hours=offset)).replace(tzinfo=None)
 
 # State key written to state.json
 _STATE_KEY = "report_schedule_states"
@@ -81,6 +105,10 @@ class ReportScheduler:
         if last_run_str:
             try:
                 last_run = datetime.datetime.fromisoformat(last_run_str)
+                # Strip tzinfo if present (legacy UTC-stored timestamps) so
+                # subtraction works against the naive schedule-local `now`.
+                if last_run.tzinfo is not None:
+                    last_run = last_run.replace(tzinfo=None)
                 if (now - last_run).total_seconds() < _MIN_RERUN_GAP:
                     return False
             except ValueError:
@@ -355,7 +383,8 @@ class ReportScheduler:
         if not schedules:
             return
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        tz_str = self.cm.config.get('settings', {}).get('timezone', 'local')
+        now = _now_in_schedule_tz(tz_str)
 
         for sched in schedules:
             if not self.should_run(sched, now):

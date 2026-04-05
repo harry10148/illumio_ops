@@ -25,11 +25,20 @@ let _translations = {};
 let _timezone = 'local';
 
 function _tzOffsetHours() {
-  const tz = _timezone || 'UTC';
-  if (!tz || tz === 'local' || tz === 'UTC') return 0;
+  const tz = _timezone || 'local';
+  if (!tz || tz === 'UTC') return 0;
+  if (tz === 'local') return -(new Date().getTimezoneOffset() / 60);
   const m = tz.match(/^UTC([+-])(\d+(?:\.\d+)?)$/);
   if (!m) return 0;
   return parseFloat(m[1] + m[2]);
+}
+
+function _detectBrowserTimezone() {
+  const offsetHours = -(new Date().getTimezoneOffset() / 60);
+  if (offsetHours === 0) return 'UTC';
+  const sign = offsetHours > 0 ? '+' : '-';
+  const abs = Math.abs(offsetHours);
+  return `UTC${sign}${abs % 1 === 0 ? abs : abs}`;
 }
 function _utcToLocal(utcHour) {
   const off = _tzOffsetHours();

@@ -617,6 +617,7 @@ MESSAGES = {
         "gui_sched_last_error": "Last error: {error}",
         # ── Report traffic filter UI ──────────────────────────────────────────
         "rpt_filter_toggle": "Traffic Filters (optional)",
+        "rpt_apply_filters": "Apply traffic filters? (Y/N)",
         "rpt_filter_pd": "Policy Decision",
         "rpt_pd_blocked": "Blocked",
         "rpt_pd_potential": "Potentially Blocked",
@@ -1773,6 +1774,7 @@ MESSAGES = {
         "gui_sched_last_error": "上次錯誤: {error}",
         # ── Report traffic filter UI ──────────────────────────────────────────
         "rpt_filter_toggle": "流量篩選（選填）",
+        "rpt_apply_filters": "套用流量篩選？(Y/N)",
         "rpt_filter_pd": "策略決定",
         "rpt_pd_blocked": "封鎖",
         "rpt_pd_potential": "潛在封鎖",

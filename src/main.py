@@ -83,7 +83,8 @@ def run_daemon_loop(interval_minutes: int):
                     rs_db.load()
                     rs_api = ApiClient(cm)
                     rs_engine = ScheduleEngine(rs_db, rs_api)
-                    rs_engine.check(silent=True)
+                    _tz_str = cm.config.get('settings', {}).get('timezone', 'local')
+                    rs_engine.check(silent=True, tz_str=_tz_str)
                     last_rule_check_time = now
                     logger.info("Rule scheduler check completed.")
 
@@ -346,7 +347,7 @@ def _run_report_menu(cm):
         )
         sel = safe_input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('report_select_prompt')}", int, range(0, 4))
 
-        if sel == 0:
+        if sel is None or sel == 0:
             break
 
         if sel in (1, 2):
@@ -354,13 +355,15 @@ def _run_report_menu(cm):
             if isinstance(fmt, list):
                 fmt = fmt[0] if fmt else 'html'
             fmt_str = safe_input(t("report_format_prompt", fmt=fmt), str) or fmt
-            if fmt_str not in ('html', 'csv', 'all'):
+            if not fmt_str or fmt_str not in ('html', 'csv', 'all'):
                 fmt_str = 'html'
-            send_email = safe_input(t("report_email_prompt"), str).strip().lower() == 'y'
+            _send_raw = safe_input(t("report_email_prompt"), str)
+            send_email = bool(_send_raw) and _send_raw.strip().lower() == 'y'
 
             # Date range for API source
             api_start_date = None
             api_end_date = None
+            api_filters = None
             if sel == 1:
                 now = _dt.datetime.now(_dt.timezone.utc)
                 default_end = now.strftime('%Y-%m-%d')
@@ -382,15 +385,64 @@ def _run_report_menu(cm):
                     input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")
                     continue
 
+                # Optional traffic filters
+                print(f"\n{Colors.CYAN}{t('rpt_filter_toggle')}{Colors.ENDC}")
+                _apply_filters = safe_input(t("rpt_apply_filters"), str)
+                if _apply_filters and _apply_filters.strip().lower() == 'y':
+                    _src_raw = (safe_input(f"  {t('rpt_filter_src')}", str) or '').strip()
+                    _dst_raw = (safe_input(f"  {t('rpt_filter_dst')}", str) or '').strip()
+                    _port_raw = (safe_input(f"  {t('rpt_filter_port')}", str) or '').strip()
+                    # Protocol: 0=All, 1=TCP(6), 2=UDP(17)
+                    _proto_sel = safe_input(f"  {t('proto_select')}", int, range(0, 3))
+                    _proto = {1: 6, 2: 17}.get(_proto_sel) if _proto_sel else None
+                    # Policy Decision: 0=All, 1=Blocked, 2=PotentiallyBlocked, 3=Allowed
+                    _pd_prompt = f"  {t('policy_decision')} (0=All, 1={t('rpt_pd_blocked')}, 2={t('rpt_pd_potential')}, 3={t('rpt_pd_allowed')})"
+                    _pd_sel = safe_input(_pd_prompt, int, range(0, 4))
+                    _pd_map = {1: ['blocked'], 2: ['potentially_blocked'], 3: ['allowed']}
+                    _pd = _pd_map.get(_pd_sel) if _pd_sel else None
+                    # Excludes
+                    print(f"\n  {Colors.CYAN}{t('excludes_optional')}{Colors.ENDC}")
+                    _ex_src_raw = (safe_input(f"  {t('rpt_filter_ex_src')}", str) or '').strip()
+                    _ex_dst_raw = (safe_input(f"  {t('rpt_filter_ex_dst')}", str) or '').strip()
+                    _ex_port_raw = (safe_input(f"  {t('rpt_filter_ex_port')}", str) or '').strip()
+
+                    def _split_label_ip(val):
+                        if val and '=' in val:
+                            return [val], None
+                        return [], val or None
+
+                    src_labels, src_ip = _split_label_ip(_src_raw)
+                    dst_labels, dst_ip = _split_label_ip(_dst_raw)
+                    ex_src_labels, ex_src_ip = _split_label_ip(_ex_src_raw)
+                    ex_dst_labels, ex_dst_ip = _split_label_ip(_ex_dst_raw)
+
+                    api_filters = {
+                        'src_labels': src_labels,
+                        'dst_labels': dst_labels,
+                        'src_ip': src_ip,
+                        'dst_ip': dst_ip,
+                        'port': _port_raw,
+                        'proto': _proto,
+                        'policy_decisions': _pd,
+                        'ex_src_labels': ex_src_labels,
+                        'ex_dst_labels': ex_dst_labels,
+                        'ex_src_ip': ex_src_ip,
+                        'ex_dst_ip': ex_dst_ip,
+                        'ex_port': _ex_port_raw,
+                    }
+                    if not any(v for v in api_filters.values() if v):
+                        api_filters = None
+
             try:
                 api = ApiClient(cm)
                 reporter = Reporter(cm)
                 gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
 
                 if sel == 1:
-                    result = gen.generate_from_api(start_date=api_start_date, end_date=api_end_date)
+                    result = gen.generate_from_api(start_date=api_start_date, end_date=api_end_date, filters=api_filters)
                 else:
-                    csv_path = safe_input(t("csv_path_prompt"), str).strip()
+                    _csv_raw = safe_input(t("csv_path_prompt"), str)
+                    csv_path = _csv_raw.strip() if _csv_raw else ''
                     if not csv_path or not os.path.exists(csv_path):
                         print(f"{Colors.FAIL}{t('csv_not_found', path=csv_path)}{Colors.ENDC}")
                         continue

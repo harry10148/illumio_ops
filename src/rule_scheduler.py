@@ -13,6 +13,21 @@ from src.i18n import t
 logger = logging.getLogger(__name__)
 
 
+def _now_in_tz(tz_str: str) -> datetime.datetime:
+    """Return current naive datetime in the configured schedule timezone."""
+    import datetime as _dt
+    now_utc = _dt.datetime.now(_dt.timezone.utc)
+    if not tz_str or tz_str == 'local':
+        return _dt.datetime.now()
+    if tz_str == 'UTC':
+        return now_utc.replace(tzinfo=None)
+    m = re.match(r'^UTC([+-])(\d+(?:\.\d+)?)$', tz_str)
+    if m:
+        offset = _dt.timedelta(hours=float(m.group(1) + m.group(2)))
+        return (now_utc + offset).replace(tzinfo=None)
+    return _dt.datetime.now()
+
+
 def truncate(text, width):
     """Truncate text to width, stripping schedule tags."""
     if not text:
@@ -122,11 +137,11 @@ class ScheduleEngine:
         d = day_str.lower().strip()
         return ScheduleEngine.DAY_MAP.get(d[:3], d)
 
-    def check(self, silent: bool = False):
+    def check(self, silent: bool = False, tz_str: str = 'local'):
         """Main scheduling loop: evaluate all schedules and toggle rules as needed.
         Returns list of log messages."""
         db_data = self.db.get_all()
-        now = datetime.datetime.now()
+        now = _now_in_tz(tz_str)
         curr_t = now.strftime("%H:%M")
         curr_d = now.strftime("%A").lower()
         prev_d = (now - datetime.timedelta(days=1)).strftime("%A").lower()

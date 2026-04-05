@@ -146,6 +146,13 @@ async function loadSettings() {
     <div class="form-group"><label data-i18n="gui_new_password">New Password</label><input id="s-sec-newpass" type="password"></div>
   </div>
 </fieldset>`;
+  // Auto-detect browser timezone and pre-select if currently set to 'local'
+  const tzSel = $('s-timezone');
+  if (tzSel && (tzSel.value === 'local' || !tzSel.value)) {
+    const detected = _detectBrowserTimezone();
+    const opt = Array.from(tzSel.options).find(o => o.value === detected);
+    if (opt) tzSel.value = detected;
+  }
   await loadTranslations();
 }
 async function saveSettings() {
