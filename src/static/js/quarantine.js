@@ -121,17 +121,12 @@ function applyQtFilters() {
   runTrafficAnalyzer(); // Automatically execute query with applied filters
 }
 
-// Reset pd radio to All when switching mode
-function qtSyncPdMode() {
-  const allRadio = document.querySelector('input[name="qt-pd-radio"][value=""]');
-  if (allRadio) allRadio.checked = true;
-}
-
 // --- Traffic Analyzer Endpoint ---
 async function runTrafficAnalyzer() {
-  const pdMode = document.querySelector('input[name="qt-pd-mode"]:checked')?.value || 'reported';
   const pdRadio = document.querySelector('input[name="qt-pd-radio"]:checked');
   const pd = pdRadio ? pdRadio.value : "";
+  const dpdRadio = document.querySelector('input[name="qt-dpd-radio"]:checked');
+  const draftPd = dpdRadio ? dpdRadio.value : "";
   const sort = document.getElementById('qt-sort').value;
   const search = document.getElementById('qt-search').value;
   const mins = parseInt(document.getElementById('qt-mins').value);
@@ -154,14 +149,9 @@ async function runTrafficAnalyzer() {
   updateBulkBar();
 
   try {
-    // Mutually exclusive: Reported filter (server-side) OR Draft filter (client-side)
     let payload = { mins, sort_by: sort, search: search };
-    if (pdMode === 'draft') {
-      payload.policy_decision = '-1';  // fetch all reported, filter draft client-side
-      if (pd) payload.draft_policy_decision = pd;
-    } else {
-      payload.policy_decision = pd || '-1';
-    }
+    payload.policy_decision = pd || '-1';
+    if (draftPd) payload.draft_policy_decision = draftPd;
 
     if (srcStr) {
       if (srcStr.includes('=')) payload.src_label = srcStr;
@@ -277,11 +267,14 @@ function renderQtPage() {
     const pd_allowed = _translations['gui_pd_allowed'] || 'Allowed';
 
     const makePdBadge = (pd, isReported) => {
-      const label = pd === 'blocked' ? pd_blocked : pd === 'potentially_blocked' ? pd_potential : pd_allowed;
       const prefix = isReported ? '' : '<span style="font-size:9px;opacity:0.8;">Draft </span>';
-      if (pd === 'blocked') return `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${label}</span>`;
-      if (pd === 'potentially_blocked') return `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${label}</span>`;
-      return `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${label}</span>`;
+      if (pd === 'blocked') return `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${pd_blocked}</span>`;
+      if (pd === 'potentially_blocked') return `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${pd_potential}</span>`;
+      if (pd === 'allowed') return `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${pd_allowed}</span>`;
+      if (pd === 'blocked_by_boundary') return `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${pd_blocked}</span>`;
+      if (pd === 'blocked_by_override_deny') return `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}Override Deny</span>`;
+      if (pd === 'potentially_blocked_by_boundary') return `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${pd_potential}</span>`;
+      return `<span style="background:var(--dim);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${prefix}${pd}</span>`;
     };
 
     let pdBadge = makePdBadge(rawPd, true);
