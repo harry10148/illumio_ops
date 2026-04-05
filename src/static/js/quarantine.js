@@ -125,6 +125,8 @@ function applyQtFilters() {
 async function runTrafficAnalyzer() {
   const pdRadio = document.querySelector('input[name="qt-pd-radio"]:checked');
   const pd = pdRadio ? pdRadio.value : "-1";
+  const draftPdRadio = document.querySelector('input[name="qt-draft-pd-radio"]:checked');
+  const draftPd = draftPdRadio ? draftPdRadio.value : "";
   const sort = document.getElementById('qt-sort').value;
   const search = document.getElementById('qt-search').value;
   const mins = parseInt(document.getElementById('qt-mins').value);
@@ -148,6 +150,7 @@ async function runTrafficAnalyzer() {
 
   try {
     let payload = { mins, sort_by: sort, search: search, policy_decision: pd };
+    if (draftPd) payload.draft_policy_decision = draftPd;
 
     if (srcStr) {
       if (srcStr.includes('=')) payload.src_label = srcStr;

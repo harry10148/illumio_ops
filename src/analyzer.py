@@ -516,6 +516,7 @@ class Analyzer:
         if not traffic_stream:
             return []
 
+        draft_pd_filter = (params.get("draft_policy_decision") or "").strip().lower()
         search_query = params.get("search", "").lower()
 
         rule = {
@@ -543,6 +544,9 @@ class Analyzer:
 
         for f in traffic_stream:
             if strict_pd and f.get("policy_decision") not in strict_pd:
+                continue
+
+            if draft_pd_filter and (f.get("draft_policy_decision") or "").lower() != draft_pd_filter:
                 continue
 
             if not self.check_flow_match(rule, f, start_dt):

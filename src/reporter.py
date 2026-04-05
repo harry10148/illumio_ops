@@ -76,22 +76,23 @@ class Reporter:
             name = actor.get("name") or wl.get("name") or wl.get("hostname") or ip
             labels = actor.get("labels") or wl.get("labels", [])
 
-            if is_source:
-                proc = actor.get("process") or raw.get("process_name") or ""
-                user = actor.get("user") or raw.get("user_name") or ""
+            # process/user attribution depends on flow_direction:
+            # outbound → captured by src VEN → belongs to source
+            # inbound  → captured by dst VEN → belongs to destination
+            flow_dir = (item.get("flow_direction") or "").lower()
+            svc_proc = svc.get("process_name") or ""
+            svc_user = svc.get("user_name") or ""
+            if flow_dir == "outbound":
+                raw_proc = svc_proc if is_source else ""
+                raw_user = svc_user if is_source else ""
+            elif flow_dir == "inbound":
+                raw_proc = "" if is_source else svc_proc
+                raw_user = "" if is_source else svc_user
             else:
-                proc = (
-                    actor.get("process")
-                    or raw.get("process_name")
-                    or svc.get("process_name")
-                    or ""
-                )
-                user = (
-                    actor.get("user")
-                    or raw.get("user_name")
-                    or svc.get("user_name")
-                    or ""
-                )
+                raw_proc, raw_user = "", ""
+            # actor.get("process") is already set correctly when flow went through query_flows
+            proc = actor.get("process") or raw_proc
+            user = actor.get("user") or raw_user
 
             badges = "".join(
                 [

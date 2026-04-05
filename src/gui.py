@@ -1152,6 +1152,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 "start_time": start_time,
                 "end_time": end_time,
                 "policy_decisions": pds,
+                "draft_policy_decision": d.get("draft_policy_decision", ""),
                 "sort_by": d.get("sort_by", "bandwidth"),
                 "search": d.get("search", ""),
                 "src_label": d.get("src_label", ""),
