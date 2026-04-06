@@ -212,6 +212,7 @@ MESSAGES = {
         "event_rule_delete": "Security Rule Deleted: An existing traffic segmentation policy rule was removed.",
         "event_policy_prov": "Policy Provisioned: Draft rules were actively deployed (provisioned) to the workload VENs.",
         "event_cluster_update": "PCE cluster identification updated",
+        "event_pce_health_check": "PCE Health Check: Monitor PCE API reachability and health status",
         "event_all_events": "All Events (System-wide)",
         # Best Practice Rule Names
         "rule_agent_tampering": "Firewall Tampering Detected",
@@ -1396,6 +1397,7 @@ MESSAGES = {
         "event_rule_delete": "刪除安全 Rule：移除了一條微隔離安全 Rule",
         "event_policy_prov": "Provision 安全 Policy：Rule 正式 Provisioned 並下發至 VEN",
         "event_cluster_update": "更新 PCE 叢集：Illumio PCE 叢集設定發生更新",
+        "event_pce_health_check": "PCE 健康檢查：監控 PCE API 連線與健康狀態",
         "event_all_events": "所有事件 (系統全域)",
         # Best Practice Rule Names
         "rule_agent_tampering": "偵測到防火牆篡改",

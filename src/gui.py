@@ -466,21 +466,36 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     @app.route('/api/rules/event', methods=['POST'])
     def api_add_event_rule():
         d = request.json
-        cm.add_or_update_rule({
-            "id": int(datetime.datetime.now().timestamp()),
-            "type": "event",
-            "name": d.get('name', ''),
-            "filter_key": "event_type",
-            "filter_value": d.get('filter_value', ''),
-            "filter_status": d.get('filter_status', 'all'),
-            "filter_severity": d.get('filter_severity', 'all'),
-            "desc": d.get('name', ''),
-            "rec": "Check Logs",
-            "threshold_type": d.get('threshold_type', 'immediate'),
-            "threshold_count": int(d.get('threshold_count', 1)),
-            "threshold_window": int(d.get('threshold_window', 10)),
-            "cooldown_minutes": int(d.get('cooldown_minutes', 10))
-        })
+        filter_value = d.get('filter_value', '')
+        if filter_value == 'pce_health':
+            cm.add_or_update_rule({
+                "id": int(datetime.datetime.now().timestamp()),
+                "type": "system",
+                "name": d.get('name', ''),
+                "filter_value": "pce_health",
+                "desc": t('rule_pce_health_desc', default='PCE health check failed.'),
+                "rec": t('rule_pce_health_rec', default='Check PCE service status and network connectivity.'),
+                "threshold_type": d.get('threshold_type', 'immediate'),
+                "threshold_count": int(d.get('threshold_count', 1)),
+                "threshold_window": int(d.get('threshold_window', 10)),
+                "cooldown_minutes": int(d.get('cooldown_minutes', 30))
+            })
+        else:
+            cm.add_or_update_rule({
+                "id": int(datetime.datetime.now().timestamp()),
+                "type": "event",
+                "name": d.get('name', ''),
+                "filter_key": "event_type",
+                "filter_value": filter_value,
+                "filter_status": d.get('filter_status', 'all'),
+                "filter_severity": d.get('filter_severity', 'all'),
+                "desc": d.get('name', ''),
+                "rec": "Check Logs",
+                "threshold_type": d.get('threshold_type', 'immediate'),
+                "threshold_count": int(d.get('threshold_count', 1)),
+                "threshold_window": int(d.get('threshold_window', 10)),
+                "cooldown_minutes": int(d.get('cooldown_minutes', 10))
+            })
         return jsonify({"ok": True})
 
     @app.route('/api/rules/traffic', methods=['POST'])
