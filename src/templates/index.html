@@ -1038,6 +1038,10 @@
           <div class="form-group"><label data-i18n="gui_rs_start_time">Start Time (HH:MM)</label><input id="rs-sch-start" placeholder="08:00" value="08:00"></div>
           <div class="form-group"><label data-i18n="gui_rs_end_time">End Time (HH:MM)</label><input id="rs-sch-end" placeholder="18:00" value="18:00"></div>
         </div>
+        <div class="form-group">
+          <label data-i18n="gui_rs_timezone">Timezone</label>
+          <select id="rs-sch-timezone" style="width:100%;padding:8px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border);color:var(--fg);"></select>
+        </div>
       </div>
 
       <div id="rs-sch-onetime-fields" style="display:none;">
@@ -1045,6 +1049,10 @@
           <label data-i18n="gui_rs_expire_at">Expire At</label>
           <input id="rs-sch-expire" type="datetime-local">
           <small style="color:var(--dim);" data-i18n="gui_rs_expire_note">Rule will be auto-disabled and schedule removed after this time.</small>
+        </div>
+        <div class="form-group">
+          <label data-i18n="gui_rs_timezone">Timezone</label>
+          <select id="rs-sch-timezone-ot" style="width:100%;padding:8px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border);color:var(--fg);"></select>
         </div>
       </div>
 

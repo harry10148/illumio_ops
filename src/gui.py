@@ -154,8 +154,6 @@ def _rs_background_scheduler(cm: ConfigManager) -> None:
         try:
             cm.load()
             rs_cfg = cm.config.get("rule_scheduler", {})
-            if not rs_cfg.get("enabled", False):
-                continue
             interval = rs_cfg.get("check_interval_seconds", 300)
             now = time.time()
             if last_check is None or (now - last_check) >= interval:
@@ -1690,7 +1688,6 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         db = ScheduleDB(os.path.join(_resolve_config_dir(), "rule_schedules.json"))
         db.load()
         return jsonify({
-            "enabled": rs_cfg.get("enabled", False),
             "check_interval_seconds": rs_cfg.get("check_interval_seconds", 300),
             "schedule_count": len(db.get_all())
         })
@@ -1920,11 +1917,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             db_entry['days'] = data.get('days', [])
             db_entry['start'] = data['start']
             db_entry['end'] = data['end']
+            db_entry['timezone'] = data.get('timezone', 'local')
             days_str = ",".join([d[:3] for d in db_entry['days']]) if len(db_entry['days']) < 7 else t('rs_action_everyday')
             act_str = t('rs_action_enable_in_window') if db_entry['action'] == 'allow' else t('rs_action_disable_in_window')
-            note = f"[📅 {t('rs_sch_tag_recurring')}: {days_str} {db_entry['start']}-{db_entry['end']} {act_str}]"
+            tz_display = db_entry['timezone'] if db_entry['timezone'] != 'local' else 'Local'
+            note = f"[📅 {t('rs_sch_tag_recurring')}: {days_str} {db_entry['start']}-{db_entry['end']} ({tz_display}) {act_str}]"
         else:
             db_entry['expire_at'] = data['expire_at']
+            db_entry['timezone'] = data.get('timezone', 'local')
             note = f"[⏳ {t('rs_sch_tag_expire')}: {data['expire_at'].replace('T', ' ')}]"
 
         db.put(href, db_entry)

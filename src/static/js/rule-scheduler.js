@@ -11,6 +11,34 @@ let rsSearchQuery = '';
 let rsSearchScope = 'rs_name';
 let rsSelectedRsId = null;
 
+/* ── Timezone select helper ── */
+const _RS_TZ_OPTIONS = [
+  ['local','Local (Server Time)'],
+  ['UTC','UTC'],
+  ['UTC-12','UTC-12'],['UTC-11','UTC-11'],['UTC-10','UTC-10'],['UTC-9','UTC-9'],
+  ['UTC-8','UTC-8'],['UTC-7','UTC-7'],['UTC-6','UTC-6'],['UTC-5','UTC-5'],
+  ['UTC-4','UTC-4'],['UTC-3','UTC-3'],['UTC-2','UTC-2'],['UTC-1','UTC-1'],
+  ['UTC+1','UTC+1'],['UTC+2','UTC+2'],['UTC+3','UTC+3'],['UTC+4','UTC+4'],
+  ['UTC+5','UTC+5'],['UTC+5.5','UTC+5.5'],['UTC+6','UTC+6'],['UTC+7','UTC+7'],
+  ['UTC+8','UTC+8'],['UTC+9','UTC+9'],['UTC+9.5','UTC+9.5'],['UTC+10','UTC+10'],
+  ['UTC+11','UTC+11'],['UTC+12','UTC+12']
+];
+
+function rsPopulateTzSelect(selectId, selectedValue) {
+  const sel = $(selectId);
+  if (!sel) return;
+  const val = selectedValue || rsGetAppTz();
+  sel.innerHTML = _RS_TZ_OPTIONS.map(([v, label]) =>
+    `<option value="${v}"${v === val ? ' selected' : ''}>${label}</option>`
+  ).join('');
+}
+
+function rsGetAppTz() {
+  // Prefer the global settings timezone if it has been loaded
+  const tzSel = $('s-timezone');
+  return (tzSel && tzSel.value) ? tzSel.value : 'local';
+}
+
 function rsLoadTab() {
   rsSearchRulesets('');
   rsInitResizer();
@@ -340,6 +368,8 @@ function rsOpenScheduleModal(href, name, isRs, detailRs, src, dst, svc) {
   document.querySelectorAll('.rs-day-cb').forEach(cb => { cb.checked = ['Monday','Tuesday','Wednesday','Thursday','Friday'].includes(cb.value); });
   $('rs-sch-start').value = '08:00';
   $('rs-sch-end').value = '18:00';
+  rsPopulateTzSelect('rs-sch-timezone');
+  rsPopulateTzSelect('rs-sch-timezone-ot');
   rsSchTypeChanged();
   openModal('m-rs-schedule');
 }
@@ -368,6 +398,7 @@ async function rsSaveSchedule() {
     body.days = [...document.querySelectorAll('.rs-day-cb:checked')].map(cb => cb.value);
     body.start = $('rs-sch-start').value;
     body.end = $('rs-sch-end').value;
+    body.timezone = $('rs-sch-timezone').value || 'local';
     if (!body.start || !body.end || body.days.length === 0) {
       return toast(_translations.gui_rs_fill_days_time || 'Please fill in days, start and end time.', true);
     }
@@ -375,6 +406,7 @@ async function rsSaveSchedule() {
     const expVal = $('rs-sch-expire').value;
     if (!expVal) return toast(_translations.gui_rs_set_expire || 'Please set expiration time.', true);
     body.expire_at = expVal.replace('T', ' ');
+    body.timezone = $('rs-sch-timezone-ot').value || 'local';
   }
   // If editing, include id
   const editId = $('rs-sch-edit-id').value;
@@ -434,11 +466,12 @@ async function rsLoadSchedules() {
       // Timing - map day names for i18n
       const dayMap = {'Monday': T.gui_rs_mon||'Mon','Tuesday': T.gui_rs_tue||'Tue','Wednesday': T.gui_rs_wed||'Wed','Thursday': T.gui_rs_thu||'Thu','Friday': T.gui_rs_fri||'Fri','Saturday': T.gui_rs_sat||'Sat','Sunday': T.gui_rs_sun||'Sun'};
       let timing = '';
+      const tzLabel = s.timezone && s.timezone !== 'local' ? s.timezone : (T.gui_rs_local_tz || 'Local');
       if (s.type === 'recurring') {
         const days = (s.days || []).length === 7 ? (T.gui_rs_everyday || 'Everyday') : (s.days || []).map(d => dayMap[d] || d.substring(0, 3)).join(', ');
-        timing = days + ' ' + (s.start || '') + ' - ' + (s.end || '');
+        timing = days + ' ' + (s.start || '') + ' - ' + (s.end || '') + ' <span style="color:var(--accent2);font-size:.75rem;">(' + escapeHtml(tzLabel) + ')</span>';
       } else {
-        timing = (T.gui_rs_until || 'Until') + ' ' + (s.expire_at || '').replace('T', ' ');
+        timing = (T.gui_rs_until || 'Until') + ' ' + (s.expire_at || '').replace('T', ' ') + ' <span style="color:var(--accent2);font-size:.75rem;">(' + escapeHtml(tzLabel) + ')</span>';
       }
       // Description (rule desc or RS name)
       const descText = escapeHtml(s.detail_name || s.name || '');
@@ -494,6 +527,8 @@ async function rsEditSchedule(id) {
     const typeRadio = document.querySelector('input[name="rs-sch-type"][value="' + (s.type || 'recurring') + '"]');
     if (typeRadio) typeRadio.checked = true;
     rsSchTypeChanged();
+    rsPopulateTzSelect('rs-sch-timezone', s.timezone);
+    rsPopulateTzSelect('rs-sch-timezone-ot', s.timezone);
     if (s.type === 'recurring') {
       const actionRadio = document.querySelector('input[name="rs-sch-action"][value="' + (s.action || 'allow') + '"]');
       if (actionRadio) actionRadio.checked = true;

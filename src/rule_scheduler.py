@@ -153,7 +153,8 @@ class ScheduleEngine:
             if not silent:
                 print(msg, flush=True)
 
-        log(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] {t('rs_checking', default='Checking schedules...')}")
+        tz_label = tz_str if tz_str and tz_str != 'local' else 'Local'
+        log(f"[{now.strftime('%Y-%m-%d %H:%M:%S')} {tz_label}] {t('rs_checking', default='Checking schedules...')}")
 
         expired_hrefs = []
 
@@ -163,25 +164,32 @@ class ScheduleEngine:
                 in_window = False
                 target = False
 
+                # Use per-schedule timezone (fallback to global tz_str for backward compatibility)
+                item_tz = c.get('timezone', tz_str)
+                item_now = _now_in_tz(item_tz) if item_tz != tz_str else now
+                item_curr_t = item_now.strftime("%H:%M")
+                item_curr_d = item_now.strftime("%A").lower()
+                item_prev_d = (item_now - datetime.timedelta(days=1)).strftime("%A").lower()
+
                 if c['type'] == 'recurring':
                     days_list = [self.normalize_day(d) for d in c['days']]
-                    day_match = curr_d in days_list
-                    prev_day_match = prev_d in days_list
+                    day_match = item_curr_d in days_list
+                    prev_day_match = item_prev_d in days_list
                     start_t, end_t = c['start'], c['end']
 
                     if start_t <= end_t:
                         # Normal window (e.g., 08:00-18:00)
-                        in_window = day_match and (start_t <= curr_t < end_t)
+                        in_window = day_match and (start_t <= item_curr_t < end_t)
                     else:
                         # Midnight wraparound (e.g., 22:00-06:00)
-                        in_window = (day_match and curr_t >= start_t) or \
-                                    (prev_day_match and curr_t < end_t)
+                        in_window = (day_match and item_curr_t >= start_t) or \
+                                    (prev_day_match and item_curr_t < end_t)
 
                     target = in_window if is_allow else (not in_window)
 
                 elif c['type'] == 'one_time':
                     expire_dt = datetime.datetime.fromisoformat(c['expire_at'])
-                    if now > expire_dt:
+                    if item_now > expire_dt:
                         log(f"{Colors.FAIL}[EXPIRED] {c['name']} (ID:{extract_id(href)}) {t('rs_expired', default='has expired.')}{Colors.ENDC}")
                         self.api.toggle_and_provision(href, False, c.get('is_ruleset'))
                         self.api.update_rule_note(href, "", remove=True)
