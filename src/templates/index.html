@@ -113,6 +113,7 @@
           <option value="comfortable">Comfortable</option>
         </select>
       </div>
+      <button class="btn btn-sm" onclick="mlOpen()" data-i18n="gui_ml_logs_btn" style="padding:3px 10px;">日誌</button>
       <button class="btn btn-secondary btn-sm" onclick="stopGui()" title="Stop Web GUI" data-i18n="gui_stop">
         <svg class="icon" aria-hidden="true" focusable="false">
           <use href="#icon-stop"></use>
@@ -850,7 +851,7 @@
     <div class="rs-tab-bar">
       <button class="btn btn-primary rs-active" onclick="rsSubTab('browse')" id="rs-tab-browse" data-i18n="gui_rs_browse_add">Browse & Add</button>
       <button class="btn" onclick="rsSubTab('schedules')" id="rs-tab-schedules" data-i18n="gui_rs_schedules">Schedules</button>
-      <button class="btn" onclick="rsSubTab('logs')" id="rs-tab-logs" data-i18n="gui_rs_logs">Logs</button>
+      <button class="btn" onclick="rsSubTab('logs')" id="rs-tab-logs" data-i18n="gui_rs_logs">執行動作</button>
     </div>
 
     <!-- ── Browse & Add sub-view ── -->
@@ -961,6 +962,7 @@
     <div id="rs-logs" class="rs-subview" style="display:none;">
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <button class="btn btn-primary" onclick="rsRunCheck()" data-i18n="gui_rs_run_check">Run Manual Check</button>
+        <button class="btn" onclick="rsLoadLogHistory()" data-i18n="gui_rs_refresh">Refresh</button>
         <button class="btn" onclick="$('rs-log-output').textContent=''" data-i18n="gui_rs_clear">Clear</button>
       </div>
       <div class="log-box" id="rs-log-output" style="min-height:300px;font-family:'Courier New',Consolas,monospace;font-size:.82rem;white-space:pre-wrap;overflow:auto;" data-i18n="gui_rs_log_ready">Ready.</div>
@@ -968,6 +970,20 @@
 
     <!-- Detail popup (shared, positioned via JS) -->
     <div id="rs-detail-popup"><span class="popup-close" onclick="rsClosePopup()">&times;</span><div class="popup-title" id="rs-popup-title"></div><div id="rs-popup-body"></div></div>
+  </div>
+
+  <!-- ═══ Module Log Viewer Modal ═══ -->
+  <div id="ml-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;width:min(860px,95vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border);">
+        <span style="font-weight:600;font-size:1rem;" data-i18n="gui_ml_title">執行日誌</span>
+        <select id="ml-module-select" class="form-control" style="width:auto;min-width:150px;" onchange="mlLoadLogs()"></select>
+        <button class="btn btn-sm" onclick="mlLoadLogs()" data-i18n="gui_rs_refresh">重新整理</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" onclick="mlClose()" style="padding:2px 10px;">✕</button>
+      </div>
+      <div id="ml-log-output" class="log-box" style="flex:1;overflow:auto;padding:14px 16px;font-family:'Courier New',Consolas,monospace;font-size:.8rem;white-space:pre-wrap;min-height:320px;" data-i18n="gui_rs_log_ready">Ready.</div>
+    </div>
   </div>
 
   <!-- ═══ Modals ═══ -->
@@ -1581,6 +1597,7 @@
   <script src="/static/js/actions.js"></script>
   <script src="/static/js/quarantine.js"></script>
   <script src="/static/js/rule-scheduler.js"></script>
+  <script src="/static/js/module-log.js"></script>
   </main>
 </body>
 

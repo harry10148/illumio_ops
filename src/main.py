@@ -44,6 +44,8 @@ def run_daemon_loop(interval_minutes: int):
     print(t("daemon_stop_hint"))
 
     from src.report_scheduler import ReportScheduler
+    from src.module_log import ModuleLog as _ML
+    _mlog = _ML.get("monitor")
 
     last_analysis_time = None
     last_rule_check_time = None
@@ -57,6 +59,8 @@ def run_daemon_loop(interval_minutes: int):
             # Run monitoring analysis at the configured interval
             if last_analysis_time is None or (now - last_analysis_time).total_seconds() >= interval_seconds:
                 logger.info("=== Starting monitoring cycle ===")
+                _mlog.separator(f"Monitoring Cycle {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                _mlog.info(f"Starting monitoring analysis (interval={interval_minutes}min)")
                 api = ApiClient(cm)
                 rep = Reporter(cm)
                 ana = Analyzer(cm, api, rep)
@@ -64,6 +68,7 @@ def run_daemon_loop(interval_minutes: int):
                 rep.send_alerts()
                 last_analysis_time = now
                 logger.info("=== Monitoring cycle completed ===")
+                _mlog.info("Monitoring analysis completed")
 
             # Tick the report scheduler every loop iteration (60-second base)
             rep = Reporter(cm)
@@ -71,7 +76,7 @@ def run_daemon_loop(interval_minutes: int):
             scheduler.tick()
 
             # Rule Scheduler check (at configured interval)
-            if cm.config.get("rule_scheduler", {}).get("enabled", False):
+            if cm.config.get("rule_scheduler", {}).get("enabled", True):
                 rule_check_interval = cm.config.get("rule_scheduler", {}).get("check_interval_seconds", 300)
                 if last_rule_check_time is None or (now - last_rule_check_time).total_seconds() >= rule_check_interval:
                     from src.rule_scheduler import ScheduleDB, ScheduleEngine
@@ -84,11 +89,22 @@ def run_daemon_loop(interval_minutes: int):
                     rs_api = ApiClient(cm)
                     rs_engine = ScheduleEngine(rs_db, rs_api)
                     _tz_str = cm.config.get('settings', {}).get('timezone', 'local')
-                    rs_engine.check(silent=True, tz_str=_tz_str)
+                    _rs_logs = rs_engine.check(silent=True, tz_str=_tz_str)
                     last_rule_check_time = now
-                    logger.info("Rule scheduler check completed.")
+                    _rs_mlog = _ML.get("rule_scheduler")
+                    for _msg in _rs_logs:
+                        import re as _re
+                        _clean = _re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _msg)
+                        logger.info("[RuleScheduler] %s", _clean)
+                        _rs_mlog.info(_clean)
+                    try:
+                        from src.gui import _append_rs_logs
+                        _append_rs_logs(_rs_logs)
+                    except Exception:
+                        pass
 
         except Exception as e:
+            _mlog.error(f"Monitoring cycle error: {e}")
             logger.error(f"Error in monitoring cycle: {e}", exc_info=True)
 
         # Always sleep 60 seconds between ticks (scheduler needs minute-level resolution)
@@ -250,6 +266,9 @@ def main_menu():
 
     setup_logger("src", LOG_FILE)
     logger.info("Starting Illumio PCE Ops")
+
+    from src.module_log import ModuleLog as _ML_menu
+    _ML_menu.init(LOG_DIR)
 
     cm = ConfigManager()
 
@@ -557,6 +576,10 @@ def main():
     LOG_DIR = os.path.join(ROOT_DIR, "logs")
     LOG_FILE = os.path.join(LOG_DIR, "illumio_ops.log")
     setup_logger("src", LOG_FILE)
+
+    from src.module_log import ModuleLog
+    _logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
+    ModuleLog.init(os.path.normpath(_logs_dir))
 
     if args.monitor_gui and not args.monitor:
         run_daemon_with_gui(args.interval, args.port)

@@ -47,7 +47,7 @@ _DEFAULT_CONFIG = {
     "pce_profiles": [],
     "active_pce_id": None,
     "rule_scheduler": {
-        "enabled": False,
+        "enabled": True,
         "check_interval_seconds": 300
     },
     "web_gui": {

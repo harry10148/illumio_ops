@@ -52,6 +52,7 @@ function rsSubTab(which) {
     if (btn) btn.className = t === which ? 'btn btn-primary rs-active' : 'btn';
   });
   if (which === 'schedules') rsLoadSchedules();
+  if (which === 'logs') rsLoadLogHistory();
 }
 
 function rulesSubTab(which) {
@@ -532,6 +533,30 @@ async function rsDeleteSelected() {
 }
 
 /* ── Logs / Manual check ── */
+async function rsLoadLogHistory() {
+  const log = $('rs-log-output');
+  try {
+    const res = await fetch('/api/rule_scheduler/logs');
+    const data = await res.json();
+    const history = data.history || [];
+    if (!history.length) {
+      log.textContent = 'No execution history yet.';
+      return;
+    }
+    // Show newest first
+    const lines = [];
+    for (let i = history.length - 1; i >= 0; i--) {
+      const entry = history[i];
+      lines.push('═══ ' + entry.timestamp + ' ═══');
+      lines.push(...(entry.logs || []));
+      lines.push('');
+    }
+    log.textContent = lines.join('\n');
+  } catch (e) {
+    log.textContent = 'Error loading history: ' + e.message;
+  }
+}
+
 async function rsRunCheck() {
   const log = $('rs-log-output');
   log.textContent = 'Running check...\n';
@@ -542,6 +567,8 @@ async function rsRunCheck() {
     clearTimeout(timer);
     const data = await res.json();
     log.textContent = (data.logs || []).join('\n') || 'No output.';
+    // Refresh full history view after manual check
+    await rsLoadLogHistory();
   } catch (e) {
     const msg = e.name === 'AbortError' ? 'Check timed out (PCE may be unreachable)' : e.message;
     log.textContent = 'Error: ' + msg;

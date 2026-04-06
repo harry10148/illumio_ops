@@ -128,6 +128,51 @@ class _RstDrop(Exception):
 _PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 _ROOT_DIR = os.path.dirname(_PKG_DIR)
 
+# ── Rule Scheduler log history (in-memory, thread-safe) ──────────────────────
+_rs_log_history: list = []
+_rs_log_lock = threading.Lock()
+
+
+def _append_rs_logs(logs: list) -> None:
+    """Append one check-run's output to the in-memory log history."""
+    with _rs_log_lock:
+        entry = {
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "logs": [_ANSI_RE.sub('', l) for l in logs],
+        }
+        _rs_log_history.append(entry)
+        if len(_rs_log_history) > 200:
+            del _rs_log_history[:-200]
+
+
+def _rs_background_scheduler(cm: ConfigManager) -> None:
+    """Background thread: run rule scheduler periodically in GUI-only mode."""
+    import time
+    last_check: float | None = None
+    while True:
+        time.sleep(60)
+        try:
+            cm.load()
+            rs_cfg = cm.config.get("rule_scheduler", {})
+            if not rs_cfg.get("enabled", False):
+                continue
+            interval = rs_cfg.get("check_interval_seconds", 300)
+            now = time.time()
+            if last_check is None or (now - last_check) >= interval:
+                from src.rule_scheduler import ScheduleDB, ScheduleEngine
+                from src.api_client import ApiClient as _ApiClient
+                db_path = os.path.join(_resolve_config_dir(), "rule_schedules.json")
+                db = ScheduleDB(db_path)
+                db.load()
+                engine = ScheduleEngine(db, _ApiClient(cm))
+                tz_str = cm.config.get('settings', {}).get('timezone', 'local')
+                logs = engine.check(silent=True, tz_str=tz_str)
+                _append_rs_logs(logs)
+                last_check = now
+                logger.info("[RuleScheduler] Auto-check completed (%d entries).", len(logs))
+        except Exception as exc:
+            logger.error("[RuleScheduler] Background error: %s", exc, exc_info=True)
+
 
 def _resolve_reports_dir(cm_ref: ConfigManager) -> str:
     """Return absolute path to the report output directory."""
@@ -844,7 +889,15 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             from src.api_client import ApiClient
             from src.reporter import Reporter
             import tempfile
-            
+            _rlog = None
+            try:
+                from src.module_log import ModuleLog as _ML
+                _rlog = _ML.get("reports")
+                _rlog.separator(f"Traffic Report {datetime.datetime.now().strftime('%H:%M:%S')}")
+                _rlog.info(f"source={d.get('source')} format={d.get('format')} range={d.get('start_date')}~{d.get('end_date')}")
+            except Exception:
+                pass
+
             cm.load()
             config_dir = _resolve_config_dir()
             api = ApiClient(cm)
@@ -907,18 +960,36 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             paths = gen.export(result, fmt=fmt, output_dir=output_dir, send_email=str(d.get('send_email', '')).lower() == 'true', reporter=reporter)
             
             filenames = [os.path.basename(p) for p in paths]
+            try:
+                if _rlog:
+                    _rlog.info(f"Completed: {filenames}")
+            except Exception:
+                pass
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
         except Exception as e:
+            try:
+                if _rlog:
+                    _rlog.error(f"Traffic report failed: {e}")
+            except Exception:
+                pass
             logger.error(f"Report generation failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
     @app.route('/api/audit_report/generate', methods=['POST'])
     def api_generate_audit_report():
         d = request.json or {}
+        _arlog = None
         try:
             from src.report.audit_generator import AuditGenerator
             from src.api_client import ApiClient
-            
+            try:
+                from src.module_log import ModuleLog as _ML
+                _arlog = _ML.get("reports")
+                _arlog.separator(f"Audit Report {datetime.datetime.now().strftime('%H:%M:%S')}")
+                _arlog.info(f"range={d.get('start_date')}~{d.get('end_date')}")
+            except Exception:
+                pass
+
             cm.load()
             config_dir = _resolve_config_dir()
             api = ApiClient(cm)
@@ -936,18 +1007,34 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 
             paths = gen.export(result, fmt='all', output_dir=output_dir)
             filenames = [os.path.basename(p) for p in paths]
-
+            try:
+                if _arlog:
+                    _arlog.info(f"完成: {filenames}")
+            except Exception:
+                pass
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
         except Exception as e:
+            try:
+                if _arlog:
+                    _arlog.error(f"Audit報表失敗: {e}")
+            except Exception:
+                pass
             logger.error(f"Audit generation failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
     # ─── API: VEN Status Report ────────────────────────────────────────────
     @app.route('/api/ven_status_report/generate', methods=['POST'])
     def api_generate_ven_status_report():
+        _vrlog = None
         try:
             from src.report.ven_status_generator import VenStatusGenerator
             from src.api_client import ApiClient
+            try:
+                from src.module_log import ModuleLog as _ML
+                _vrlog = _ML.get("reports")
+                _vrlog.separator(f"VEN Status Report {datetime.datetime.now().strftime('%H:%M:%S')}")
+            except Exception:
+                pass
 
             cm.load()
             api = ApiClient(cm)
@@ -963,9 +1050,18 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             paths = gen.export(result, fmt='all', output_dir=output_dir)
             filenames = [os.path.basename(p) for p in paths]
             kpis = result.module_results.get('kpis', [])
-
+            try:
+                if _vrlog:
+                    _vrlog.info(f"完成: {filenames}")
+            except Exception:
+                pass
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count, "kpis": kpis})
         except Exception as e:
+            try:
+                if _vrlog:
+                    _vrlog.error(f"VEN報表失敗: {e}")
+            except Exception:
+                pass
             logger.error(f"VEN status report failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
@@ -973,9 +1069,17 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     @app.route('/api/policy_usage_report/generate', methods=['POST'])
     def api_generate_policy_usage_report():
         d = request.json or {}
+        _pulog = None
         try:
             from src.report.policy_usage_generator import PolicyUsageGenerator
             from src.api_client import ApiClient
+            try:
+                from src.module_log import ModuleLog as _ML
+                _pulog = _ML.get("reports")
+                _pulog.separator(f"Policy Usage Report {datetime.datetime.now().strftime('%H:%M:%S')}")
+                _pulog.info(f"range={d.get('start_date')}~{d.get('end_date')}")
+            except Exception:
+                pass
 
             cm.load()
             api = ApiClient(cm)
@@ -995,9 +1099,19 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             filenames = [os.path.basename(p) for p in paths]
             kpis = result.module_results.get('mod00', {}).get('kpis', [])
 
+            try:
+                if _pulog:
+                    _pulog.info(f"完成: {filenames}")
+            except Exception:
+                pass
             return jsonify({"ok": True, "files": filenames,
                             "record_count": result.record_count, "kpis": kpis})
         except Exception as e:
+            try:
+                if _pulog:
+                    _pulog.error(f"PolicyUsage報表失敗: {e}")
+            except Exception:
+                pass
             logger.error(f"Policy usage report failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
@@ -1458,6 +1572,11 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     # ─── API: Actions ─────────────────────────────────────────────────────
     @app.route('/api/actions/run', methods=['POST'])
     def api_run_once():
+        try:
+            from src.module_log import ModuleLog as _ML
+            _ML.get("actions").info("Manually triggered monitoring analysis")
+        except Exception:
+            pass
         def work():
             from src.api_client import ApiClient
             from src.reporter import Reporter
@@ -1488,6 +1607,11 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/api/actions/test-alert', methods=['POST'])
     def api_test_alert():
+        try:
+            from src.module_log import ModuleLog as _ML
+            _ML.get("actions").info("Manually triggered test alert")
+        except Exception:
+            pass
         def work():
             from src.reporter import Reporter
             Reporter(cm).send_alerts(force_test=True)
@@ -1496,19 +1620,39 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/api/actions/best-practices', methods=['POST'])
     def api_best_practices():
+        try:
+            from src.module_log import ModuleLog as _ML
+            _ML.get("actions").info("Load best practice rules")
+        except Exception:
+            pass
         output = _capture_stdout(lambda: cm.load_best_practices())
         return jsonify({"ok": True, "output": output})
 
     @app.route('/api/actions/test-connection', methods=['POST'])
     def api_test_conn():
         try:
+            from src.module_log import ModuleLog as _ML
+            _ML.get("actions").info("Testing PCE connection")
+        except Exception:
+            pass
+        try:
             from src.api_client import ApiClient
             api = ApiClient(cm)
             status, body = api.check_health()
             body_text = str(body)
             clean_body = _strip_ansi(body_text)
+            try:
+                from src.module_log import ModuleLog as _ML
+                _ML.get("actions").info(f"Connection result: status={status}")
+            except Exception:
+                pass
             return jsonify({"ok": status == 200, "status": status, "body": clean_body[:500]})
         except Exception as e:
+            try:
+                from src.module_log import ModuleLog as _ML
+                _ML.get("actions").error(f"Connection failed: {e}")
+            except Exception:
+                pass
             return jsonify({"ok": False, "error": str(e)})
 
     @app.route('/api/shutdown', methods=['POST'])
@@ -1818,8 +1962,36 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     def rs_check():
         _, _, engine = _get_rs_components()
         logs = engine.check(silent=True)
+        _append_rs_logs(logs)
         cleaned = [_strip_ansi(l) for l in logs]
         return jsonify({"ok": True, "logs": cleaned})
+
+    @app.route('/api/rule_scheduler/logs')
+    def rs_log_history_api():
+        with _rs_log_lock:
+            history = list(_rs_log_history)
+        return jsonify({"ok": True, "history": history})
+
+    # ─── Module Log API ──────────────────────────────────────────────────────
+    @app.route('/api/logs')
+    def api_log_list():
+        from src.module_log import ModuleLog, MODULES
+        modules = ModuleLog.list_modules()
+        # Ensure all known modules appear even if not yet initialized
+        present = {m["name"] for m in modules}
+        for name, label in MODULES.items():
+            if name not in present:
+                modules.append({"name": name, "label": label, "count": 0})
+        return jsonify({"ok": True, "modules": modules})
+
+    @app.route('/api/logs/<module_name>')
+    def api_log_get(module_name):
+        from src.module_log import ModuleLog, MODULES
+        if module_name not in MODULES:
+            return jsonify({"ok": False, "error": "Unknown module"}), 404
+        n = min(int(request.args.get('n', 200)), 500)
+        ml = ModuleLog.get(module_name)
+        return jsonify({"ok": True, "module": module_name, "entries": ml.get_recent(n)})
 
     # ─── End Rule Scheduler API ────────────────────────────────────────────
 
@@ -1840,6 +2012,9 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
     if cm is None:
         cm = ConfigManager()
 
+    from src.module_log import ModuleLog as _ML
+    _ML.init(os.path.join(_ROOT_DIR, 'logs'))
+
     app = _create_app(cm, persistent_mode=persistent_mode)
     print(f"\n  Illumio PCE Ops — Web GUI")
     print(f"  Open in browser: http://127.0.0.1:{port}")
@@ -1851,7 +2026,7 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
     if not persistent_mode:
         import webbrowser
         threading.Timer(1.5, lambda: webbrowser.open(f'http://127.0.0.1:{port}')).start()
-        
+
     app.run(host=host, port=port, debug=False, use_reloader=False)
 
 

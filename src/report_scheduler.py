@@ -139,6 +139,14 @@ class ReportScheduler:
         Execute a single report schedule: generate report + optionally email it.
         Returns True on success.
         """
+        try:
+            from src.module_log import ModuleLog as _ML
+            _rslog = _ML.get("report_scheduler")
+            _rslog.separator(f"Report Schedule: {schedule.get('name', '')}")
+            _rslog.info(f"type={schedule.get('report_type')} format={schedule.get('format')} lookback={schedule.get('lookback_days')}d")
+        except Exception:
+            pass
+
         name = schedule.get("name", "Unnamed")
         report_type = schedule.get("report_type", "traffic")
         lookback_days = int(schedule.get("lookback_days", 7))
@@ -179,12 +187,20 @@ class ReportScheduler:
                                         custom_recipients, report_type=report_type)
 
             logger.info(f"[Scheduler] '{name}': completed, files={[os.path.basename(p) for p in paths]}")
+            try:
+                _rslog.info(f"Completed: {[os.path.basename(p) for p in paths]}")
+            except Exception:
+                pass
             max_reports = int(schedule.get("max_reports", 30))
             self._prune_by_count(output_dir, report_type, max_reports)
             self._prune_old_reports(output_dir)
             return True
 
         except Exception as e:
+            try:
+                _rslog.error(f"Failed: {e}")
+            except Exception:
+                pass
             logger.error(f"[Scheduler] '{name}': failed — {e}", exc_info=True)
             raise
 
