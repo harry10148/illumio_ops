@@ -46,7 +46,7 @@ FULL_EVENT_CATALOG = {
         "sec_rule.delete": "event_rule_delete",
         "sec_policy.create": "event_policy_prov",
     },
-    "Cluster": {"cluster.update": "event_cluster_update"},
+    "System": {"cluster.update": "event_cluster_update"},
 }
 
 
