@@ -203,12 +203,17 @@ class ScheduleEngine:
                     c['pce_status'] = 'active'
                     self.db.put(href, c)
                 curr_status = data.get('enabled')
-                if curr_status != target:
+                if curr_status == target:
+                    r_name = c.get('detail_name', c['name'])
+                    log(f"[OK] {r_name} (ID:{extract_id(href)}) already in target state ({'enabled' if target else 'disabled'}), no action needed.")
+                else:
                     r_name = c.get('detail_name', c['name'])
                     status_str = f"{Colors.GREEN}Enabled{Colors.ENDC}" if target else f"{Colors.FAIL}Disabled{Colors.ENDC}"
                     log(f"[ACTION] {t('rs_toggle', default='Toggle')} -> {status_str} (ID: {Colors.CYAN}{extract_id(href)}{Colors.ENDC}) - {r_name}")
                     if self.api.toggle_and_provision(href, target, c.get('is_ruleset')):
                         log(f"{Colors.GREEN}[SUCCESS] {t('rs_provisioned', default='Provisioned successfully')}{Colors.ENDC}")
+                    else:
+                        log(f"{Colors.FAIL}[FAILED] Toggle/provision failed for {r_name} (ID:{extract_id(href)}){Colors.ENDC}")
             elif status == 404:
                 r_name = c.get('detail_name', c['name'])
                 log(f"{Colors.WARNING}{t('rs_target_not_found', name=r_name, id=extract_id(href), default='[SKIP] {name} (ID:{id}) not found on PCE (deleted?). No action taken.')}{Colors.ENDC}")
@@ -216,6 +221,9 @@ class ScheduleEngine:
                     c['pce_status'] = 'deleted'
                     self.db.put(href, c)
                 continue
+            else:
+                r_name = c.get('detail_name', c['name'])
+                log(f"{Colors.FAIL}[ERROR] API returned HTTP {status} for {r_name} (ID:{extract_id(href)}). Check PCE credentials/connectivity.{Colors.ENDC}")
 
         # Clean up expired one-time schedules
         for h in expired_hrefs:

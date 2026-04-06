@@ -1961,7 +1961,8 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     @app.route('/api/rule_scheduler/check', methods=['POST'])
     def rs_check():
         _, _, engine = _get_rs_components()
-        logs = engine.check(silent=True)
+        tz_str = cm.config.get('settings', {}).get('timezone', 'local')
+        logs = engine.check(silent=True, tz_str=tz_str)
         _append_rs_logs(logs)
         cleaned = [_strip_ansi(l) for l in logs]
         return jsonify({"ok": True, "logs": cleaned})
