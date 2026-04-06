@@ -307,4 +307,12 @@ class ConfigManager:
             "threshold_type": "count", "threshold_count": 25,
             "threshold_window": 10, "cooldown_minutes": 30
         })
+        self.config["rules"].append({
+            "id": ts + 200, "type": "system", "name": t("rule_pce_health"),
+            "filter_value": "pce_health",
+            "desc": t("rule_pce_health_desc", default="PCE health check failed — PCE may be unreachable or degraded."),
+            "rec": t("rule_pce_health_rec", default="Check PCE service status and network connectivity."),
+            "threshold_type": "immediate", "threshold_count": 1,
+            "threshold_window": 10, "cooldown_minutes": 30
+        })
         self.save()

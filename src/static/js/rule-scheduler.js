@@ -479,7 +479,7 @@ async function rsEditSchedule(id) {
   try {
     const res = await fetch('/api/rule_scheduler/schedules');
     const list = await res.json();
-    const s = list.find(x => x.id === id);
+    const s = list.find(x => String(x.id) === String(id));
     if (!s) return toast('Schedule not found', true);
     $('rs-sch-href').value = s.href || '';
     $('rs-sch-name').value = s.detail_name || s.name || '';

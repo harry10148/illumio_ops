@@ -226,6 +226,7 @@ MESSAGES = {
         "rule_ruleset_change": "Rule Set Changed (Audit)",
         "rule_policy_provision": "Policy Provisioned (Audit)",
         "rule_high_blocked": "High Blocked Traffic volume",
+        "rule_pce_health": "PCE Health Check",
         "rule_api_authz_failed": "Repeated API Authorization Failures",
         "rule_api_key_change": "API Key Created / Deleted",
         "rule_sec_rule_change": "Security Rule Changed (Audit)",
@@ -266,6 +267,8 @@ MESSAGES = {
         "rule_auth_settings_change_rec": "Verify the change was authorized; check if MFA or session settings were weakened",
         "rule_high_blocked_desc": "High volume of blocked traffic detected — possible attack or misconfiguration",
         "rule_high_blocked_rec": "Review top blocked flows; check if policy rules need adjustment",
+        "rule_pce_health_desc": "PCE health check failed — PCE may be unreachable or service degraded",
+        "rule_pce_health_rec": "Check PCE service status and network connectivity between the monitoring host and PCE",
         "selected": "Selected",
         "setup_smtp": "=== SMTP Settings ===",
         # Debug Mode & Traffic Query
@@ -1405,6 +1408,7 @@ MESSAGES = {
         "rule_ruleset_change": "Ruleset 異動稽核告警",
         "rule_policy_provision": "Policy Provision 稽核告警",
         "rule_high_blocked": "高額阻斷流量告警",
+        "rule_pce_health": "PCE Health Check",
         "rule_api_authz_failed": "重複 API 授權失敗告警",
         "rule_api_key_change": "API 金鑰建立 / 刪除告警",
         "rule_sec_rule_change": "安全規則異動稽核告警",
@@ -1445,6 +1449,8 @@ MESSAGES = {
         "rule_auth_settings_change_rec": "確認變更是否已授權；檢查 MFA 或工作階段設定是否被削弱",
         "rule_high_blocked_desc": "偵測到大量阻斷流量 — 可能為攻擊或 Rule 設定錯誤",
         "rule_high_blocked_rec": "檢查前幾名阻斷流量；確認是否需要調整 Policy Rule",
+        "rule_pce_health_desc": "PCE health check 失敗 — PCE 可能無法連線或服務降級",
+        "rule_pce_health_rec": "確認 PCE 服務狀態，以及監控主機與 PCE 之間的網路連線",
         "selected": "已選擇",
         "setup_smtp": "=== SMTP 設定 ===",
         # Debug Mode & Traffic Query
