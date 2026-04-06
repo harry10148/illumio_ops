@@ -129,8 +129,8 @@ function renderSchedules() {
     let freq = s.schedule_type;
     if (s.schedule_type === 'weekly') freq += ` (${(s.day_of_week||'').slice(0,3)})`;
     else if (s.schedule_type === 'monthly') freq += ` (day ${s.day_of_month||1})`;
-    const _localH = _utcToLocal(s.hour || 0);
-    freq += ` ${String(_localH).padStart(2,'0')}:${String(s.minute||0).padStart(2,'0')} ${_tzDisplayLabel()}`;
+    const tzLabel = s.timezone && s.timezone !== 'local' ? s.timezone : _tzDisplayLabel();
+    freq += ` ${String(s.hour||0).padStart(2,'0')}:${String(s.minute||0).padStart(2,'0')} (${tzLabel})`;
 
     const lastRun = s.last_run ? s.last_run.slice(0,16).replace('T',' ') : (_translations['gui_sched_status_never'] || 'Never run');
     let statusBadge = '';
@@ -188,8 +188,8 @@ function openSchedModal(sched) {
   $('sched-freq').value     = sched ? (sched.schedule_type || 'weekly') : 'weekly';
   $('sched-dow').value      = sched ? (sched.day_of_week || 'monday') : 'monday';
   $('sched-dom').value      = sched ? (sched.day_of_month || 1) : 1;
-  $('sched-hour').value     = sched ? _utcToLocal(sched.hour !== undefined ? sched.hour : 8) : 8;
-  $('sched-tz-label').textContent = _tzDisplayLabel();
+  $('sched-hour').value     = sched ? (sched.hour !== undefined ? sched.hour : 8) : 8;
+  populateTzSelect('sched-timezone', sched ? (sched.timezone || _timezone || 'local') : (_timezone || 'local'));
   $('sched-minute').value   = sched ? (sched.minute !== undefined ? sched.minute : 0) : 0;
   $('sched-lookback').value = sched ? (sched.lookback_days || 7) : 7;
   $('sched-max-reports').value = sched ? (sched.max_reports !== undefined ? sched.max_reports : 30) : 30;
@@ -239,8 +239,9 @@ async function saveSchedule() {
     schedule_type: $('sched-freq').value,
     day_of_week: $('sched-dow').value,
     day_of_month: parseInt($('sched-dom').value) || 1,
-    hour: _localToUtc(parseInt($('sched-hour').value) || 8),
+    hour: parseInt($('sched-hour').value) || 0,
     minute: parseInt($('sched-minute').value) || 0,
+    timezone: $('sched-timezone').value || 'local',
     lookback_days: parseInt($('sched-lookback').value) || 7,
     max_reports: parseInt($('sched-max-reports').value) || 30,
     format: fmt,

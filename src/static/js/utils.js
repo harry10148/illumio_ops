@@ -52,6 +52,27 @@ function _tzDisplayLabel() {
   return (_timezone && _timezone !== 'local') ? _timezone : 'Local';
 }
 
+const _TZ_OPTIONS = [
+  ['local','Local (Server Time)'],
+  ['UTC','UTC'],
+  ['UTC-12','UTC-12'],['UTC-11','UTC-11'],['UTC-10','UTC-10'],['UTC-9','UTC-9'],
+  ['UTC-8','UTC-8'],['UTC-7','UTC-7'],['UTC-6','UTC-6'],['UTC-5','UTC-5'],
+  ['UTC-4','UTC-4'],['UTC-3','UTC-3'],['UTC-2','UTC-2'],['UTC-1','UTC-1'],
+  ['UTC+1','UTC+1'],['UTC+2','UTC+2'],['UTC+3','UTC+3'],['UTC+4','UTC+4'],
+  ['UTC+5','UTC+5'],['UTC+5.5','UTC+5.5'],['UTC+6','UTC+6'],['UTC+7','UTC+7'],
+  ['UTC+8','UTC+8'],['UTC+9','UTC+9'],['UTC+9.5','UTC+9.5'],['UTC+10','UTC+10'],
+  ['UTC+11','UTC+11'],['UTC+12','UTC+12']
+];
+
+function populateTzSelect(selectId, selectedValue) {
+  const sel = $(selectId);
+  if (!sel) return;
+  const val = selectedValue || _timezone || 'local';
+  sel.innerHTML = _TZ_OPTIONS.map(([v, label]) =>
+    `<option value="${v}"${v === val ? ' selected' : ''}>${label}</option>`
+  ).join('');
+}
+
 const UI_PREF_KEYS = {
   themeMode: 'illumio_gui_theme_mode',
   density: 'illumio_gui_density'

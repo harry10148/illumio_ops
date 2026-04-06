@@ -11,32 +11,9 @@ let rsSearchQuery = '';
 let rsSearchScope = 'rs_name';
 let rsSelectedRsId = null;
 
-/* ── Timezone select helper ── */
-const _RS_TZ_OPTIONS = [
-  ['local','Local (Server Time)'],
-  ['UTC','UTC'],
-  ['UTC-12','UTC-12'],['UTC-11','UTC-11'],['UTC-10','UTC-10'],['UTC-9','UTC-9'],
-  ['UTC-8','UTC-8'],['UTC-7','UTC-7'],['UTC-6','UTC-6'],['UTC-5','UTC-5'],
-  ['UTC-4','UTC-4'],['UTC-3','UTC-3'],['UTC-2','UTC-2'],['UTC-1','UTC-1'],
-  ['UTC+1','UTC+1'],['UTC+2','UTC+2'],['UTC+3','UTC+3'],['UTC+4','UTC+4'],
-  ['UTC+5','UTC+5'],['UTC+5.5','UTC+5.5'],['UTC+6','UTC+6'],['UTC+7','UTC+7'],
-  ['UTC+8','UTC+8'],['UTC+9','UTC+9'],['UTC+9.5','UTC+9.5'],['UTC+10','UTC+10'],
-  ['UTC+11','UTC+11'],['UTC+12','UTC+12']
-];
-
+/* ── Timezone select helper (uses shared populateTzSelect from utils.js) ── */
 function rsPopulateTzSelect(selectId, selectedValue) {
-  const sel = $(selectId);
-  if (!sel) return;
-  const val = selectedValue || rsGetAppTz();
-  sel.innerHTML = _RS_TZ_OPTIONS.map(([v, label]) =>
-    `<option value="${v}"${v === val ? ' selected' : ''}>${label}</option>`
-  ).join('');
-}
-
-function rsGetAppTz() {
-  // Prefer the global settings timezone if it has been loaded
-  const tzSel = $('s-timezone');
-  return (tzSel && tzSel.value) ? tzSel.value : 'local';
+  populateTzSelect(selectId, selectedValue);
 }
 
 function rsLoadTab() {

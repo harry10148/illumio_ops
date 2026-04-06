@@ -664,7 +664,7 @@
 
       <div class="form-row">
         <div class="form-group">
-          <label><span data-i18n="gui_sched_hour_prefix">Hour</span> (<span id="sched-tz-label">UTC</span>, 0-23)</label>
+          <label data-i18n="gui_sched_hour_prefix">Hour (0-23)</label>
           <input type="number" id="sched-hour" min="0" max="23" value="8" style="width:100%;">
         </div>
         <div class="form-group">
@@ -679,6 +679,10 @@
           <label data-i18n="gui_sched_max_reports">Max Stored Reports</label>
           <input type="number" id="sched-max-reports" min="1" max="365" value="30" style="width:100%;" title="Keep only the N most recent report files for this schedule type. Older files are deleted automatically.">
         </div>
+      </div>
+      <div class="form-group">
+        <label data-i18n="gui_rs_timezone">Timezone</label>
+        <select id="sched-timezone" style="width:100%;padding:8px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border);color:var(--fg);"></select>
       </div>
 
       <div class="form-group">

@@ -440,10 +440,11 @@ class ReportScheduler:
         if not schedules:
             return
 
-        tz_str = self.cm.config.get('settings', {}).get('timezone', 'local')
-        now = _now_in_schedule_tz(tz_str)
+        global_tz = self.cm.config.get('settings', {}).get('timezone', 'local')
 
         for sched in schedules:
+            sched_tz = sched.get('timezone', global_tz)
+            now = _now_in_schedule_tz(sched_tz)
             if not self.should_run(sched, now):
                 continue
 
