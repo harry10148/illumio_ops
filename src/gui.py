@@ -355,6 +355,46 @@ def _write_audit_dashboard_summary(output_dir: str, result) -> str:
     return summary_path
 
 
+def _build_policy_usage_dashboard_summary(result) -> dict:
+    mod00 = result.module_results.get("mod00", {}) if result else {}
+    execution = getattr(result, "execution_stats", {}) or mod00.get("execution_stats", {}) or {}
+
+    def _detail_rows(items, limit=5):
+        rows = []
+        for item in (items or [])[:limit]:
+            rows.append({
+                "rule_href": item.get("rule_href", ""),
+                "rule_no": item.get("rule_no", ""),
+                "rule_id": item.get("rule_id", ""),
+                "ruleset_name": item.get("ruleset_name", ""),
+                "description": item.get("description", ""),
+                "status": item.get("status", ""),
+            })
+        return rows
+
+    return {
+        "generated_at": mod00.get("generated_at") or getattr(result, "generated_at", datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S"),
+        "record_count": int(getattr(result, "record_count", 0) or 0),
+        "date_range": list(getattr(result, "date_range", ("", "")) or ("", "")),
+        "kpis": mod00.get("kpis", [])[:8],
+        "execution_stats": execution,
+        "execution_notes": mod00.get("execution_notes", [])[:5],
+        "top_hit_ports": (execution.get("top_hit_ports") or [])[:10],
+        "reused_rule_details": _detail_rows(execution.get("reused_rule_details"), limit=5),
+        "pending_rule_details": _detail_rows(execution.get("pending_rule_details"), limit=5),
+        "failed_rule_details": _detail_rows(execution.get("failed_rule_details"), limit=5),
+    }
+
+
+def _write_policy_usage_dashboard_summary(output_dir: str, result) -> str:
+    os.makedirs(output_dir, exist_ok=True)
+    summary_path = os.path.join(output_dir, "latest_policy_usage_summary.json")
+    summary = _build_policy_usage_dashboard_summary(result)
+    with open(summary_path, "w", encoding="utf-8") as fh:
+        json.dump(summary, fh, ensure_ascii=False, indent=2)
+    return summary_path
+
+
 def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     app = Flask(__name__, template_folder=os.path.join(_PKG_DIR, 'templates'), static_folder=os.path.join(_PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
@@ -1385,6 +1425,20 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)})
 
+    @app.route('/api/dashboard/policy_usage_summary', methods=['GET'])
+    def api_dashboard_policy_usage_summary():
+        cm.load()
+        reports_dir = _resolve_reports_dir(cm)
+        summary_path = os.path.join(reports_dir, 'latest_policy_usage_summary.json')
+        if not os.path.exists(summary_path):
+            return jsonify({"ok": False, "error": "No policy usage report summary found."})
+        try:
+            with open(summary_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify({"ok": True, "summary": data})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)})
+
     # ??? API: Reports ??????????????????????????????????????????????????????
     @app.route('/api/reports', methods=['GET'])
     def api_list_reports():
@@ -1397,11 +1451,26 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         reports = []
         for f in os.listdir(reports_dir):
             if f.endswith('.html') or f.endswith('.zip'):
-                stat = os.stat(os.path.join(reports_dir, f))
+                report_path = os.path.join(reports_dir, f)
+                stat = os.stat(report_path)
+                metadata = {}
+                metadata_path = report_path + ".metadata.json"
+                if os.path.isfile(metadata_path):
+                    try:
+                        with open(metadata_path, "r", encoding="utf-8") as mf:
+                            metadata = json.load(mf) or {}
+                    except Exception:
+                        metadata = {}
                 reports.append({
                     "filename": f,
                     "mtime": stat.st_mtime,
-                    "size": stat.st_size
+                    "size": stat.st_size,
+                    "report_type": metadata.get("report_type", ""),
+                    "summary": metadata.get("summary", ""),
+                    "execution_stats": metadata.get("execution_stats", {}),
+                    "reused_rule_details": metadata.get("reused_rule_details", []),
+                    "pending_rule_details": metadata.get("pending_rule_details", []),
+                    "failed_rule_details": metadata.get("failed_rule_details", []),
                 })
         
         reports.sort(key=lambda x: x['mtime'], reverse=True)
@@ -1418,6 +1487,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         if not os.path.isfile(target):
             return jsonify({"ok": False, "error": t("gui_file_not_found")}), 404
         os.remove(target)
+        metadata_path = target + ".metadata.json"
+        if os.path.isfile(metadata_path):
+            try:
+                os.remove(metadata_path)
+            except OSError:
+                pass
         return jsonify({"ok": True})
 
     @app.route('/api/reports/bulk-delete', methods=['POST'])
@@ -1445,6 +1520,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                     errors.append(f"{filename}: {t('gui_file_not_found')}")
                     continue
                 os.remove(target)
+                metadata_path = target + ".metadata.json"
+                if os.path.isfile(metadata_path):
+                    try:
+                        os.remove(metadata_path)
+                    except OSError:
+                        pass
                 success_count += 1
             except Exception as e:
                 errors.append(f"{filename}: {str(e)}")
@@ -1677,8 +1758,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
             output_dir = _resolve_reports_dir(cm)
             paths = gen.export(result, fmt='all', output_dir=output_dir)
+            _write_policy_usage_dashboard_summary(output_dir, result)
             filenames = [os.path.basename(p) for p in paths]
-            kpis = result.module_results.get('mod00', {}).get('kpis', [])
+            mod00 = result.module_results.get('mod00', {})
+            kpis = mod00.get('kpis', [])
+            execution_stats = getattr(result, "execution_stats", {}) or mod00.get("execution_stats", {})
+            execution_notes = mod00.get("execution_notes", [])
 
             try:
                 if _pulog:
@@ -1686,7 +1771,11 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             except Exception:
                 pass
             return jsonify({"ok": True, "files": filenames,
-                            "record_count": result.record_count, "kpis": kpis})
+                            "record_count": result.record_count, "kpis": kpis,
+                            "execution_stats": execution_stats, "execution_notes": execution_notes,
+                            "reused_rule_details": execution_stats.get("reused_rule_details", []),
+                            "pending_rule_details": execution_stats.get("pending_rule_details", []),
+                            "failed_rule_details": execution_stats.get("failed_rule_details", [])})
         except Exception as e:
             try:
                 if _pulog:
@@ -2643,5 +2732,3 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
         threading.Timer(1.5, lambda: webbrowser.open(f'http://127.0.0.1:{port}')).start()
 
     app.run(host=host, port=port, debug=False, use_reloader=False)
-
-

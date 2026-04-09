@@ -126,6 +126,7 @@ class ReportResult:
     module_results: dict = field(default_factory=dict)
     findings: list = field(default_factory=list)
     dataframe: object = None       # pd.DataFrame, optional
+    query_context: dict = field(default_factory=dict)
 
 
 # ─── Generator ───────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ class ReportGenerator:
 
         logger.info("[ReportGenerator] Starting API-source report generation")
         print(t("rpt_querying_traffic", start=start_date, end=end_date))
+        policy_decisions = list((filters or {}).get("policy_decisions") or ["blocked", "potentially_blocked", "allowed"])
 
         records = self.api.fetch_traffic_for_report(
             start_time_str=start_date, end_time_str=end_date, filters=filters)
@@ -174,11 +176,31 @@ class ReportGenerator:
         if not records:
             logger.warning("[ReportGenerator] No records returned from API")
             print(t("rpt_no_traffic_data"))
-            return ReportResult(data_source='api', record_count=0)
+            return ReportResult(
+                data_source='api',
+                record_count=0,
+                query_context={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "filters": dict(filters or {}),
+                    "policy_decisions": policy_decisions,
+                    "query_diagnostics": self.api.get_last_traffic_query_diagnostics() if self.api else {},
+                },
+            )
 
         print(t("rpt_records_received", count=f"{len(records):,}"))
         df = self._parse_api(records)
-        return self._run_pipeline(df, source='api')
+        return self._run_pipeline(
+            df,
+            source='api',
+            query_context={
+                "start_date": start_date,
+                "end_date": end_date,
+                "filters": dict(filters or {}),
+                "policy_decisions": policy_decisions,
+                "query_diagnostics": self.api.get_last_traffic_query_diagnostics() if self.api else {},
+            },
+        )
 
     def generate_from_csv(self, csv_path: str) -> ReportResult:
         """Parse a CSV file from the PCE UI export and run the analysis pipeline."""
@@ -209,18 +231,49 @@ class ReportGenerator:
 
         paths = []
 
-        if fmt in ('html', 'all'):
+        if fmt in ('html', 'all', 'all_raw'):
             path = HtmlExporter(result.module_results).export(output_dir)
             paths.append(path)
             print(t("rpt_html_saved", path=path))
 
-        if fmt in ('csv', 'all'):
+        if fmt in ('csv', 'all', 'all_raw'):
             export_data = dict(result.module_results)
             if result.dataframe is not None and not result.dataframe.empty:
                 export_data['raw_traffic'] = result.dataframe
             path = CsvExporter(export_data, report_label='Traffic').export(output_dir)
             paths.append(path)
             print(t("rpt_csv_saved", path=path))
+
+        if fmt in ('raw_csv', 'all_raw'):
+            if result.data_source != 'api' or not result.query_context:
+                raise ValueError("Raw Explorer CSV export is only supported for API-sourced traffic reports")
+            if self.api is None:
+                raise RuntimeError("api_client is required for raw Explorer CSV export")
+            raw_export = self.api.export_traffic_query_csv(
+                start_time_str=result.query_context.get("start_date"),
+                end_time_str=result.query_context.get("end_date"),
+                policy_decisions=result.query_context.get("policy_decisions"),
+                filters=result.query_context.get("filters"),
+                output_dir=output_dir,
+            )
+            paths.append(raw_export["path"])
+            self._write_report_metadata(
+                raw_export["path"],
+                {
+                    "report_type": "traffic_raw_csv",
+                    "file_format": "raw_csv",
+                    "generated_at": result.generated_at.isoformat(),
+                    "record_count": int(raw_export.get("row_count", 0) or 0),
+                    "date_range": list(result.date_range),
+                    "summary": "Raw Explorer CSV export",
+                    "query_diagnostics": raw_export.get("query_diagnostics", {}),
+                    "policy_decisions": raw_export.get("policy_decisions", []),
+                    "filters": raw_export.get("filters", {}),
+                    "job_href": raw_export.get("job_href", ""),
+                    "compute_draft": raw_export.get("compute_draft", False),
+                },
+            )
+            print(f"Raw Explorer CSV saved: {raw_export['path']}")
 
         # Save snapshot for Web UI Dashboard directly
         try:
@@ -247,7 +300,7 @@ class ReportGenerator:
 
     # ── private — pipeline ───────────────────────────────────────────────────
 
-    def _run_pipeline(self, df, source: str) -> ReportResult:
+    def _run_pipeline(self, df, source: str, query_context: Optional[dict] = None) -> ReportResult:
         """Validate → Rules → 12 modules → wrap result."""
         import pandas as pd
         from src.report.parsers.validators import validate, coerce
@@ -294,7 +347,15 @@ class ReportGenerator:
             module_results=results,
             findings=findings,
             dataframe=df,
+            query_context=dict(query_context or {}),
         )
+
+    @staticmethod
+    def _write_report_metadata(report_path: str, payload: dict):
+        import json
+
+        with open(report_path + ".metadata.json", "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, ensure_ascii=False)
 
     def _run_modules(self, df, findings: list) -> dict:
         """Execute all registered analysis modules via the module registry."""
