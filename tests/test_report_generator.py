@@ -55,6 +55,36 @@ class TestReportGeneratorRawCsvExport(unittest.TestCase):
         self.assertEqual(metadata["job_href"], "/orgs/1/traffic_flows/async_queries/77")
         self.assertEqual(metadata["filters"]["src_label"], "role:web")
 
+    def test_build_report_metadata_contains_attack_summary(self):
+        mock_cm = MagicMock()
+        mock_cm.config = {"settings": {}}
+        gen = ReportGenerator(mock_cm, api_client=MagicMock())
+
+        result = ReportResult(
+            record_count=15,
+            date_range=("2026-04-01", "2026-04-02"),
+            module_results={
+                "mod12": {
+                    "kpis": [{"label": "Total Flows", "value": "15"}],
+                    "boundary_breaches": [{"finding": "Cross-boundary traffic observed", "action": "Restrict east-west access"}],
+                    "suspicious_pivot_behavior": [{"finding": "Pivot chain detected", "action": "Investigate source app"}],
+                    "blast_radius": [],
+                    "blind_spots": [],
+                    "action_matrix": [{"action": "Enable enforcement", "priority": 100}],
+                }
+            },
+        )
+
+        metadata = gen._build_report_metadata(result, file_format="html")
+
+        self.assertEqual(metadata["report_type"], "traffic")
+        self.assertEqual(metadata["file_format"], "html")
+        self.assertEqual(metadata["record_count"], 15)
+        self.assertIn("attack_summary", metadata)
+        self.assertIn("boundary_breaches", metadata["attack_summary"])
+        self.assertIn("action_matrix", metadata["attack_summary"])
+        self.assertEqual(metadata["attack_summary_counts"]["boundary_breaches"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

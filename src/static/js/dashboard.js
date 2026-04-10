@@ -226,11 +226,12 @@ async function loadReports() {
   r.reports.forEach(rp => {
     const d = new Date(rp.mtime*1000).toLocaleString();
     const sz = (rp.size/1024).toFixed(1)+' KB';
+    const attackMeta = _buildAttackSummaryMeta(rp.attack_summary_counts || {});
     const metaLine = rp.report_type === 'policy_usage'
-      ? _buildPolicyUsageReportMeta(rp)
+      ? (_buildPolicyUsageReportMeta(rp) + attackMeta)
       : (rp.summary
-          ? `<div style="font-size:0.76rem;color:var(--dim);margin-top:4px;">${escapeHtml(rp.summary)}</div>`
-          : '');
+          ? `<div style="font-size:0.76rem;color:var(--dim);margin-top:4px;">${escapeHtml(rp.summary)}</div>${attackMeta}`
+          : attackMeta);
     const viewLabel = _translations['gui_btn_view'] || '檢視';
     const downloadLabel = _translations['gui_btn_download'] || '下載';
     const deleteLabel = _translations['gui_btn_delete'] || '刪除';
@@ -598,6 +599,28 @@ function _buildPolicyUsageReportMeta(rp) {
   else if (summary) lines.push(`<div style="font-size:0.76rem;color:var(--dim);margin-top:4px;">${escapeHtml(summary)}</div>`);
   else if (rp.summary) lines.push(`<div style="font-size:0.76rem;color:var(--dim);margin-top:4px;">${escapeHtml(rp.summary)}</div>`);
   return lines.join('');
+}
+
+function _buildAttackSummaryMeta(counts) {
+  const c = counts || {};
+  const boundary = c.boundary_breaches || 0;
+  const pivot = c.suspicious_pivot_behavior || 0;
+  const blast = c.blast_radius || 0;
+  const blind = c.blind_spots || 0;
+  const actions = c.action_matrix || 0;
+  const total = boundary + pivot + blast + blind + actions;
+  if (!total) return '';
+
+  const badges = [
+    `B ${boundary}`,
+    `P ${pivot}`,
+    `R ${blast}`,
+    `S ${blind}`,
+    `A ${actions}`,
+  ]
+    .map(t => `<span style="display:inline-block;padding:2px 6px;border-radius:999px;background:#1a2c32;color:#d6d7d7;font-size:0.7rem;">${escapeHtml(t)}</span>`)
+    .join('');
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;" title="Attack/攻擊摘要">${badges}</div>`;
 }
 
 function _hideGenProgress(success, msg) {

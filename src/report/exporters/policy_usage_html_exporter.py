@@ -95,6 +95,7 @@ class PolicyUsageHtmlExporter:
             + self._kpi_html(mod00.get("kpis", []))
             + self._execution_html(mod00)
             + self._attention_html(mod00.get("attention_items", []))
+            + self._attack_summary_html(mod00)
             + "</section>\n"
             + self._section(
                 "overview",
@@ -227,6 +228,52 @@ class PolicyUsageHtmlExporter:
             + metrics_html
             + notes_html
             + "</div>"
+        )
+
+    def _attack_summary_html(self, mod00: dict) -> str:
+        def _rows(section_items):
+            if not section_items:
+                return '<p class="note">No data</p>'
+            return "".join(
+                "<p style='margin-bottom:8px'><span class='badge badge-"
+                + str(item.get("severity", "INFO"))
+                + "'>"
+                + str(item.get("severity", "INFO"))
+                + "</span>&nbsp;"
+                + str(item.get("finding", ""))
+                + (("<br><span style='color:#718096;font-size:12px;'>"
+                    + str(item.get("finding_zh", ""))
+                    + "</span>") if item.get("finding_zh") else "")
+                + " <em style='color:#718096'>&rarr; "
+                + str(item.get("action", ""))
+                + "</em>"
+                + (("<br><span style='color:#718096;font-size:12px;'><em>&rarr; "
+                    + str(item.get("action_zh", ""))
+                    + "</em></span>") if item.get("action_zh") else "")
+                + "</p>"
+                for item in section_items[:3]
+            )
+
+        action_matrix = mod00.get("action_matrix", []) or []
+        action_html = "".join(
+            "<p style='margin-bottom:8px'><b>"
+            + str(item.get("action_code", ""))
+            + "</b>: "
+            + str(item.get("action", ""))
+            + (("<br><span style='color:#718096;font-size:12px;'>"
+                + str(item.get("action_zh", ""))
+                + "</span>") if item.get("action_zh") else "")
+            + "</p>"
+            for item in action_matrix[:3]
+        ) or '<p class="note">No data</p>'
+
+        return (
+            '<h2 data-i18n="rpt_tr_attack_summary">Attack Summary</h2>'
+            '<h3 data-i18n="rpt_tr_boundary_breaches">Boundary Breaches</h3>' + _rows(mod00.get("boundary_breaches", []))
+            + '<h3 data-i18n="rpt_tr_suspicious_pivot_behavior">Suspicious Pivot Behavior</h3>' + _rows(mod00.get("suspicious_pivot_behavior", []))
+            + '<h3 data-i18n="rpt_tr_blast_radius">Blast Radius</h3>' + _rows(mod00.get("blast_radius", []))
+            + '<h3 data-i18n="rpt_tr_blind_spots">Blind Spots</h3>' + _rows(mod00.get("blind_spots", []))
+            + '<h3 data-i18n="rpt_tr_action_matrix">Action Matrix</h3>' + action_html
         )
 
     def _mod01_html(self) -> str:

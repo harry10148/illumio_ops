@@ -33,6 +33,12 @@ from src.config import ConfigManager
 from src.i18n import t, get_messages
 from src import __version__
 from src.alerts import PLUGIN_METADATA, plugin_config_path, plugin_config_value
+from src.report.dashboard_summaries import (
+    build_audit_dashboard_summary,
+    build_policy_usage_dashboard_summary,
+    write_audit_dashboard_summary,
+    write_policy_usage_dashboard_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -299,100 +305,20 @@ def _get_active_pce_url(cm: 'ConfigManager') -> str:
                 return p.get('url', '') or cm.config.get('api', {}).get('url', '')
     return cm.config.get('api', {}).get('url', '')
 
-
-def _records_from_table(table, limit: int = 10) -> list[dict]:
-    try:
-        if table is None:
-            return []
-        if hasattr(table, "head") and hasattr(table, "to_dict"):
-            return table.head(limit).to_dict(orient="records")
-    except Exception:
-        return []
-    return []
-
-
 def _build_audit_dashboard_summary(result) -> dict:
-    mod00 = result.module_results.get("mod00", {}) if result else {}
-    mod01 = result.module_results.get("mod01", {}) if result else {}
-    mod03 = result.module_results.get("mod03", {}) if result else {}
-    attention_items = []
-    for item in (mod00.get("attention_items") or [])[:5]:
-        attention_items.append({
-            "risk": item.get("risk", "INFO"),
-            "event_type": item.get("event_type", ""),
-            "count": int(item.get("count", 0) or 0),
-            "summary": item.get("summary", ""),
-            "recommendation": item.get("recommendation", ""),
-        })
-
-    return {
-        "generated_at": mod00.get("generated_at") or getattr(result, "generated_at", datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S"),
-        "record_count": int(getattr(result, "record_count", 0) or 0),
-        "date_range": list(getattr(result, "date_range", ("", "")) or ("", "")),
-        "kpis": mod00.get("kpis", [])[:8],
-        "attention_items": attention_items,
-        "top_events": _records_from_table(mod00.get("top_events_overall"), limit=10),
-        "health": {
-            "total_health_events": int(mod01.get("total_health_events", 0) or 0),
-            "security_concern_count": int(mod01.get("security_concern_count", 0) or 0),
-            "connectivity_event_count": int(mod01.get("connectivity_event_count", 0) or 0),
-        },
-        "policy": {
-            "provision_count": int(mod03.get("provision_count", 0) or 0),
-            "rule_change_count": int(mod03.get("rule_change_count", 0) or 0),
-            "high_risk_count": int(mod03.get("high_risk_count", 0) or 0),
-            "total_workloads_affected": int(mod03.get("total_workloads_affected", 0) or 0),
-        },
-    }
+    return build_audit_dashboard_summary(result)
 
 
 def _write_audit_dashboard_summary(output_dir: str, result) -> str:
-    os.makedirs(output_dir, exist_ok=True)
-    summary_path = os.path.join(output_dir, "latest_audit_summary.json")
-    summary = _build_audit_dashboard_summary(result)
-    with open(summary_path, "w", encoding="utf-8") as fh:
-        json.dump(summary, fh, ensure_ascii=False, indent=2)
-    return summary_path
+    return write_audit_dashboard_summary(output_dir, result)
 
 
 def _build_policy_usage_dashboard_summary(result) -> dict:
-    mod00 = result.module_results.get("mod00", {}) if result else {}
-    execution = getattr(result, "execution_stats", {}) or mod00.get("execution_stats", {}) or {}
-
-    def _detail_rows(items, limit=5):
-        rows = []
-        for item in (items or [])[:limit]:
-            rows.append({
-                "rule_href": item.get("rule_href", ""),
-                "rule_no": item.get("rule_no", ""),
-                "rule_id": item.get("rule_id", ""),
-                "ruleset_name": item.get("ruleset_name", ""),
-                "description": item.get("description", ""),
-                "status": item.get("status", ""),
-            })
-        return rows
-
-    return {
-        "generated_at": mod00.get("generated_at") or getattr(result, "generated_at", datetime.datetime.now()).strftime("%Y-%m-%d %H:%M:%S"),
-        "record_count": int(getattr(result, "record_count", 0) or 0),
-        "date_range": list(getattr(result, "date_range", ("", "")) or ("", "")),
-        "kpis": mod00.get("kpis", [])[:8],
-        "execution_stats": execution,
-        "execution_notes": mod00.get("execution_notes", [])[:5],
-        "top_hit_ports": (execution.get("top_hit_ports") or [])[:10],
-        "reused_rule_details": _detail_rows(execution.get("reused_rule_details"), limit=5),
-        "pending_rule_details": _detail_rows(execution.get("pending_rule_details"), limit=5),
-        "failed_rule_details": _detail_rows(execution.get("failed_rule_details"), limit=5),
-    }
+    return build_policy_usage_dashboard_summary(result)
 
 
 def _write_policy_usage_dashboard_summary(output_dir: str, result) -> str:
-    os.makedirs(output_dir, exist_ok=True)
-    summary_path = os.path.join(output_dir, "latest_policy_usage_summary.json")
-    summary = _build_policy_usage_dashboard_summary(result)
-    with open(summary_path, "w", encoding="utf-8") as fh:
-        json.dump(summary, fh, ensure_ascii=False, indent=2)
-    return summary_path
+    return write_policy_usage_dashboard_summary(output_dir, result)
 
 
 def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
@@ -1431,7 +1357,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         reports_dir = _resolve_reports_dir(cm)
         summary_path = os.path.join(reports_dir, 'latest_policy_usage_summary.json')
         if not os.path.exists(summary_path):
-            return jsonify({"ok": False, "error": "No policy usage report summary found."})
+            return jsonify({"ok": False, "error": t("gui_dashboard_no_policy_usage_summary", default="No policy usage report summary found.")})
         try:
             with open(summary_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -1467,6 +1393,8 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                     "size": stat.st_size,
                     "report_type": metadata.get("report_type", ""),
                     "summary": metadata.get("summary", ""),
+                    "attack_summary": metadata.get("attack_summary", {}),
+                    "attack_summary_counts": metadata.get("attack_summary_counts", {}),
                     "execution_stats": metadata.get("execution_stats", {}),
                     "reused_rule_details": metadata.get("reused_rule_details", []),
                     "pending_rule_details": metadata.get("pending_rule_details", []),

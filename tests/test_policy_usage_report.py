@@ -2,6 +2,7 @@ import unittest
 import tempfile
 import zipfile
 import os
+import json
 from unittest.mock import MagicMock
 
 from src.report.analysis.policy_usage.pu_mod00_executive import pu_executive_summary
@@ -74,6 +75,43 @@ class TestPolicyUsageExecutiveSummary(unittest.TestCase):
         self.assertEqual(metadata["reused_rule_details"][0]["status"], "reused")
         self.assertEqual(metadata["pending_rule_details"][0]["status"], "pending")
         self.assertEqual(metadata["failed_rule_details"][0]["status"], "failed")
+        self.assertIn("attack_summary", metadata)
+        self.assertIn("boundary_breaches", metadata["attack_summary"])
+
+    def test_export_writes_dashboard_summary_and_attack_metadata(self):
+        gen = PolicyUsageGenerator(MagicMock(), api_client=None)
+        result = PolicyUsageResult(
+            module_results={
+                "mod00": {
+                    "kpis": [],
+                    "execution_notes": [],
+                    "boundary_breaches": [{"finding": "Unused high-risk rule", "action": "Review and tighten scope"}],
+                    "suspicious_pivot_behavior": [],
+                    "blast_radius": [],
+                    "blind_spots": [],
+                    "action_matrix": [{"action": "Disable stale rules", "priority": 70}],
+                },
+                "mod02": {"hit_df": None},
+                "mod03": {"unused_df": None},
+            },
+            execution_stats={
+                "reused_rule_details": [{"rule_href": "/rules/1", "status": "reused"}],
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            paths = gen.export(result, fmt="csv", output_dir=tmpdir)
+            self.assertEqual(len(paths), 1)
+
+            metadata_path = paths[0] + ".metadata.json"
+            self.assertTrue(os.path.exists(metadata_path))
+            with open(metadata_path, "r", encoding="utf-8") as fh:
+                metadata = json.load(fh)
+            self.assertEqual(metadata["report_type"], "policy_usage")
+            self.assertEqual(metadata["attack_summary_counts"]["boundary_breaches"], 1)
+
+            summary_path = os.path.join(tmpdir, "latest_policy_usage_summary.json")
+            self.assertTrue(os.path.exists(summary_path))
 
     def test_csv_export_includes_execution_detail_files(self):
         gen = PolicyUsageGenerator(MagicMock(), api_client=None)

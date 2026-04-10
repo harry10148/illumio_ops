@@ -24,6 +24,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from src.i18n import t
+from src.report.report_metadata import (
+    attack_summary_counts,
+    build_attack_summary_brief,
+    extract_attack_summary,
+)
 from src.report.tz_utils import parse_tz as _parse_tz, fmt_tz_now as _fmt_tz_now
 
 logger = logging.getLogger(__name__)
@@ -82,6 +87,11 @@ def _build_snapshot(module_results: dict) -> dict:
         'generated_at': mod12.get('generated_at', ''),
         'kpis':         mod12.get('kpis', []),
         'key_findings': mod12.get('key_findings', []),
+        'boundary_breaches': mod12.get('boundary_breaches', []),
+        'suspicious_pivot_behavior': mod12.get('suspicious_pivot_behavior', []),
+        'blast_radius': mod12.get('blast_radius', []),
+        'blind_spots': mod12.get('blind_spots', []),
+        'action_matrix': mod12.get('action_matrix', []),
         # mod01 scalars
         'total_flows':          _safe_val(mod01.get('total_flows', 0)),
         'total_connections':    _safe_val(mod01.get('total_connections', 0)),
@@ -234,6 +244,7 @@ class ReportGenerator:
         if fmt in ('html', 'all', 'all_raw'):
             path = HtmlExporter(result.module_results).export(output_dir)
             paths.append(path)
+            self._write_report_metadata(path, self._build_report_metadata(result, file_format="html"))
             print(t("rpt_html_saved", path=path))
 
         if fmt in ('csv', 'all', 'all_raw'):
@@ -242,6 +253,7 @@ class ReportGenerator:
                 export_data['raw_traffic'] = result.dataframe
             path = CsvExporter(export_data, report_label='Traffic').export(output_dir)
             paths.append(path)
+            self._write_report_metadata(path, self._build_report_metadata(result, file_format="csv"))
             print(t("rpt_csv_saved", path=path))
 
         if fmt in ('raw_csv', 'all_raw'):
@@ -357,6 +369,25 @@ class ReportGenerator:
         with open(report_path + ".metadata.json", "w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2, ensure_ascii=False)
 
+    def _build_report_metadata(self, result: ReportResult, file_format: str) -> dict:
+        mod12 = result.module_results.get("mod12", {}) if isinstance(result.module_results, dict) else {}
+        attack_summary = extract_attack_summary(result.module_results, top_n=5)
+        counts = attack_summary_counts(attack_summary)
+        summary = build_attack_summary_brief(counts)
+        if not summary:
+            summary = f"traffic records {int(getattr(result, 'record_count', 0) or 0)}"
+        return {
+            "report_type": "traffic",
+            "file_format": file_format,
+            "generated_at": getattr(result, "generated_at", datetime.datetime.now()).isoformat(),
+            "record_count": int(getattr(result, "record_count", 0) or 0),
+            "date_range": list(getattr(result, "date_range", ("", "")) or ("", "")),
+            "kpis": mod12.get("kpis", []),
+            "summary": summary,
+            "attack_summary": attack_summary,
+            "attack_summary_counts": counts,
+        }
+
     def _run_modules(self, df, findings: list) -> dict:
         """Execute all registered analysis modules via the module registry."""
         from src.report.analysis import get_traffic_modules, get_summary_module
@@ -430,6 +461,11 @@ class ReportGenerator:
         """Build a compact HTML email body from the executive summary."""
         kpis = mod12.get('kpis', [])
         findings = mod12.get('key_findings', [])
+        boundary_breaches = mod12.get('boundary_breaches', [])
+        suspicious_pivot = mod12.get('suspicious_pivot_behavior', [])
+        blast_radius = mod12.get('blast_radius', [])
+        blind_spots = mod12.get('blind_spots', [])
+        action_matrix = mod12.get('action_matrix', [])
 
         def _sev_bg(sev):
             if sev == 'CRITICAL': return '#BE122F'
@@ -452,6 +488,34 @@ class ReportGenerator:
             f'</tr>'
             for f in findings
         )
+        attack_rows = []
+        for title, items in [
+            ("Boundary Breaches", boundary_breaches),
+            ("Suspicious Pivot Behavior", suspicious_pivot),
+            ("Blast Radius", blast_radius),
+            ("Blind Spots", blind_spots),
+        ]:
+            if items:
+                sample = items[0]
+                attack_rows.append(
+                    f'<tr>'
+                    f'<td style="padding:4px 10px;font-weight:700;color:#1A2C32">{title}</td>'
+                    f'<td style="padding:4px 10px;color:#313638">{sample.get("finding","")}</td>'
+                    f'<td style="padding:4px 10px;color:#989A9B"><em>{sample.get("action","")}</em>'
+                    + (f'<br><span style="font-size:11px">{sample.get("action_zh","")}</span>' if sample.get("action_zh") else '')
+                    + '</td>'
+                    f'</tr>'
+                )
+        if action_matrix:
+            top_action = action_matrix[0]
+            attack_rows.append(
+                f'<tr>'
+                f'<td style="padding:4px 10px;font-weight:700;color:#1A2C32">Action Matrix</td>'
+                f'<td style="padding:4px 10px;color:#313638">{top_action.get("action","")}</td>'
+                f'<td style="padding:4px 10px;color:#989A9B"><em>{top_action.get("action_zh","")}</em></td>'
+                f'</tr>'
+            )
+        attack_rows_html = "".join(attack_rows)
 
         return f"""
 <html><body style="margin:0;padding:0;background:#F7F4EE;font-family:'Montserrat',Arial,sans-serif;color:#313638;line-height:1.5">
@@ -469,6 +533,10 @@ class ReportGenerator:
       <h3 style="color:#1A2C32;font-size:13px;font-weight:600;margin:0 0 8px;border-bottom:2px solid #FF5500;padding-bottom:5px">{t("rpt_email_key_findings")}</h3>
       <table border="0" cellpadding="0" cellspacing="3" style="border-collapse:separate;border-spacing:0 3px;width:100%">
         {finding_rows or f'<tr><td colspan="3" style="padding:8px;color:#989A9B">{t("rpt_email_no_findings")}</td></tr>'}
+      </table>
+      <h3 style="color:#1A2C32;font-size:13px;font-weight:600;margin:16px 0 8px;border-bottom:2px solid #FF5500;padding-bottom:5px">Attack Summary / 攻擊摘要</h3>
+      <table border="0" cellpadding="0" cellspacing="3" style="border-collapse:separate;border-spacing:0 3px;width:100%">
+        {attack_rows_html or '<tr><td colspan="3" style="padding:8px;color:#989A9B">No attack posture findings.</td></tr>'}
       </table>
     </div>
     <div style="background:#F7F4EE;padding:12px 20px;border-top:1px solid #E3D8C5;text-align:center;color:#989A9B;font-size:11px">

@@ -20,6 +20,12 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from src.i18n import t
+from src.report.dashboard_summaries import write_policy_usage_dashboard_summary
+from src.report.report_metadata import (
+    attack_summary_counts,
+    build_attack_summary_brief,
+    extract_attack_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -269,6 +275,10 @@ class PolicyUsageGenerator:
                 self._write_report_metadata(path, result, file_format='csv')
                 print(t("rpt_pu_csv_saved", path=path))
 
+        try:
+            write_policy_usage_dashboard_summary(output_dir, result)
+        except Exception as exc:
+            logger.warning(f"[PolicyUsageGenerator] Failed to write dashboard summary: {exc}")
         return paths
 
     def _build_report_metadata(self, result: PolicyUsageResult, file_format: str) -> dict:
@@ -284,6 +294,11 @@ class PolicyUsageGenerator:
             summary_bits.append(f"pending {execution['pending_jobs']}")
         if execution.get('failed_jobs'):
             summary_bits.append(f"failed {execution['failed_jobs']}")
+        attack_summary = extract_attack_summary(result.module_results, top_n=5)
+        counts = attack_summary_counts(attack_summary)
+        attack_brief = build_attack_summary_brief(counts)
+        if attack_brief:
+            summary_bits.append(attack_brief)
         return {
             "report_type": "policy_usage",
             "file_format": file_format,
@@ -297,6 +312,8 @@ class PolicyUsageGenerator:
             "pending_rule_details": execution.get("pending_rule_details", []),
             "failed_rule_details": execution.get("failed_rule_details", []),
             "execution_notes": notes,
+            "attack_summary": attack_summary,
+            "attack_summary_counts": counts,
             "summary": " | ".join(summary_bits),
         }
 
