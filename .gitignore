@@ -13,6 +13,10 @@ state.json
 logs/
 *.log
 
+# Node.js (used by scripts/generate_assessment_docx.js)
+node_modules/
+package-lock.json
+
 # Python
 __pycache__/
 *.pyc
