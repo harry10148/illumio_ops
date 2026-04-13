@@ -1,6 +1,8 @@
 import json
 import os
 import time
+import hmac
+import hashlib
 import logging
 from src.utils import Colors
 from src.i18n import t, set_language
@@ -60,6 +62,33 @@ _DEFAULT_CONFIG = {
 }
 
 
+_PBKDF2_PREFIX = "pbkdf2:"
+_PBKDF2_ITERATIONS = 260000
+
+
+def hash_password(salt: str, password: str) -> str:
+    """Hash a password with PBKDF2-HMAC-SHA256 (stdlib, no external deps).
+    Returns a string prefixed with 'pbkdf2:' to distinguish from legacy SHA256 hashes.
+    """
+    dk = hashlib.pbkdf2_hmac(
+        'sha256', password.encode('utf-8'), salt.encode('utf-8'), _PBKDF2_ITERATIONS
+    )
+    return _PBKDF2_PREFIX + dk.hex()
+
+
+def verify_password(stored_hash: str, salt: str, password: str) -> bool:
+    """Verify a password against a stored hash.
+    Supports both new PBKDF2 format ('pbkdf2:...') and legacy SHA256 format.
+    Uses constant-time comparison to prevent timing attacks.
+    """
+    if stored_hash.startswith(_PBKDF2_PREFIX):
+        expected = hash_password(salt, password)
+        return hmac.compare_digest(stored_hash, expected)
+    # Legacy SHA256 fallback (for hashes created before this update)
+    legacy = hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
+    return hmac.compare_digest(stored_hash, legacy)
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merges override into base. Lists and non-dict values are replaced."""
     merged = base.copy()
@@ -92,26 +121,29 @@ class ConfigManager:
                 self._ensure_web_gui_secret()
 
     def _ensure_web_gui_secret(self):
+        import secrets as _secrets
         gui = self.config.get("web_gui", {})
         if "web_gui" not in self.config:
             self.config["web_gui"] = _DEFAULT_CONFIG["web_gui"].copy()
             gui = self.config["web_gui"]
-            
+
         changed = False
-        import secrets
-        import hashlib
-        
+
         if not gui.get("secret_key"):
-            gui["secret_key"] = secrets.token_hex(32)
+            gui["secret_key"] = _secrets.token_hex(32)
             changed = True
-            
+
         if not gui.get("password_hash"):
-            salt = secrets.token_hex(8)
+            # Generate a random initial password and hash it with PBKDF2.
+            # The user must set their own password on first login.
+            initial_password = _secrets.token_urlsafe(16)
+            salt = _secrets.token_hex(16)
             gui["username"] = "illumio"
             gui["password_salt"] = salt
-            gui["password_hash"] = hashlib.sha256((salt + "illumio").encode('utf-8')).hexdigest()
+            gui["password_hash"] = hash_password(salt, initial_password)
+            gui["_initial_password"] = initial_password  # shown once, cleared on password change
             changed = True
-            
+
         if changed:
             self.save()
 

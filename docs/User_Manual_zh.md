@@ -289,12 +289,25 @@ python illumio_ops.py --gui --port 8080
 
 所有 Web GUI 模式均需要驗證，並支援來源 IP 限制。
 
+### 首次登入
+
+Web GUI 在首次啟動時會自動產生**隨機密碼**，儲存在 `config/config.json` 的 `web_gui._initial_password` 欄位中。
+
+1. 開啟 `config/config.json`，找到 `_initial_password` 的值。
+2. 使用**帳號 `illumio`** 與產生的密碼登入。
+3. 登入後**立即至 Settings → Security 頁面修改密碼**。
+4. 建議設定 **IP 白名單**以限制存取來源。
+
+> **密碼重設**：若遺失密碼，請手動刪除 `config.json` 中 `web_gui` 區段的 `password_hash` 及 `password_salt` 欄位，下次啟動時會自動產生新的隨機密碼。
+
 ### 4.1 身份驗證
 
-存取受 SHA-256 密碼雜湊（含每安裝唯一的 salt）保護。
-- **預設帳密**：`illumio` / `illumio`
+- **密碼雜湊**：PBKDF2-HMAC-SHA256，260,000 次迭代（Python 標準函式庫，無需外部套件）
+- **登入速率限制**：每個 IP 每 60 秒最多 5 次嘗試（超過回傳 HTTP 429）
+- **CSRF 防護**：Synchronizer Token 模式，透過 `<meta>` 標籤注入（無可被 XSS 讀取的 Cookie）
 - **Session 管理**：使用安全簽章 Cookie（密鑰自動產生於 `config.json` 中）。
 - **設定方式**：透過 **CLI 選單 7. Web GUI Security** 或 Web GUI **Settings** 頁面變更帳密。
+- **SMTP 憑證**：可設定 `ILLUMIO_SMTP_PASSWORD` 環境變數，避免在設定檔中明文儲存密碼
 
 ### 4.2 IP 白名單
 

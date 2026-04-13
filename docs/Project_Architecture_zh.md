@@ -87,8 +87,8 @@ illumio_ops/
 │   ├── api_client.py          # Illumio REST API 客戶端（含重試與串流）
 │   ├── analyzer.py            # 規則引擎：流量比對、指標計算、狀態管理
 │   ├── reporter.py            # 告警聚合與多通道發送
-│   ├── config.py              # 設定載入/儲存、規則 CRUD、原子寫入
-│   ├── gui.py                 # Flask Web 應用程式（約 40 個 JSON API 端點）
+│   ├── config.py              # 設定載入/儲存、規則 CRUD、原子寫入、PBKDF2 密碼雜湊
+│   ├── gui.py                 # Flask Web 應用程式（約 40 個 JSON API 端點）、登入速率限制、CSRF Synchronizer Token
 │   ├── settings.py            # CLI 互動選單（規則/告警設定）
 │   ├── report_scheduler.py    # 排程報表產生與 Email 寄送
 │   ├── rule_scheduler.py      # 政策規則自動化（循環/一次性排程、部署）
@@ -222,6 +222,7 @@ illumio_ops/
 - **執行緒安全**：使用 **`threading.RLock`**（重入鎖）防止在遞迴載入/儲存或 Daemon 與 GUI 執行緒同時存取時發生死結。
 - **深度合併**：使用者設定覆蓋預設值 — 缺失欄位自動補齊。
 - **原子儲存**：先寫至 `.tmp` 檔案，再透過 `os.replace()` 確保當機安全。
+- **密碼雜湊**：`config.py` 中的 `hash_password()` 和 `verify_password()` 函式同時支援新的 PBKDF2 格式（前綴 `pbkdf2:`）和舊版 SHA256 格式。
 - **規則 CRUD**：`add_or_update_rule()`、`remove_rules_by_index()`、`load_best_practices()`。
 - **PCE 設定檔管理**：`add_pce_profile()`、`update_pce_profile()`、`activate_pce_profile()`、`remove_pce_profile()`、`list_pce_profiles()` — 支援多 PCE 環境的設定檔切換。
 - **報表排程管理**：`add_report_schedule()`、`update_report_schedule()`、`remove_report_schedule()`、`list_report_schedules()`。
@@ -231,7 +232,11 @@ illumio_ops/
 **架構**：Flask 後端提供約 40 個 JSON API 端點，由 Vanilla JS 前端（`templates/index.html`）消費。
 
 - **安全邊界**：所有路由強制要求登入驗證，並透過 `@app.before_request` 實作 IP 白名單過濾（支援 CIDR）。未經授權的請求回傳 401/403。
-- **連線安全**：採用 SHA-256 密碼雜湊與唯一 Salt，Session Cookies 經過加密簽署。`session_secret` 在首次執行時自動產生。
+- **密碼雜湊**：密碼雜湊使用 **PBKDF2-HMAC-SHA256**，260,000 次迭代（Python `hashlib.pbkdf2_hmac`，僅使用標準函式庫）。舊版 SHA256 雜湊會在下次成功登入時自動升級。首次啟動時會產生隨機密碼，儲存為設定中的 `_initial_password`。
+- **登入速率限制**：記憶體內逐 IP 追蹤器，支援執行緒安全鎖定。每 60 秒視窗內最多 5 次嘗試；超過回傳 HTTP 429。
+- **CSRF 防護**：使用 **Synchronizer Token Pattern**：Token 儲存在 Flask session 中，並透過 `<meta name="csrf-token">` 標籤注入 `index.html`。JavaScript 從 meta 標籤讀取 Token（非從 Cookie）。CSRF Cookie 已移除。
+- **連線安全**：Session Cookies 經過加密簽署。`session_secret` 在首次執行時自動產生。
+- **SMTP 密碼**：可透過 `ILLUMIO_SMTP_PASSWORD` 環境變數提供，優先於設定檔中的值。
 - **執行緒模型 (--monitor-gui)**：Daemon 迴圈運行於獨立的 `threading.Thread` 中，而 Flask 應用程式佔用主執行緒。
 
 **關鍵路由**：

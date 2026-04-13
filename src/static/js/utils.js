@@ -1,8 +1,8 @@
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 const $ = s => document.getElementById(s);
 function _csrfToken() {
-  const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
-  return m ? decodeURIComponent(m[1]) : '';
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute('content') : '';
 }
 const api = async (url, opt) => { const r = await fetch(url, opt); return r.json() };
 const post = (url, body) => api(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() }, body: JSON.stringify(body) });

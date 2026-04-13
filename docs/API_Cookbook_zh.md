@@ -1,5 +1,5 @@
 # Illumio PCE Ops — API 教學與 SIEM/SOAR 整合指南
-![Version](https://img.shields.io/badge/Version-v3.1.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v3.2.0-blue?style=flat-square)
 
 
 > **[English](API_Cookbook.md)** | **[繁體中文](API_Cookbook_zh.md)**
@@ -435,7 +435,7 @@ if new_label:
 ## 場景七：工具內部 API (認證與安全性)
 
 **使用場景**：對 Illumio PCE Ops 工具本身進行自動化操作（例如：透過腳本批次更新規則、觸發報表）。
-**需求**：有效的工具登入憑證（預設：`illumio`/`illumio`）。
+**需求**：有效的工具登入憑證（使用者名稱 `illumio`；密碼於首次啟動時隨機產生，可在 `config.json` 的 `web_gui._initial_password` 中找到）。
 
 ### 操作流程
 
@@ -450,8 +450,8 @@ import requests
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
 
-# 1. 登入
-login_payload = {"username": "illumio", "password": "illumio"}
+# 1. 登入（密碼請查閱 config.json → web_gui._initial_password）
+login_payload = {"username": "illumio", "password": "<your_password>"}
 res = session.post(f"{BASE_URL}/api/login", json=login_payload)
 
 if res.json().get("ok"):
@@ -538,7 +538,7 @@ import requests
 
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
-session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "illumio"})
+session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "<your_password>"})
 
 # 觸發政策使用率報表產生
 res = session.post(f"{BASE_URL}/api/policy_usage_report/generate", json={
@@ -582,7 +582,7 @@ import requests
 
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
-session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "illumio"})
+session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "<your_password>"})
 
 # --- 列出所有設定檔 ---
 res = session.get(f"{BASE_URL}/api/pce-profiles")

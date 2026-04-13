@@ -114,7 +114,7 @@ class ApiClient:
         self.base_url = f"{self.api_cfg['url']}/api/v2/orgs/{self.api_cfg['org_id']}"
         self._auth_header = self._build_auth_header()
         self._ssl_ctx = self._build_ssl_context()
-        # Caches for rule scheduler features
+        # Caches for rule scheduler features (TTL controlled by _query_lookup_cache_ttl_seconds)
         self.label_cache = {}
         self.ruleset_cache = []
         self.service_ports_cache = {}  # {service_href: [{"port":N,"proto":P}, ...]}
@@ -2290,7 +2290,8 @@ class ApiClient:
                     rules_status=poll_result.get("rules"),
                     result_href=poll_result.get("result"),
                 )
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed to parse async job poll response for %s: %s", job_href, exc)
                 state = "pending"
             return job_href, state
 
@@ -2534,7 +2535,8 @@ class ApiClient:
             if status == 200:
                 return 'active'
             return 'draft'
-        except Exception:
+        except Exception as exc:
+            logger.debug("Could not determine provision state for %s: %s", href, exc)
             return 'unknown'
 
     def is_provisioned(self, href):

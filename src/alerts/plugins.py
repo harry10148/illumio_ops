@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import smtplib
 import urllib.error
 import urllib.request
@@ -42,7 +43,9 @@ class MailAlertPlugin(AlertOutputPlugin):
                 smtp.ehlo()
 
             if smtp_conf.get("enable_auth"):
-                smtp.login(smtp_conf.get("user"), smtp_conf.get("password"))
+                # Prefer env var over config file to avoid storing credentials in plaintext
+                smtp_password = os.environ.get("ILLUMIO_SMTP_PASSWORD") or smtp_conf.get("password", "")
+                smtp.login(smtp_conf.get("user"), smtp_password)
 
             smtp.sendmail(cfg["sender"], cfg["recipients"], msg.as_string())
             smtp.quit()

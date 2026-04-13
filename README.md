@@ -1,6 +1,6 @@
 # Illumio PCE Ops
 
-![Version](https://img.shields.io/badge/Version-v3.1.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v3.2.0-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-yellow?style=flat-square&logo=python&logoColor=white)
 ![API](https://img.shields.io/badge/Illumio_API-v25.2-green?style=flat-square)
 
@@ -10,30 +10,31 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 ---
 
-## ✨ Key Features
+## Highlights
 
 | Feature | Description |
 |:---|:---|
 | **Execution Modes** | Background daemon (`--monitor`), interactive CLI, standalone Web GUI (`--gui`), or **Persistent Monitor + UI** (`--monitor-gui`) |
-| **Security Enforced** | **Mandatory login authentication** for all Web GUI modes; supports **IP Allowlisting** (CIDR/Subnet) for restricted access. |
-| **Security Event Monitoring** | Tracks PCE audit events with anchor-based timestamps — guaranteed zero duplicate alerts. |
-| **High-Performance Traffic Engine** | Aggregates rules into a single bulk API query; O(1) memory streaming for large datasets. |
-| **Advanced Report Engine** | 15-module traffic reports with **Bulk-Delete** management; 4-module audit reports, and VEN Status inventory reports — HTML + CSV. |
-| **Security Findings** | 19 Automated rules: B-series (Ransomware, Coverage) + L-series (Lateral Movement, Exfiltration). |
-| **Report Schedules** | Cron-style recurring reports (daily/weekly/monthly) with automatic email delivery. |
-| **Rule Scheduler** | Auto enable/disable PCE rules; **three-layer Draft protection** prevents accidental provisioning. |
-| **Workload Quarantine** | Isolate compromised workloads with Quarantine labels; supports IP/CIDR/subnet search. |
-| **Multi-Channel Alerts** | Email (SMTP), LINE Notifications, and Webhooks dispatched simultaneously. |
+| **Enterprise Security** | **PBKDF2 password hashing** (260k iterations), **login rate limiting** (5/min), **CSRF synchronizer token** pattern, **IP Allowlisting** (CIDR/Subnet) |
+| **Security Event Monitoring** | Tracks PCE audit events with anchor-based timestamps — guaranteed zero duplicate alerts |
+| **High-Performance Traffic Engine** | Aggregates rules into a single bulk API query; O(1) memory streaming for large datasets |
+| **Advanced Report Engine** | 15-module traffic reports with **Bulk-Delete** management; 4-module audit reports, policy usage reports, and VEN Status inventory reports — HTML + CSV |
+| **Security Findings** | 19 Automated rules: B-series (Ransomware, Coverage) + L-series (Lateral Movement, Exfiltration) |
+| **Report Schedules** | Cron-style recurring reports (daily/weekly/monthly) with automatic email delivery |
+| **Rule Scheduler** | Auto enable/disable PCE rules; **three-layer Draft protection** prevents accidental provisioning |
+| **Workload Quarantine** | Isolate compromised workloads with Quarantine labels; supports IP/CIDR/subnet search |
+| **Multi-Channel Alerts** | Email (SMTP), LINE Notifications, and Webhooks dispatched simultaneously |
+| **Internationalization** | Full English + Traditional Chinese (繁體中文) across CLI, Web GUI, reports, and alerts |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Requirements
 
 - **Python 3.8+**
 - **Core (no install needed):** CLI and daemon modes run with zero external dependencies.
-- **Optional — Web GUI:** `flask`
+- **Optional — Web GUI:** `flask>=3.0`
 - **Optional — Reports:** `pandas`, `pyyaml`
 
 ### 2. Installation & Launch
@@ -46,7 +47,7 @@ cp config/config.json.example config/config.json    # Edit with your PCE credent
 # Interactive CLI:
 python illumio_ops.py
 
-# Visual Web GUI (Requires login: illumio / illumio):
+# Visual Web GUI:
 python illumio_ops.py --gui
 
 # Persistent Mode (Daemon + Web GUI):
@@ -56,18 +57,31 @@ python illumio_ops.py --monitor-gui --interval 5 --port 5001
 python illumio_ops.py --monitor --interval 5
 ```
 
-### 3. Default Credentials
+### 3. First Login
 
-The Web GUI is secured by default.
-- **Username**: `illumio`
-- **Password**: `illumio`
+The Web GUI generates a **random password** on first launch and stores it in `config/config.json` under the `web_gui._initial_password` key.
+
+1. Check `config/config.json` for the `_initial_password` value.
+2. Log in with **username `illumio`** and the generated password.
+3. **Change your password immediately** in the **Settings** page.
+4. Configure **IP Allowlisting** to restrict access to trusted networks.
 
 > [!WARNING]
-> Please change your password and configure **IP Allowlisting** in the **Settings** menu immediately after your first login.
+> After changing your password, the `_initial_password` key is automatically removed from the config file. There is no way to recover a lost password — delete the `password_hash` and `password_salt` keys from `config.json` to reset.
+
+### 4. Security Features
+
+| Feature | Details |
+|:---|:---|
+| **Password Hashing** | PBKDF2-HMAC-SHA256 with 260,000 iterations (stdlib, no external deps) |
+| **Rate Limiting** | 5 login attempts per IP per 60 seconds; returns HTTP 429 on excess |
+| **CSRF Protection** | Synchronizer token pattern via `<meta>` tag injection (no XSS-readable cookie) |
+| **IP Allowlisting** | Supports individual IPs, CIDR ranges, and subnet masks |
+| **SMTP Credentials** | Set `ILLUMIO_SMTP_PASSWORD` env var to avoid storing passwords in config |
 
 ---
 
-## 📊 Report Engine
+## Report Engine
 
 Reports can be generated from the Web GUI, CLI menu, or run automatically on a schedule.
 
@@ -84,7 +98,7 @@ Reports can be generated from the Web GUI, CLI menu, or run automatically on a s
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | Document | Description |
 |:---|:---|
@@ -95,18 +109,25 @@ Reports can be generated from the Web GUI, CLI menu, or run automatically on a s
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 illumio_ops/
 ├── illumio_ops.py          # Entry point
 ├── src/
 │   ├── main.py                 # CLI argparse, daemon/GUI orchestration
-│   ├── gui.py                  # Flask Web GUI with Auth & IP Filtering
-│   ├── config.py               # ConfigManager (thread-safe, atomic writes)
-│   ├── templates/login.html    # Secure Login (Light Theme)
-│   └── ...
-├── docs/                       # Comprehensive documentation
-├── tests/                      # Unit tests (including test_gui_security.py)
-└── ...
+│   ├── api_client.py           # PCE REST API (async jobs, native filters, O(1) streaming)
+│   ├── analyzer.py             # Rule engine (flow matching, event analysis, state mgmt)
+│   ├── gui.py                  # Flask Web GUI (~40 JSON API endpoints, auth, CSRF)
+│   ├── config.py               # ConfigManager (PBKDF2 hashing, atomic writes)
+│   ├── reporter.py             # Multi-channel alert dispatch (SMTP, LINE, Webhook)
+│   ├── i18n.py                 # i18n engine (EN/ZH_TW, ~1400+ string keys)
+│   ├── events/                 # Event pipeline (catalog, normalize, dedup, throttle)
+│   ├── report/                 # Report engine (15 traffic modules + audit + policy usage)
+│   └── alerts/                 # Alert plugins (mail, LINE, webhook)
+├── config/                     # config.json, report_config.yaml, semantic_config.yaml
+├── docs/                       # EN + ZH_TW documentation
+├── tests/                      # 19 test files (116 tests)
+├── deploy/                     # systemd (Ubuntu/RHEL) + NSSM (Windows) service configs
+└── scripts/                    # Utility scripts
 ```

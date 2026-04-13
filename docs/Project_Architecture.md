@@ -87,8 +87,8 @@ illumio_ops/
 │   ├── api_client.py          # Illumio REST API client with retry and streaming
 │   ├── analyzer.py            # Rule engine: flow matching, metric calculation, state management
 │   ├── reporter.py            # Alert aggregation and multi-channel dispatch
-│   ├── config.py              # Configuration loading, saving, rule CRUD, atomic writes
-│   ├── gui.py                 # Flask Web application (~40 JSON API endpoints)
+│   ├── config.py              # Configuration loading, saving, rule CRUD, atomic writes, PBKDF2 password hashing
+│   ├── gui.py                 # Flask Web application (~40 JSON API endpoints), login rate limiting, CSRF synchronizer token
 │   ├── settings.py            # CLI interactive menus for rule/alert configuration
 │   ├── report_scheduler.py    # Scheduled report generation and email delivery
 │   ├── rule_scheduler.py      # Policy rule automation (recurring/one-time schedules, provision)
@@ -222,6 +222,7 @@ The analyzer supports flexible filter conditions for traffic rules:
 - **Thread Safety**: Uses **`threading.RLock`** (Reentrant Lock) to prevent deadlocks during recursive load/save cycles or concurrent access from Daemon and GUI threads.
 - **Deep Merge**: User config is merged over defaults — any missing fields are auto-populated.
 - **Atomic Save**: Writes to `.tmp` file first, then `os.replace()` for crash safety.
+- **Password Hashing**: Helper functions `hash_password()` and `verify_password()` handle both new PBKDF2 format (prefixed with `pbkdf2:`) and legacy SHA256 format.
 - **Rule CRUD**: `add_or_update_rule()`, `remove_rules_by_index()`, `load_best_practices()`.
 - **PCE Profile Management**: `add_pce_profile()`, `update_pce_profile()`, `activate_pce_profile()`, `remove_pce_profile()`, `list_pce_profiles()` — supports multi-PCE environments with profile switching.
 - **Report Schedule Management**: `add_report_schedule()`, `update_report_schedule()`, `remove_report_schedule()`, `list_report_schedules()`.
@@ -231,7 +232,11 @@ The analyzer supports flexible filter conditions for traffic rules:
 **Architecture**: Flask backend exposing ~40 JSON API endpoints, consumed by a Vanilla JS frontend (`templates/index.html`).
 
 - **Security Middleware**: Mandates login authentication for all routes and enforces IP Allowlisting (CIDR support) via `@app.before_request`. Unauthorized requests are blocked with 401/403 status.
-- **Session Security**: Uses SHA-256 password hashing with unique salts and cryptographically signed session cookies. The `session_secret` is automatically generated on first run.
+- **Password Hashing**: Password hashing uses **PBKDF2-HMAC-SHA256** with 260,000 iterations (Python `hashlib.pbkdf2_hmac`, stdlib only). Legacy SHA256 hashes are auto-upgraded on next successful login. A random password is generated on first launch and stored as `_initial_password` in config.
+- **Login Rate Limiting**: In-memory per-IP tracker with thread-safe locking. 5 attempts per 60-second window; returns HTTP 429 on excess.
+- **CSRF Protection**: Uses the **Synchronizer Token Pattern**: token is stored in Flask session and injected into `index.html` via a `<meta name="csrf-token">` tag. JavaScript reads the token from the meta tag (not from a cookie). The CSRF cookie has been removed.
+- **Session Security**: Cryptographically signed session cookies. The `session_secret` is automatically generated on first run.
+- **SMTP Password**: Can be provided via `ILLUMIO_SMTP_PASSWORD` environment variable, which takes precedence over the config file value.
 - **Threading Model (--monitor-gui)**: The daemon loop runs in a dedicated `threading.Thread` while the Flask app occupies the main thread to handle signals and web requests correctly.
 
 **Key Endpoints**:

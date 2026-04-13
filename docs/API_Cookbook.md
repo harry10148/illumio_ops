@@ -429,7 +429,7 @@ if new_label:
 ## Scenario 7: Internal Tool API (Auth & Security)
 
 **Use Case**: Automating against the Illumio PCE Ops tool itself (e.g., bulk updating rules, triggering reports via script).
-**Required**: Valid tool credentials (default: `illumio`/`illumio`).
+**Required**: Valid tool credentials (username `illumio`; password is randomly generated on first launch — find it in `config.json` under `web_gui._initial_password`).
 
 ### Workflow
 
@@ -444,8 +444,8 @@ import requests
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
 
-# 1. Login
-login_payload = {"username": "illumio", "password": "illumio"}
+# 1. Login (password from config.json → web_gui._initial_password)
+login_payload = {"username": "illumio", "password": "<your_password>"}
 res = session.post(f"{BASE_URL}/api/login", json=login_payload)
 
 if res.json().get("ok"):
@@ -548,7 +548,7 @@ import requests
 
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
-session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "illumio"})
+session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "<your_password>"})
 
 # Generate policy usage report (defaults to last 30 days)
 res = session.post(f"{BASE_URL}/api/policy_usage_report/generate", json={
@@ -600,7 +600,7 @@ graph LR
 BASE="http://127.0.0.1:5001"
 COOKIE=$(curl -s -c - "$BASE/api/login" \
   -H "Content-Type: application/json" \
-  -d '{"username":"illumio","password":"illumio"}' | grep session | awk '{print $NF}')
+  -d '{"username":"illumio","password":"<your_password>"}' | grep session | awk '{print $NF}')
 
 # List all PCE profiles
 curl -s -b "session=$COOKIE" "$BASE/api/pce-profiles" | python -m json.tool
@@ -636,7 +636,7 @@ import requests
 
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
-session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "illumio"})
+session.post(f"{BASE_URL}/api/login", json={"username": "illumio", "password": "<your_password>"})
 
 # List current profiles
 res = session.get(f"{BASE_URL}/api/pce-profiles")

@@ -287,12 +287,25 @@ Detect data exfiltration patterns.
 
 All Web GUI modes REQUIRE authentication and support source IP restrictions.
 
+### First Login
+
+The Web GUI generates a **random password** on first launch, stored in `config/config.json` under the `web_gui._initial_password` key.
+
+1. Open `config/config.json` and find the `_initial_password` value.
+2. Log in with **username `illumio`** and the generated password.
+3. **Change your password immediately** in the **Settings → Security** page.
+4. Configure **IP Allowlisting** to restrict access to trusted networks.
+
+> **Password Reset**: If you lose your password, delete the `password_hash` and `password_salt` keys from the `web_gui` section in `config.json`. A new random password will be generated on next launch.
+
 ### 4.1 Authentication
 
-Access is protected by SHA-256 password hashing with a unique per-installation salt.
-- **Default Credentials**: `illumio` / `illumio`
+- **Password hashing**: PBKDF2-HMAC-SHA256 with 260,000 iterations (Python stdlib, no external dependency)
+- **Login rate limiting**: 5 attempts per IP per 60 seconds (HTTP 429 on excess)
+- **CSRF protection**: Synchronizer token pattern via `<meta>` tag injection (no XSS-readable cookie)
 - **Session Management**: Secure signed cookies are used (secret key is automatically generated in `config.json`).
 - **Configuration**: Change credentials via **CLI Menu 7. Web GUI Security** or Web GUI **Settings** page.
+- **SMTP credentials**: Set `ILLUMIO_SMTP_PASSWORD` environment variable to avoid storing passwords in config file
 
 ### 4.2 IP Allowlisting
 

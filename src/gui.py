@@ -13,7 +13,6 @@ import json
 import datetime
 import threading
 import logging
-import hashlib
 import ipaddress
 from contextlib import redirect_stdout
 from collections import Counter
@@ -29,7 +28,7 @@ except ImportError:
     HAS_FLASK = False
     FLASK_IMPORT_ERROR = str(sys.exc_info()[1])
 
-from src.config import ConfigManager
+from src.config import ConfigManager, hash_password, verify_password
 from src.i18n import t, get_messages
 from src import __version__
 from src.alerts import PLUGIN_METADATA, plugin_config_path, plugin_config_value
@@ -55,8 +54,32 @@ def _strip_ansi(text: str) -> str:
 
 # ????????????????????????????????????????????????????????????????????????????????# Flask Application Factory
 # ????????????????????????????????????????????????????????????????????????????????
-def _hash_password(salt: str, password: str) -> str:
-    return hashlib.sha256((salt + password).encode('utf-8')).hexdigest()
+# Login rate limiter: {ip_address: [unix_timestamp, ...]}
+_login_attempts: dict = {}
+_login_attempts_lock = threading.Lock()
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_WINDOW_SECONDS = 60
+
+
+def _check_rate_limit(remote_addr: str) -> bool:
+    """Return True if the IP is within the allowed rate limit, False if blocked."""
+    import time as _time
+    now = _time.time()
+    with _login_attempts_lock:
+        attempts = _login_attempts.get(remote_addr, [])
+        # Prune timestamps outside the window
+        attempts = [ts for ts in attempts if now - ts < _LOGIN_WINDOW_SECONDS]
+        _login_attempts[remote_addr] = attempts
+        return len(attempts) < _LOGIN_MAX_ATTEMPTS
+
+
+def _record_failed_login(remote_addr: str) -> None:
+    import time as _time
+    now = _time.time()
+    with _login_attempts_lock:
+        attempts = _login_attempts.get(remote_addr, [])
+        attempts.append(now)
+        _login_attempts[remote_addr] = attempts
 
 def _check_ip_allowed(allowed_ips: list, remote_addr: str) -> bool:
     if not allowed_ips:
@@ -361,6 +384,10 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 return _err(t("gui_err_unauthorized"), 401)
             return redirect('/login')
 
+        # Ensure a CSRF token exists in the session for all authenticated requests
+        if 'csrf_token' not in session:
+            session['csrf_token'] = secrets.token_hex(32)
+
         # CSRF protection for state-changing requests
         if request.method in ('POST', 'PUT', 'DELETE'):
             # Exempt login (session not yet established)
@@ -374,7 +401,9 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     def inject_csrf_cookie(response):
         if 'csrf_token' not in session:
             session['csrf_token'] = secrets.token_hex(32)
-        response.set_cookie('csrf_token', session['csrf_token'], httponly=False, samesite='Strict')
+        # The CSRF token is injected into index.html via a <meta> tag (synchronizer token
+        # pattern). The cookie is no longer needed for CSRF; remove it if present.
+        response.delete_cookie('csrf_token')
         return response
 
     # ??? Frontend SPA ?????????????????????????????????????????????????????
@@ -382,7 +411,9 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     def index():
         cm.load()
         pce_url = _get_active_pce_url(cm)
-        return render_template('index.html', pce_url=pce_url)
+        if 'csrf_token' not in session:
+            session['csrf_token'] = secrets.token_hex(32)
+        return render_template('index.html', pce_url=pce_url, csrf_token=session['csrf_token'])
 
     # ??? Auth Routes ??????????????????????????????????????????????????????
     @app.route('/login', methods=['GET'])
@@ -391,26 +422,46 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/api/login', methods=['POST'])
     def api_login():
+        remote = request.remote_addr or ""
+        if not _check_rate_limit(remote):
+            logger.warning("[GUI] Login rate limit exceeded for IP: %s", remote)
+            return jsonify({"ok": False, "error": t("gui_err_too_many_attempts")}), 429
+
         d = request.json or {}
         username = d.get('username', '')
         password = d.get('password', '')
-        
+
         cm.load()
         gui_cfg = cm.config.get("web_gui", {})
-        
+
         saved_username = gui_cfg.get("username", "illumio")
         saved_hash = gui_cfg.get("password_hash", "")
         saved_salt = gui_cfg.get("password_salt", "")
-        
+
         if not saved_hash:
-            if username == saved_username and password == "illumio":
-                session['logged_in'] = True
-                return jsonify({"ok": True})
-        else:
-            if username == saved_username and _hash_password(saved_salt, password) == saved_hash:
-                session['logged_in'] = True
-                return jsonify({"ok": True})
-            
+            # No password configured — reject all logins until config is repaired
+            logger.error("[GUI] Login attempted but no password hash configured.")
+            _record_failed_login(remote)
+            return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
+
+        if username == saved_username and verify_password(saved_hash, saved_salt, password):
+            session['logged_in'] = True
+            if 'csrf_token' not in session:
+                session['csrf_token'] = secrets.token_hex(32)
+            # Upgrade legacy SHA256 hash to PBKDF2 on successful login
+            if not saved_hash.startswith("pbkdf2:"):
+                new_salt = secrets.token_hex(16)
+                gui_cfg["password_salt"] = new_salt
+                gui_cfg["password_hash"] = hash_password(new_salt, password)
+                cm.save()
+                logger.info("[GUI] Upgraded legacy SHA256 password hash to PBKDF2 for user '%s'.", saved_username)
+            # Clear one-time initial password if present
+            if gui_cfg.get("_initial_password"):
+                del gui_cfg["_initial_password"]
+                cm.save()
+            return jsonify({"ok": True, "csrf_token": session['csrf_token']})
+
+        _record_failed_login(remote)
         return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
 
     @app.route('/logout')
@@ -450,13 +501,15 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             # Check old password if there's already one set
             if gui_cfg.get("password_hash"):
                 old_pass = d.get("old_password", "")
+                stored = gui_cfg.get("password_hash", "")
                 salt = gui_cfg.get("password_salt", "")
-                if _hash_password(salt, old_pass) != gui_cfg.get("password_hash"):
+                if not verify_password(stored, salt, old_pass):
                     return jsonify({"ok": False, "error": t("gui_err_invalid_old_pass")}), 401
-                    
-            salt = secrets.token_hex(8)
+
+            salt = secrets.token_hex(16)
             gui_cfg["password_salt"] = salt
-            gui_cfg["password_hash"] = _hash_password(salt, d["new_password"])
+            gui_cfg["password_hash"] = hash_password(salt, d["new_password"])
+            gui_cfg.pop("_initial_password", None)
             
         cm.save()
         return jsonify({"ok": True})

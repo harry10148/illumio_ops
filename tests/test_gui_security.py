@@ -4,8 +4,14 @@ import json
 import tempfile
 from src.alerts.metadata import FieldMeta, PluginMeta
 from src.config import ConfigManager
-from src.gui import _create_app, _hash_password
+from src.gui import _create_app
+from src.config import hash_password as _hash_password
 from src.i18n import get_language, get_messages, set_language
+
+
+def _csrf(login_response) -> str:
+    """Extract CSRF token from login response JSON (new synchronizer token pattern)."""
+    return (login_response.get_json() or {}).get('csrf_token', '')
 
 @pytest.fixture
 def temp_config_file():
@@ -102,10 +108,7 @@ def test_api_security_endpoints(app_persistent):
     res_login = client.post('/api/login', json={"username": "admin", "password": "testpass"}, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     
     # Get CSRF token from cookies
-    csrf_token = None
-    for cookie in res_login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(res_login)
             
     res = client.get('/api/security', environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert res.status_code == 200
@@ -135,10 +138,7 @@ def test_api_security_rejects_invalid_allowlist(client):
         "password": "testpass"
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
 
-    csrf_token = None
-    for cookie in res_login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(res_login)
 
     res = client.post('/api/security', json={
         "allowed_ips": ["127.0.0.1", "localhost"]
@@ -332,10 +332,7 @@ def test_quarantine_apply_rejects_non_workload_href(client):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     response = client.post(
         '/api/quarantine/apply',
@@ -356,10 +353,7 @@ def test_quarantine_bulk_apply_skips_invalid_and_deduplicates(app_persistent, mo
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     monkeypatch.setattr("src.api_client.ApiClient.check_and_create_quarantine_labels", lambda self: {"Mild": "/orgs/1/labels/1"})
     monkeypatch.setattr("src.api_client.ApiClient.get_workload", lambda self, href: {"href": href, "labels": []})
@@ -482,10 +476,7 @@ def test_best_practices_append_mode_preserves_existing_rules(app_persistent):
         "password": "testpass"
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     response = client.post('/api/actions/best-practices', json={
         "mode": "append_missing"
@@ -533,10 +524,7 @@ def test_best_practices_replace_mode_replaces_rules(app_persistent):
         "password": "testpass"
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     response = client.post('/api/actions/best-practices', json={
         "mode": "replace"
@@ -562,10 +550,7 @@ def test_system_health_rule_uses_dedicated_endpoint(client):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     bad_event = client.post('/api/rules/event', json={
         "name": "Bad event route",
@@ -618,10 +603,7 @@ def test_test_alert_endpoint_supports_single_channel(client, monkeypatch):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     def fake_send_alerts(self, force_test=False, channels=None):
         assert force_test is True
@@ -648,10 +630,7 @@ def test_debug_endpoint_returns_captured_output(client, monkeypatch):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     def fake_run_debug_mode(self, mins=None, pd_sel=None, interactive=None):
         assert interactive is False
@@ -677,10 +656,7 @@ def test_test_alert_endpoint_rejects_unknown_channel(client):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     response = client.post(
         '/api/actions/test-alert',
@@ -733,10 +709,7 @@ def test_settings_support_dynamic_plugin_roots(monkeypatch):
         }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
         assert login.status_code == 200
 
-        csrf_token = None
-        for cookie in login.headers.getlist('Set-Cookie'):
-            if 'csrf_token=' in cookie:
-                csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+        csrf_token = _csrf(login)
 
         save_response = client.post(
             '/api/settings',
@@ -834,10 +807,7 @@ def test_event_rule_create_persists_throttle_and_rejects_invalid(client):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     res = client.post('/api/rules/event', json={
         "name": "Burst auth failures",
@@ -878,10 +848,7 @@ def test_rules_api_returns_throttle_state(client, monkeypatch, tmp_path):
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert login.status_code == 200
 
-    csrf_token = None
-    for cookie in login.headers.getlist('Set-Cookie'):
-        if 'csrf_token=' in cookie:
-            csrf_token = cookie.split('csrf_token=')[1].split(';')[0]
+    csrf_token = _csrf(login)
 
     res = client.post('/api/rules/event', json={
         "name": "Throttle surfaced",
