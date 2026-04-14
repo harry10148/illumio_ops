@@ -1285,6 +1285,19 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             result["cert_info"] = _get_cert_info(tls_cfg["cert_file"])
         return jsonify(result)
 
+    @app.route('/api/tls/config', methods=['POST'])
+    def api_tls_config():
+        d = request.json or {}
+        cm.load()
+        gui_cfg = cm.config.setdefault("web_gui", {})
+        tls = gui_cfg.setdefault("tls", {})
+        tls["enabled"] = bool(d.get("enabled", False))
+        tls["self_signed"] = bool(d.get("self_signed", False))
+        tls["cert_file"] = str(d.get("cert_file", "")).strip()
+        tls["key_file"] = str(d.get("key_file", "")).strip()
+        cm.save()
+        return jsonify({"ok": True, "message": "TLS settings saved. Restart the server to apply."})
+
     @app.route('/api/tls/renew', methods=['POST'])
     def api_tls_renew():
         cm.load()

@@ -165,10 +165,13 @@ function _collectAlertPluginConfig() {
   return payload;
 }
 
+let _tlsStatus = {};
+
 async function loadSettings() {
   _settings = await api('/api/settings');
   try { _security = await api('/api/security'); } catch (e) { _security = {}; }
   try { _alertPlugins = (await api('/api/alert-plugins')).plugins || {}; } catch (e) { _alertPlugins = {}; }
+  try { _tlsStatus = await api('/api/tls/status'); } catch (e) { _tlsStatus = {}; }
 
   const s = _settings, a = s.api || {}, e = s.email || {}, sm = s.smtp || {}, al = s.alerts || {}, st = s.settings || {}, rpt = s.report || {};
   const sec = _security || {};
@@ -290,6 +293,19 @@ async function loadSettings() {
     </div>
   </div>
 </fieldset>
+<fieldset><legend data-i18n="gui_tls_title">TLS / HTTPS</legend>
+  <div class="chk" style="margin-bottom:10px"><label><input type="checkbox" id="s-tls-enabled" ${_tlsStatus.enabled ? 'checked' : ''}> <span data-i18n="gui_tls_enable">Enable HTTPS</span></label></div>
+  <div id="s-tls-options" style="display:${_tlsStatus.enabled ? 'block' : 'none'}">
+    <div class="chk" style="margin-bottom:10px"><label><input type="checkbox" id="s-tls-selfsigned" ${_tlsStatus.self_signed ? 'checked' : ''} onchange="toggleTlsMode()"> <span data-i18n="gui_tls_self_signed">Use self-signed certificate</span></label></div>
+    <div id="s-tls-custom" style="display:${_tlsStatus.self_signed ? 'none' : 'block'}">
+      <div class="form-row">
+        <div class="form-group"><label data-i18n="gui_tls_cert_file">Certificate File Path</label><input id="s-tls-cert" value="${escapeHtml(_tlsStatus.cert_file || '')}" placeholder="/path/to/cert.pem"></div>
+        <div class="form-group"><label data-i18n="gui_tls_key_file">Private Key File Path</label><input id="s-tls-key" value="${escapeHtml(_tlsStatus.key_file || '')}" placeholder="/path/to/key.pem"></div>
+      </div>
+    </div>
+    <div id="s-tls-cert-info"></div>
+  </div>
+</fieldset>
 <fieldset><legend data-i18n="gui_web_security">Web GUI Security</legend>
   <div class="form-row">
     <div class="form-group"><label data-i18n="gui_username">Username</label><input id="s-sec-user" value="${sec.username || 'admin'}"></div>
@@ -309,7 +325,68 @@ async function loadSettings() {
     if (opt) tzSel.value = detected;
   }
   await loadTranslations();
+
+  // TLS toggle logic
+  const tlsEn = $('s-tls-enabled');
+  if (tlsEn) tlsEn.addEventListener('change', () => {
+    const opts = $('s-tls-options');
+    if (opts) opts.style.display = tlsEn.checked ? 'block' : 'none';
+  });
+
+  // Render cert info if available
+  _renderTlsCertInfo();
 }
+
+function toggleTlsMode() {
+  const selfSigned = $('s-tls-selfsigned');
+  const custom = $('s-tls-custom');
+  if (custom) custom.style.display = (selfSigned && selfSigned.checked) ? 'none' : 'block';
+}
+
+function _renderTlsCertInfo() {
+  const el = $('s-tls-cert-info');
+  if (!el) return;
+  const info = _tlsStatus.cert_info;
+  if (!info || !info.exists) {
+    el.innerHTML = _tlsStatus.enabled
+      ? '<p style="color:var(--dim);font-size:0.88em;margin-top:8px;">' + (_translations['gui_tls_no_cert'] || 'No certificate found. It will be generated on next server start.') + '</p>'
+      : '';
+    return;
+  }
+  const expiredBadge = info.expired
+    ? '<span style="color:var(--danger);font-weight:600;margin-left:8px;">EXPIRED</span>'
+    : (info.expiring_soon ? '<span style="color:var(--warn, orange);font-weight:600;margin-left:8px;">EXPIRING SOON</span>' : '');
+  const renewBtn = _tlsStatus.self_signed
+    ? `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="renewTlsCert()" data-i18n="gui_tls_renew">Renew Certificate</button>`
+    : '';
+  el.innerHTML = `
+    <div class="card" style="margin-top:10px;padding:14px 18px;">
+      <div style="font-weight:700;margin-bottom:6px;" data-i18n="gui_tls_cert_info">Certificate Info</div>
+      <div style="font-size:0.88em;color:var(--dim);line-height:1.8;">
+        <div><strong>Subject:</strong> ${escapeHtml(info.subject || '-')}</div>
+        <div><strong data-i18n="gui_tls_valid_from">Valid From</strong>: ${escapeHtml(info.not_before || '-')}</div>
+        <div><strong data-i18n="gui_tls_valid_until">Valid Until</strong>: ${escapeHtml(info.not_after || '-')}${expiredBadge}</div>
+      </div>
+      ${renewBtn}
+    </div>`;
+}
+
+async function renewTlsCert() {
+  if (!confirm(_translations['gui_tls_renew_confirm'] || 'Renew the self-signed certificate? The server must be restarted to apply.')) return;
+  try {
+    const r = await post('/api/tls/renew', {});
+    if (r && r.ok) {
+      toast(_translations['gui_tls_renewed'] || 'Certificate renewed. Restart the server to apply.');
+      _tlsStatus.cert_info = r.cert_info;
+      _renderTlsCertInfo();
+    } else {
+      toast(r?.error || 'Renew failed', 'err');
+    }
+  } catch (e) {
+    toast('Renew failed: ' + e.message, 'err');
+  }
+}
+
 async function saveSettings() {
   const pluginConfig = _collectAlertPluginConfig();
   const theme = rv('s-theme');
@@ -333,6 +410,16 @@ async function saveSettings() {
     old_password: $('s-sec-oldpass').value,
     new_password: $('s-sec-newpass').value,
     allowed_ips: ips_raw
+  });
+
+  // Save TLS settings
+  const tlsEnabled = $('s-tls-enabled')?.checked || false;
+  const tlsSelfSigned = $('s-tls-selfsigned')?.checked || false;
+  await post('/api/tls/config', {
+    enabled: tlsEnabled,
+    self_signed: tlsSelfSigned,
+    cert_file: $('s-tls-cert')?.value?.trim() || '',
+    key_file: $('s-tls-key')?.value?.trim() || '',
   });
 
   // Clear password fields after save

@@ -1261,5 +1261,18 @@
   "gui_dashboard_no_audit_summary": "No audit report summary found. Generate an Audit Report to populate this section.",
   "gui_dashboard_no_policy_usage_summary": "No policy usage report summary found. Generate a Policy Usage Report to populate this section.",
   "gui_dashboard_audit_attention": "Attention Required",
-  "gui_dashboard_audit_top_events": "Top Event Types"
+  "gui_dashboard_audit_top_events": "Top Event Types",
+  "gui_tls_title": "TLS / HTTPS",
+  "gui_tls_enable": "Enable HTTPS",
+  "gui_tls_self_signed": "Use self-signed certificate",
+  "gui_tls_cert_file": "Certificate File Path",
+  "gui_tls_key_file": "Private Key File Path",
+  "gui_tls_cert_info": "Certificate Info",
+  "gui_tls_valid_from": "Valid From",
+  "gui_tls_valid_until": "Valid Until",
+  "gui_tls_no_cert": "No certificate found. It will be generated on next server start.",
+  "gui_tls_renew": "Renew Certificate",
+  "gui_tls_renew_confirm": "Renew the self-signed certificate? The server must be restarted to apply.",
+  "gui_tls_renewed": "Certificate renewed. Restart the server to apply.",
+  "gui_tls_restart_hint": "TLS settings saved. Restart the server to apply."
 }
