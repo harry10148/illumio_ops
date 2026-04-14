@@ -279,6 +279,20 @@ class PolicyUsageGenerator:
             write_policy_usage_dashboard_summary(output_dir, result)
         except Exception as exc:
             logger.warning(f"[PolicyUsageGenerator] Failed to write dashboard summary: {exc}")
+
+        # Trend analysis: archive snapshot and compute deltas
+        try:
+            from src.report.trend_store import save_snapshot, load_previous, compute_deltas, build_kpi_dict_from_metadata
+            meta = self._build_report_metadata(result, file_format="snapshot")
+            kpi_dict = build_kpi_dict_from_metadata(meta.get("kpis", []))
+            ts = meta.get("generated_at", "")
+            prev = load_previous(output_dir, "policy_usage")
+            save_snapshot(output_dir, "policy_usage", kpi_dict, generated_at=ts)
+            if prev:
+                result.module_results["_trend_deltas"] = compute_deltas(kpi_dict, prev)
+        except Exception as exc:
+            logger.warning(f"[PolicyUsageGenerator] Trend snapshot failed: {exc}")
+
         return paths
 
     def _build_report_metadata(self, result: PolicyUsageResult, file_format: str) -> dict:
@@ -442,12 +456,14 @@ class PolicyUsageGenerator:
         from src.report.analysis.policy_usage.pu_mod01_overview import pu_overview
         from src.report.analysis.policy_usage.pu_mod02_hit_detail import pu_hit_detail
         from src.report.analysis.policy_usage.pu_mod03_unused_detail import pu_unused_detail
+        from src.report.analysis.policy_usage.pu_mod04_deny_effectiveness import pu_deny_effectiveness
         from src.report.analysis.policy_usage.pu_mod00_executive import pu_executive_summary
 
         results = {}
         results['mod01'] = pu_overview(flat_rules, hit_hrefs)
         results['mod02'] = pu_hit_detail(flat_rules, ruleset_map, hit_counts, execution_stats or {}, self.api)
         results['mod03'] = pu_unused_detail(flat_rules, ruleset_map, hit_hrefs, execution_stats or {}, self.api)
+        results['mod04'] = pu_deny_effectiveness(flat_rules, hit_counts, ruleset_map)
         results['meta'] = {'execution_stats': execution_stats or {}}
         results['mod00'] = pu_executive_summary(results, lookback_days)
 

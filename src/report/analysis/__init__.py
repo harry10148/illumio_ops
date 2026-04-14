@@ -43,7 +43,7 @@ TRAFFIC_MODULES: list[tuple[str, str, str, Callable]] = [
     ('mod02', 'src.report.analysis.mod02_policy_decisions',     'policy_decision_analysis',      _call_df_n),
     ('mod03', 'src.report.analysis.mod03_uncovered_flows',      'uncovered_flows',               _call_df_n),
     ('mod04', 'src.report.analysis.mod04_ransomware_exposure',  'ransomware_exposure',           _call_df_cfg_n),
-    ('mod05', 'src.report.analysis.mod05_remote_access',        'host_to_host_protocol_analysis', _call_df_cfg_n),
+    # mod05 (Remote Access) consolidated into mod15 (Lateral Movement Risk)
     ('mod06', 'src.report.analysis.mod06_user_process',         'user_process_analysis',         _call_df_n),
     ('mod07', 'src.report.analysis.mod07_cross_label_matrix',   'cross_label_flow_matrix',       _call_df_n),
     ('mod08', 'src.report.analysis.mod08_unmanaged_hosts',      'unmanaged_traffic',             _call_df_n),

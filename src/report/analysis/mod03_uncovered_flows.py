@@ -12,21 +12,45 @@ _REC_MAP = {
 
 def uncovered_flows(df: pd.DataFrame, top_n: int = 20) -> dict:
     """
-    Analyse flows that are not 'allowed' (blocked / potentially_blocked / unknown).
-    Produces top uncovered flows, structural recommendations, per-port gap ranking,
-    and inbound/outbound coverage split.
+    Three-tier coverage analysis:
+      - Enforced Coverage: flows explicitly allowed by active policy rules.
+      - Staged Coverage: flows that would be blocked (potentially_blocked) —
+        rules exist but workloads are still in test/visibility mode.
+      - True Gap: blocked + unknown — no matching allow rule or not evaluated.
+
+    Also produces top uncovered flows, structural recommendations, per-port gap
+    ranking, and inbound/outbound coverage split.
     """
     if df.empty:
         return {'error': 'No data'}
 
-    uncovered = df[df['policy_decision'] != 'allowed'].copy()
     total = len(df)
+    decisions = df['policy_decision'].str.lower()
+    n_allowed = int((decisions == 'allowed').sum())
+    n_pb = int((decisions == 'potentially_blocked').sum())
+    n_blocked = int((decisions == 'blocked').sum())
+    n_unknown = total - n_allowed - n_pb - n_blocked
+
+    enforced_coverage_pct = round(n_allowed / total * 100, 1) if total else 0.0
+    staged_coverage_pct = round(n_pb / total * 100, 1) if total else 0.0
+    true_gap_pct = round((n_blocked + n_unknown) / total * 100, 1) if total else 0.0
+    # Legacy field: overall coverage (allowed only)
+    coverage_pct = enforced_coverage_pct
+
+    uncovered = df[decisions != 'allowed'].copy()
     total_uncovered = len(uncovered)
 
     if uncovered.empty:
         return {
             'total_uncovered': 0,
             'coverage_pct': 100.0,
+            'enforced_coverage_pct': 100.0,
+            'staged_coverage_pct': 0.0,
+            'true_gap_pct': 0.0,
+            'n_allowed': n_allowed,
+            'n_potentially_blocked': 0,
+            'n_blocked': 0,
+            'n_unknown': 0,
             'inbound_coverage_pct': 100.0,
             'outbound_coverage_pct': 100.0,
             'top_flows': pd.DataFrame(),
@@ -34,8 +58,6 @@ def uncovered_flows(df: pd.DataFrame, top_n: int = 20) -> dict:
             'uncovered_ports': pd.DataFrame(),
             'uncovered_services': pd.DataFrame(),
         }
-
-    coverage_pct = round((total - total_uncovered) / total * 100, 1)
 
     # Inbound/outbound coverage split
     if 'dst_managed' in df.columns:
@@ -89,6 +111,13 @@ def uncovered_flows(df: pd.DataFrame, top_n: int = 20) -> dict:
     return {
         'total_uncovered': total_uncovered,
         'coverage_pct': coverage_pct,
+        'enforced_coverage_pct': enforced_coverage_pct,
+        'staged_coverage_pct': staged_coverage_pct,
+        'true_gap_pct': true_gap_pct,
+        'n_allowed': n_allowed,
+        'n_potentially_blocked': n_pb,
+        'n_blocked': n_blocked,
+        'n_unknown': n_unknown,
         'inbound_coverage_pct': inbound_cov,
         'outbound_coverage_pct': outbound_cov,
         'top_flows': top_flows,

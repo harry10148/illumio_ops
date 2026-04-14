@@ -12,10 +12,10 @@ from .attack_posture import (
 
 
 _WEIGHTS = {
-    "policy_coverage": 40,
+    "policy_coverage": 35,
     "ringfence_maturity": 20,
     "enforcement_mode": 20,
-    "blocked_state_factor": 10,
+    "staged_readiness": 15,
     "remote_app_coverage": 10,
 }
 
@@ -115,8 +115,12 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
         managed_flags = src_flags + dst_flags
         enforce_ratio = float(sum(managed_flags) / len(managed_flags)) if managed_flags else global_workload_ratio
 
-        blocked_ratio = float(flows["policy_decision"].isin(["blocked", "potentially_blocked"]).mean())
-        no_blocked_ratio = 1.0 - blocked_ratio
+        # Staged readiness: potentially_blocked means rules exist but not yet enforced.
+        # This is a positive signal (rules are ready) — reward it instead of penalizing.
+        pb_ratio = float((flows["policy_decision"] == "potentially_blocked").mean())
+        blocked_ratio = float((flows["policy_decision"] == "blocked").mean())
+        # staged_ratio combines allowed (already enforced) + potentially_blocked (ready to enforce)
+        staged_ratio = min(1.0, allowed_ratio + pb_ratio)
 
         remote = flows[flows["port"].isin(_REMOTE_PORTS)]
         if remote.empty:
@@ -127,9 +131,9 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
         policy_score = round(_WEIGHTS["policy_coverage"] * allowed_ratio, 1)
         ringfence_score = round(_WEIGHTS["ringfence_maturity"] * ringfence_ratio, 1)
         enforce_score = round(_WEIGHTS["enforcement_mode"] * enforce_ratio, 1)
-        blocked_score = round(_WEIGHTS["blocked_state_factor"] * no_blocked_ratio, 1)
+        staged_score = round(_WEIGHTS["staged_readiness"] * staged_ratio, 1)
         remote_score = round(_WEIGHTS["remote_app_coverage"] * remote_coverage, 1)
-        readiness_score = round(policy_score + ringfence_score + enforce_score + blocked_score + remote_score, 1)
+        readiness_score = round(policy_score + ringfence_score + enforce_score + staged_score + remote_score, 1)
 
         app_rows.append(
             {
@@ -139,12 +143,13 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
                 "policy_coverage_ratio": round(allowed_ratio, 4),
                 "ringfence_maturity_ratio": round(ringfence_ratio, 4),
                 "enforcement_mode_ratio": round(enforce_ratio, 4),
-                "blocked_state_ratio": round(no_blocked_ratio, 4),
+                "staged_readiness_ratio": round(staged_ratio, 4),
+                "potentially_blocked_ratio": round(pb_ratio, 4),
                 "remote_app_coverage_ratio": round(remote_coverage, 4),
                 "policy_coverage_score": policy_score,
                 "ringfence_maturity_score": ringfence_score,
                 "enforcement_mode_score": enforce_score,
-                "blocked_state_factor_score": blocked_score,
+                "staged_readiness_score": staged_score,
                 "remote_app_coverage_score": remote_score,
                 "flow_count": total,
                 "connection_count": int(flows["num_connections"].sum()),
@@ -231,14 +236,14 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
     avg_policy = float(app_env_scores["policy_coverage_ratio"].mean())
     avg_ringfence = float(app_env_scores["ringfence_maturity_ratio"].mean())
     avg_enforce = float(app_env_scores["enforcement_mode_ratio"].mean())
-    avg_no_blocked = float(app_env_scores["blocked_state_ratio"].mean())
+    avg_staged = float(app_env_scores["staged_readiness_ratio"].mean())
     avg_remote = float(app_env_scores["remote_app_coverage_ratio"].mean())
 
     factor_scores = {
         "policy_coverage": round(_WEIGHTS["policy_coverage"] * avg_policy, 1),
         "ringfence_maturity": round(_WEIGHTS["ringfence_maturity"] * avg_ringfence, 1),
         "enforcement_mode": round(_WEIGHTS["enforcement_mode"] * avg_enforce, 1),
-        "blocked_state_factor": round(_WEIGHTS["blocked_state_factor"] * avg_no_blocked, 1),
+        "staged_readiness": round(_WEIGHTS["staged_readiness"] * avg_staged, 1),
         "remote_app_coverage": round(_WEIGHTS["remote_app_coverage"] * avg_remote, 1),
     }
 
@@ -248,10 +253,17 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
             {"Factor": "Policy Coverage", "Weight": _WEIGHTS["policy_coverage"], "Score": factor_scores["policy_coverage"], "Ratio %": round(avg_policy * 100, 1)},
             {"Factor": "Ringfence Maturity", "Weight": _WEIGHTS["ringfence_maturity"], "Score": factor_scores["ringfence_maturity"], "Ratio %": round(avg_ringfence * 100, 1)},
             {"Factor": "Enforcement Mode", "Weight": _WEIGHTS["enforcement_mode"], "Score": factor_scores["enforcement_mode"], "Ratio %": round(avg_enforce * 100, 1)},
-            {"Factor": "Blocked-State Factor", "Weight": _WEIGHTS["blocked_state_factor"], "Score": factor_scores["blocked_state_factor"], "Ratio %": round(avg_no_blocked * 100, 1)},
+            {"Factor": "Staged Readiness", "Weight": _WEIGHTS["staged_readiness"], "Score": factor_scores["staged_readiness"], "Ratio %": round(avg_staged * 100, 1)},
             {"Factor": "Remote-App Coverage", "Weight": _WEIGHTS["remote_app_coverage"], "Score": factor_scores["remote_app_coverage"], "Ratio %": round(avg_remote * 100, 1)},
         ]
     )
+
+    # Enforcement mode distribution from workloads (if available)
+    enforcement_mode_distribution: dict[str, int] = {}
+    if workloads:
+        for w in workloads:
+            mode = str(w.get("enforcement_mode", "unknown")).lower().strip()
+            enforcement_mode_distribution[mode] = enforcement_mode_distribution.get(mode, 0) + 1
 
     ranked_items = rank_posture_items(attack_items)
     recommendations = _build_recommendations(ranked_items, top_n=top_n)
@@ -263,6 +275,7 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
         "factor_table": factor_table,
         "recommendations": recommendations,
         "app_env_scores": app_env_scores.head(top_n),
+        "enforcement_mode_distribution": enforcement_mode_distribution,
         "attack_posture_items": ranked_items[: max(top_n, 10)],
     }
 

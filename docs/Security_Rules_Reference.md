@@ -616,28 +616,6 @@ thresholds:
 
 ---
 
-## How to Add Custom Rules (Semantic Rules)
-
-In addition to the built-in B and L rules, you can define custom rules in `config/semantic_config.yaml`. This allows you to write environment-specific detections without modifying code.
-
-```yaml
-semantic_rules:
-  - id: "S001"
-    name: "PCI Zone Lateral Access"
-    severity: "CRITICAL"
-    category: "Policy"
-    description: "Any lateral port flow entering the PCI environment"
-    condition:
-      dst_env: "PCI"
-      port: [445, 3389, 135, 5985]
-      policy_decision: ["allowed", "potentially_blocked"]
-    recommendation: "Block all lateral ports at PCI environment boundary immediately."
-```
-
-> **Status:** Semantic rules are loaded from `config/semantic_config.yaml` when the file exists, but **advanced condition evaluation is not yet implemented**. The rules engine logs the number of loaded semantic rules but does not evaluate them against traffic data. Full semantic rule evaluation is planned for a future release.
-
----
-
 ## Port Reference
 
 All port numbers referenced by the security rules and analysis modules:

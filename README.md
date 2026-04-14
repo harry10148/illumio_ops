@@ -59,15 +59,14 @@ python illumio_ops.py --monitor --interval 5
 
 ### 3. First Login
 
-The Web GUI generates a **random password** on first launch and stores it in `config/config.json` under the `web_gui._initial_password` key.
+Default credentials: **username `illumio`** / **password `illumio`**.
 
-1. Check `config/config.json` for the `_initial_password` value.
-2. Log in with **username `illumio`** and the generated password.
-3. **Change your password immediately** in the **Settings** page.
-4. Configure **IP Allowlisting** to restrict access to trusted networks.
+1. Log in with the default credentials.
+2. **Change your password immediately** in the **Settings** page.
+3. Configure **IP Allowlisting** to restrict access to trusted networks.
 
 > [!WARNING]
-> After changing your password, the `_initial_password` key is automatically removed from the config file. There is no way to recover a lost password — delete the `password_hash` and `password_salt` keys from `config.json` to reset.
+> If you lose your password, delete the `password_hash` and `password_salt` keys from `config/config.json` to reset to defaults.
 
 ### 4. Security Features
 
@@ -125,7 +124,7 @@ illumio_ops/
 │   ├── events/                 # Event pipeline (catalog, normalize, dedup, throttle)
 │   ├── report/                 # Report engine (15 traffic modules + audit + policy usage)
 │   └── alerts/                 # Alert plugins (mail, LINE, webhook)
-├── config/                     # config.json, report_config.yaml, semantic_config.yaml
+├── config/                     # config.json, report_config.yaml
 ├── docs/                       # EN + ZH_TW documentation
 ├── tests/                      # 19 test files (116 tests)
 ├── deploy/                     # systemd (Ubuntu/RHEL) + NSSM (Windows) service configs

@@ -79,6 +79,7 @@ class PolicyUsageHtmlExporter:
             '<a href="#overview"><span data-i18n="rpt_pu_nav_overview">1 Usage Overview</span></a>'
             '<a href="#hit-rules"><span data-i18n="rpt_pu_nav_hit">2 Hit Rules</span></a>'
             '<a href="#unused-rules"><span data-i18n="rpt_pu_nav_unused">3 Unused Rules</span></a>'
+            '<a href="#deny-rules"><span data-i18n="rpt_pu_nav_deny">4 Deny Effectiveness</span></a>'
             "</nav>"
         )
 
@@ -119,6 +120,14 @@ class PolicyUsageHtmlExporter:
                 "3. Unused Rules Detail",
                 self._mod03_html(),
                 "Rules without observed hits in the selected window, shown with expected services for review.",
+            )
+            + "\n"
+            + self._section(
+                "deny-rules",
+                "rpt_pu_sec_deny",
+                "4. Deny Rule Effectiveness",
+                self._mod04_html(),
+                "Deny rule coverage and hit analysis — are deny rules actively blocking unwanted traffic?",
             )
             + "\n"
             + '<footer><span data-i18n="rpt_pu_footer">Illumio PCE Ops - Policy Usage Report</span>'
@@ -335,3 +344,45 @@ class PolicyUsageHtmlExporter:
 
         note = f'<p style="color:#718096;font-size:12px;">{count} rows</p>' if count else ""
         return caveat_html + note + _df_to_html(unused_df)
+
+    def _mod04_html(self) -> str:
+        mod04 = self._r.get("mod04", {})
+        total_deny = mod04.get("total_deny", 0)
+        if total_deny == 0:
+            return '<p class="note" data-i18n="rpt_pu_no_deny">No deny rules found in the active policy.</p>'
+
+        deny_hit = mod04.get("deny_hit_count", 0)
+        deny_unused = mod04.get("deny_unused_count", 0)
+        deny_hit_rate = mod04.get("deny_hit_rate_pct", 0.0)
+        deny_ratio = mod04.get("deny_ratio_pct", 0.0)
+        override_count = mod04.get("override_deny_count", 0)
+
+        stats = (
+            "<p>"
+            f'<span data-i18n="rpt_pu_deny_total">Total Deny Rules</span>: <strong>{total_deny}</strong> '
+            f'({deny_ratio}% of all rules) &nbsp;|&nbsp; '
+            f'<span class="badge-hit" data-i18n="rpt_pu_deny_hit">Hit</span> {deny_hit} &nbsp;|&nbsp; '
+            f'<span class="badge-unused" data-i18n="rpt_pu_deny_unused">Unused</span> {deny_unused} &nbsp;|&nbsp; '
+            f'<span data-i18n="rpt_pu_deny_hit_rate">Hit Rate</span>: <strong>{deny_hit_rate}%</strong>'
+            "</p>"
+        )
+
+        if override_count > 0:
+            stats += (
+                '<p class="note note-warn">'
+                f'<strong data-i18n="rpt_pu_override_deny">Override Deny Rules:</strong> {override_count} '
+                '— these take highest priority and bypass all other rules. Review for correctness.</p>'
+            )
+
+        summary_df = mod04.get("deny_summary_df")
+        summary_html = _df_to_html(summary_df) if summary_df is not None else ""
+
+        detail_df = mod04.get("deny_detail_df")
+        detail_html = ""
+        if detail_df is not None and not detail_df.empty:
+            detail_html = (
+                '<h3 data-i18n="rpt_pu_deny_detail">Deny Rule Details</h3>'
+                + _df_to_html(detail_df)
+            )
+
+        return stats + summary_html + detail_html

@@ -429,7 +429,7 @@ if new_label:
 ## Scenario 7: Internal Tool API (Auth & Security)
 
 **Use Case**: Automating against the Illumio PCE Ops tool itself (e.g., bulk updating rules, triggering reports via script).
-**Required**: Valid tool credentials (username `illumio`; password is randomly generated on first launch — find it in `config.json` under `web_gui._initial_password`).
+**Required**: Valid tool credentials (default: username `illumio` / password `illumio` — change on first login).
 
 ### Workflow
 
@@ -444,7 +444,7 @@ import requests
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
 
-# 1. Login (password from config.json → web_gui._initial_password)
+# 1. Login (default: illumio / illumio)
 login_payload = {"username": "illumio", "password": "<your_password>"}
 res = session.post(f"{BASE_URL}/api/login", json=login_payload)
 

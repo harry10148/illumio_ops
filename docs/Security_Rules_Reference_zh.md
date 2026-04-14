@@ -17,8 +17,6 @@
 
 此外，三個進階分析模組（Module 13–15）提供強制執行準備度評分、基礎設施關鍵性評分和橫向移動風險偵測，作為安全發現的補充分析。詳見[進階分析模組](#進階分析模組module-1315)章節。
 
-自訂語意規則（S 系列）可在 `config/semantic_config.yaml` 中定義，無需修改程式碼。詳見[如何新增自訂規則](#如何新增自訂規則語意規則)章節。
-
 所有閾值均可在 **`config/report_config.yaml`** 的 `thresholds:` 區塊中設定，無需修改程式碼。
 
 ---
@@ -630,51 +628,6 @@ thresholds:
 **檔案：** `src/report/analysis/mod15_lateral_movement.py`
 
 偵測橫向移動風險模式，涵蓋連接埠包括：SMB (445)、RPC (135)、NetBIOS (139)、RDP (3389)、SSH (22)、WinRM (5985/5986)、Telnet (23)、NFS (2049)、RPC Portmapper (111)、LDAP (389)、LDAPS (636)、Kerberos (88)、MSSQL (1433)、MySQL (3306)、PostgreSQL (5432)。
-
----
-
-## 如何新增自訂規則（語意規則）
-
-除內建 B 和 L 系列規則外，您也可以在 `config/semantic_config.yaml` 中定義自訂規則，無需修改程式碼即可撰寫環境特定的偵測邏輯。
-
-### 語意規則格式
-
-```yaml
-semantic_rules:
-  - id: "S001"
-    name: "PCI 區域橫向存取"
-    severity: "CRITICAL"
-    category: "Policy"
-    description: "任何進入 PCI 環境的橫向連接埠流量"
-    condition:
-      dst_env: "PCI"
-      port: [445, 3389, 135, 5985]
-      policy_decision: ["allowed", "potentially_blocked"]
-    recommendation: "立即封鎖 PCI 環境邊界上的所有橫向連接埠。"
-```
-
-### 標籤語意定義
-
-語意設定檔同時支援標籤語意定義，讓規則引擎理解您環境中的標籤命名慣例：
-
-```yaml
-label_semantics:
-  env_production_values: ["prod", "production", "PRD"]
-  env_development_values: ["dev", "development", "DEV"]
-  env_staging_values: ["staging", "stg", "UAT"]
-  role_database_values: ["db", "database", "DB", "mysql"]
-  role_web_values: ["web", "frontend", "www"]
-  role_app_values: ["app", "backend", "api"]
-```
-
-### 範例規則
-
-| 規則 ID | 名稱 | 嚴重等級 | 說明 |
-|:---|:---|:---|:---|
-| S001 | 外部直連資料庫 | CRITICAL | 未受管來源直接存取資料庫角色 |
-| S002 | 正式環境→開發環境資料流 | HIGH | 從正式環境流向開發環境的流量（潛在資料洩漏） |
-
-> **注意：** 完整的語意規則評估計劃於未來版本實作。目前規則會被載入並計數，但條件評估邏輯（`_eval_semantic`）尚未啟用——系統會記錄已載入的語意規則數量但不執行匹配。
 
 ---
 

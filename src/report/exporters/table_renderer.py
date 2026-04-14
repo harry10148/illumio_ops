@@ -29,22 +29,31 @@ def render_df_table(
         return f'<p class="note" data-i18n="{no_data_key}">No data</p>'
 
     columns = list(df.columns)
-    interactive = len(columns) >= 3
-    table_class = "report-table report-table--interactive" if interactive else "report-table"
+    n_cols = len(columns)
+    interactive = n_cols >= 3
+    compact = n_cols <= 3
+    table_cls_parts = ["report-table", "report-table--auto"]
+    if interactive:
+        table_cls_parts.append("report-table--interactive")
+    table_class = " ".join(table_cls_parts)
+
+    panel_class = "report-table-panel"
+    if compact:
+        panel_class += " report-table-panel--compact"
 
     html_parts = [
-        '<div class="report-table-panel">',
+        f'<div class="{panel_class}">',
         '<div class="report-table-wrap">',
         (
             f'<table class="{table_class}" '
             f'data-interactive="{str(interactive).lower()}" '
-            f'data-column-count="{len(columns)}">'
+            f'data-column-count="{n_cols}">'
         ),
         "<colgroup>",
     ]
 
     for _ in columns:
-        html_parts.append('<col style="width: 160px; min-width: 96px;">')
+        html_parts.append('<col>')
 
     html_parts.extend([
         "</colgroup>",

@@ -115,8 +115,12 @@ def lateral_movement_risk(df: pd.DataFrame, top_n: int = 20, max_depth: int = 4)
     if lateral.empty:
         return {
             "total_lateral_flows": 0,
+            "unique_lateral_src": 0,
+            "unique_lateral_dst": 0,
             "lateral_pct": 0.0,
             "service_summary": pd.DataFrame(),
+            "ip_top_talkers": pd.DataFrame(),
+            "ip_top_pairs": pd.DataFrame(),
             "fan_out_sources": pd.DataFrame(),
             "app_chains": pd.DataFrame(),
             "bridge_nodes": pd.DataFrame(),
@@ -148,6 +152,38 @@ def lateral_movement_risk(df: pd.DataFrame, top_n: int = 20, max_depth: int = 4)
         )
         .sort_values(by=["Connections", "Port"], ascending=[False, True])
         .head(top_n)
+        .reset_index(drop=True)
+    )
+
+    # IP-level analysis (consolidated from former mod05)
+    _has_hostname = "src_hostname" in lateral.columns
+    if _has_hostname:
+        ip_top_talkers = (
+            lateral.groupby(["src_ip", "src_hostname"])["dst_ip"]
+            .nunique()
+            .reset_index()
+            .nlargest(top_n, "dst_ip")
+            .rename(columns={"src_ip": "Source IP", "src_hostname": "Hostname", "dst_ip": "Unique Destinations"})
+            .reset_index(drop=True)
+        )
+    else:
+        ip_top_talkers = (
+            lateral.groupby("src_ip")["dst_ip"]
+            .nunique()
+            .reset_index()
+            .nlargest(top_n, "dst_ip")
+            .rename(columns={"src_ip": "Source IP", "dst_ip": "Unique Destinations"})
+            .reset_index(drop=True)
+        )
+
+    lateral_with_pair = lateral.copy()
+    lateral_with_pair["pair"] = lateral_with_pair["src_ip"].astype(str) + " \u2192 " + lateral_with_pair["dst_ip"].astype(str)
+    ip_top_pairs = (
+        lateral_with_pair.groupby(["pair", "service"])["num_connections"]
+        .sum()
+        .reset_index()
+        .nlargest(top_n, "num_connections")
+        .rename(columns={"pair": "Host Pair", "service": "Service", "num_connections": "Connections"})
         .reset_index(drop=True)
     )
 
@@ -367,8 +403,12 @@ def lateral_movement_risk(df: pd.DataFrame, top_n: int = 20, max_depth: int = 4)
 
     return {
         "total_lateral_flows": int(len(lateral)),
+        "unique_lateral_src": int(lateral["src_ip"].nunique()) if "src_ip" in lateral.columns else 0,
+        "unique_lateral_dst": int(lateral["dst_ip"].nunique()) if "dst_ip" in lateral.columns else 0,
         "lateral_pct": lateral_pct,
         "service_summary": service_summary,
+        "ip_top_talkers": ip_top_talkers,
+        "ip_top_pairs": ip_top_pairs,
         "fan_out_sources": fan_out_sources,
         "app_chains": app_chains,
         "bridge_nodes": bridge_nodes,

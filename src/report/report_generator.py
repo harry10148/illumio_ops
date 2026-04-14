@@ -296,6 +296,19 @@ class ReportGenerator:
         except Exception as e:
             logger.warning(f"[ReportGenerator] Failed to write KPI snapshot: {e}")
 
+        # Trend analysis: archive snapshot and compute deltas
+        try:
+            from src.report.trend_store import save_snapshot, load_previous, compute_deltas, build_kpi_dict_from_metadata
+            meta = self._build_report_metadata(result, file_format="snapshot")
+            kpi_dict = build_kpi_dict_from_metadata(meta.get("kpis", []))
+            ts = meta.get("generated_at", "")
+            prev = load_previous(output_dir, "traffic")
+            save_snapshot(output_dir, "traffic", kpi_dict, generated_at=ts)
+            if prev:
+                result.module_results["_trend_deltas"] = compute_deltas(kpi_dict, prev)
+        except Exception as e:
+            logger.warning(f"[ReportGenerator] Trend snapshot failed: {e}")
+
         if send_email and reporter is not None:
             html_path = next((p for p in paths if p.endswith('.html')), None)
             mod12 = result.module_results.get('mod12', {})
@@ -422,16 +435,7 @@ class ReportGenerator:
 
     def _parse_csv(self, csv_path: str):
         from src.report.parsers.csv_parser import CSVParser
-        mapping = {}
-        mapping_path = os.path.join(self._config_dir, 'csv_column_mapping.yaml')
-        if os.path.exists(mapping_path):
-            try:
-                import yaml
-                with open(mapping_path, 'r', encoding='utf-8') as f:
-                    mapping = yaml.safe_load(f) or {}
-            except ImportError:
-                logger.warning("[ReportGenerator] pyyaml not installed — CSV column mapping skipped")
-        return CSVParser(mapping).parse(csv_path)
+        return CSVParser().parse(csv_path)
 
     def _parse_api(self, records: list):
         from src.report.parsers.api_parser import APIParser

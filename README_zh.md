@@ -59,15 +59,14 @@ python illumio_ops.py --monitor --interval 5
 
 ### 3. 首次登入
 
-Web GUI 在首次啟動時會自動產生**隨機密碼**，儲存在 `config/config.json` 的 `web_gui._initial_password` 欄位中。
+預設帳號密碼：**帳號 `illumio`** / **密碼 `illumio`**。
 
-1. 開啟 `config/config.json`，找到 `_initial_password` 的值。
-2. 使用**帳號 `illumio`** 與產生的密碼登入。
-3. 登入後**立即至 Settings 頁面修改密碼**。
-4. 建議設定 **IP 白名單**以限制存取來源。
+1. 使用預設帳號密碼登入。
+2. 登入後**立即至 Settings 頁面修改密碼**。
+3. 建議設定 **IP 白名單**以限制存取來源。
 
 > [!WARNING]
-> 修改密碼後，`_initial_password` 會自動從設定檔中移除。若遺失密碼，請手動刪除 `config.json` 中的 `password_hash` 及 `password_salt` 欄位以重設。
+> 若遺失密碼，請手動刪除 `config/config.json` 中的 `password_hash` 及 `password_salt` 欄位以重設為預設值。
 
 ### 4. 安全機制
 
@@ -114,7 +113,7 @@ illumio_ops/
 │   ├── events/                 # 事件處理管線（分類、正規化、去重、節流）
 │   ├── report/                 # 報表引擎（15 個流量分析模組 + 稽核 + 政策使用）
 │   └── alerts/                 # 告警外掛模組 (mail, LINE, webhook)
-├── config/                     # config.json、report_config.yaml、semantic_config.yaml
+├── config/                     # config.json、report_config.yaml
 ├── docs/                       # 中文/英文完整文件
 ├── tests/                      # 19 個測試檔案 (116 個測試)
 ├── deploy/                     # systemd (Ubuntu/RHEL) + NSSM (Windows) 服務設定

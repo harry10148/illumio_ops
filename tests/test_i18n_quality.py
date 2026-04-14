@@ -56,6 +56,8 @@ def test_report_email_keys_are_explicitly_localized_in_zh_tw():
             "rpt_email_security_findings",
             "rpt_email_key_findings",
             "rpt_email_no_findings",
+            "rpt_email_records",
+            "rpt_email_period",
             "rpt_email_source_api",
             "rpt_email_footer",
             "rpt_email_sent",

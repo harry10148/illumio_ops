@@ -1265,10 +1265,12 @@ class Reporter:
             smtp_conf = self.cm.config.get("smtp", {})
             host = smtp_conf.get("host", "localhost")
             port = int(smtp_conf.get("port", 25))
-            s = smtplib.SMTP(host, port)
+            s = smtplib.SMTP(host, port, timeout=30)
             s.ehlo()
             if smtp_conf.get("enable_tls"):
-                s.starttls()
+                import ssl as _ssl
+                _tls_ctx = _ssl.create_default_context()
+                s.starttls(context=_tls_ctx)
                 s.ehlo()
             if smtp_conf.get("enable_auth"):
                 s.login(smtp_conf.get("user"), smtp_conf.get("password"))
@@ -1326,10 +1328,12 @@ class Reporter:
             smtp_conf = self.cm.config.get("smtp", {})
             host = smtp_conf.get("host", "localhost")
             port = int(smtp_conf.get("port", 25))
-            s = smtplib.SMTP(host, port)
+            s = smtplib.SMTP(host, port, timeout=30)
             s.ehlo()
             if smtp_conf.get("enable_tls"):
-                s.starttls()
+                import ssl as _ssl
+                _tls_ctx = _ssl.create_default_context()
+                s.starttls(context=_tls_ctx)
                 s.ehlo()
             if smtp_conf.get("enable_auth"):
                 s.login(smtp_conf.get("user"), smtp_conf.get("password"))

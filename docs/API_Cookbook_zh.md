@@ -435,7 +435,7 @@ if new_label:
 ## 場景七：工具內部 API (認證與安全性)
 
 **使用場景**：對 Illumio PCE Ops 工具本身進行自動化操作（例如：透過腳本批次更新規則、觸發報表）。
-**需求**：有效的工具登入憑證（使用者名稱 `illumio`；密碼於首次啟動時隨機產生，可在 `config.json` 的 `web_gui._initial_password` 中找到）。
+**需求**：有效的工具登入憑證（預設帳號 `illumio` / 密碼 `illumio`，請於首次登入後修改）。
 
 ### 操作流程
 
@@ -450,7 +450,7 @@ import requests
 BASE_URL = "http://127.0.0.1:5001"
 session = requests.Session()
 
-# 1. 登入（密碼請查閱 config.json → web_gui._initial_password）
+# 1. 登入（預設：illumio / illumio）
 login_payload = {"username": "illumio", "password": "<your_password>"}
 res = session.post(f"{BASE_URL}/api/login", json=login_payload)
 

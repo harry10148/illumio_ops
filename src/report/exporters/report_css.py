@@ -25,8 +25,9 @@ BASE_CSS = """\
   h3 { color: var(--slate); font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
   h4 { color: var(--slate-50); font-size: 12px; font-weight: 600; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .04em; }
 
-  .card { background: #fff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; color: var(--slate); }
-  .note { background: var(--tan); border-left: 4px solid var(--orange); padding: 12px; border-radius: 4px; color: var(--cyan-120); font-size: 13px; margin: 10px 0; }
+  .card { background: #fff; border-radius: 8px; padding: 24px 28px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px; color: var(--slate); }
+  .note { background: var(--tan); border-left: 4px solid var(--orange); padding: 12px 14px; border-radius: 4px; color: var(--cyan-120); font-size: 13px; margin: 12px 0; line-height: 1.6; }
+  .note-warn { border-left-color: var(--red-80); background: var(--red-10); }
   footer { text-align: center; color: var(--slate-50); font-size: 11px; margin: 40px 0 20px; }
 
   .report-hero { position: relative; overflow: hidden; background:
@@ -42,18 +43,21 @@ BASE_CSS = """\
   .summary-pill-value { display: block; font-size: 15px; font-weight: 700; color: var(--cyan-120); }
   .section-intro { margin: 0 0 14px; color: var(--slate-50); font-size: 12px; line-height: 1.6; }
 
-  .kpi-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
-  .kpi-card { background: #fff; border-radius: 8px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 160px; border-top: 3px solid var(--orange); }
-  .kpi-label { font-size: 11px; color: var(--slate-50); text-transform: uppercase; letter-spacing: .04em; }
-  .kpi-value { font-size: 22px; font-weight: 700; color: var(--cyan-120); }
+  .kpi-grid { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border-radius: 8px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 150px; flex: 1 1 150px; max-width: 220px; border-top: 3px solid var(--orange); }
+  .kpi-label { font-size: 11px; color: var(--slate-50); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+  .kpi-value { font-size: 20px; font-weight: 700; color: var(--cyan-120); }
   .report-hero .kpi-card { background: #fff; box-shadow: 0 6px 16px rgba(26,44,50,.08); border-top-color: var(--orange); }
 
   .report-table-panel { margin: 12px 0 18px; border: 1px solid rgba(50,81,88,.14); border-radius: 14px; overflow: hidden; background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(247,244,238,.92)); box-shadow: 0 10px 24px rgba(26,44,50,.08); }
+  .report-table-panel--compact { display: inline-block; min-width: 280px; max-width: 600px; }
   .report-table-wrap { overflow: auto; max-width: 100%; }
   .report-table { min-width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
-  .report-table thead th { background: var(--cyan-110); color: #fff; position: sticky; top: 0; z-index: 2; min-width: 120px; padding: 12px 28px 12px 12px; vertical-align: middle; border-right: 1px solid rgba(255,255,255,.08); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .report-table--auto { min-width: 100%; table-layout: auto; }
+  .report-table-panel--compact .report-table--auto { min-width: auto; }
+  .report-table thead th { background: var(--cyan-110); color: #fff; position: sticky; top: 0; z-index: 2; padding: 10px 24px 10px 12px; vertical-align: middle; border-right: 1px solid rgba(255,255,255,.08); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .report-table thead th:hover { background: var(--cyan-100); }
-  .report-table tbody td { padding: 10px 12px; vertical-align: top; border-bottom: 1px solid var(--slate-20); color: var(--slate); }
+  .report-table tbody td { padding: 8px 12px; vertical-align: top; border-bottom: 1px solid var(--slate-20); color: var(--slate); line-height: 1.5; }
   .report-table tbody td, .report-table tbody td * { color: var(--slate); }
   .report-table tbody td code { color: var(--cyan-120); background: rgba(26,44,50,.06); padding: 1px 4px; border-radius: 4px; }
   .report-table tbody tr:nth-child(even) td { background: var(--tan); }
@@ -84,6 +88,26 @@ BASE_CSS = """\
 
   .dual-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; margin: 8px 0 12px; }
   @media (max-width: 1200px) { .dual-grid { grid-template-columns: 1fr; } }
+
+  .attention-box { background: var(--tan); border: 1px solid var(--tan-120); border-radius: 8px; padding: 14px 18px; margin: 12px 0 18px; }
+  .attention-box h4 { margin-top: 0; }
+  .attention-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(50,81,88,.06); }
+  .attention-row:last-child { border-bottom: none; }
+  .badge-hit { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; background: var(--green-10); color: var(--green); }
+  .badge-unused { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; background: var(--red-10); color: var(--red); }
+  .caveat-box { background: #FFFBF0; border-left: 4px solid var(--gold-110); padding: 12px 14px; border-radius: 4px; margin: 12px 0; font-size: 12px; line-height: 1.6; }
+
+  .trend-table { border: 1px solid var(--slate-20); border-radius: 8px; overflow: hidden; }
+  .trend-table th { background: var(--tan); color: var(--cyan-120); font-weight: 600; }
+  .trend-table td { border-bottom: 1px solid var(--slate-10); }
+  .trend-table tr:last-child td { border-bottom: none; }
+
+  @media print {
+    nav { display: none; }
+    main { margin-left: 0; padding: 12px; }
+    .card { box-shadow: none; border: 1px solid var(--slate-20); page-break-inside: avoid; }
+    .report-table-panel { box-shadow: none; }
+  }
 """
 
 TRAFFIC_CSS = """\
@@ -172,7 +196,7 @@ function initReportTable(table) {
   if (!table || table.dataset.interactive !== 'true') return;
   const headers = Array.from(table.querySelectorAll('thead th'));
   const cols = Array.from(table.querySelectorAll('colgroup col'));
-  if (headers.length < 3) return;
+  if (headers.length < 2) return;
   headers.forEach(th => {
     if (!th.querySelector('.th-label')) {
       const label = document.createElement('span');

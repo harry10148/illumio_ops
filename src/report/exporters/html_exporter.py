@@ -231,7 +231,7 @@ class HtmlExporter:
             '<a href="#policy"><span data-i18n="rpt_tr_nav_policy">2 Policy Decisions</span></a>'
             '<a href="#uncovered"><span data-i18n="rpt_tr_nav_uncovered">3 Uncovered Flows</span></a>'
             '<a href="#ransomware"><span data-i18n="rpt_tr_nav_ransomware">4 Ransomware Exposure</span></a>'
-            '<a href="#remote"><span data-i18n="rpt_tr_nav_remote">5 Remote Access</span></a>'
+            ''  # mod05 consolidated into mod15
             '<a href="#user"><span data-i18n="rpt_tr_nav_user">6 User &amp; Process</span></a>'
             '<a href="#matrix"><span data-i18n="rpt_tr_nav_matrix">7 Cross-Label Matrix</span></a>'
             '<a href="#unmanaged"><span data-i18n="rpt_tr_nav_unmanaged">8 Unmanaged Hosts</span></a>'
@@ -251,6 +251,7 @@ class HtmlExporter:
             '<div class="kpi-value">' + str(k['value']) + '</div></div>'
             for k in mod12.get('kpis', [])
         )
+        trend_html = self._trend_deltas_html()
         key_findings_html = ''.join(
             '<p style="margin-bottom:8px"><span class="badge badge-' +
             kf.get('severity', 'INFO') + '">' + kf.get('severity', '') + '</span>&nbsp;' +
@@ -271,6 +272,44 @@ class HtmlExporter:
             '</div>'
         )
 
+        # Maturity score gauge
+        m_score = mod12.get('maturity_score', 0)
+        m_grade = mod12.get('maturity_grade', '?')
+        m_dims = mod12.get('maturity_dimensions', {})
+        m_grade_color = {'A': '#22C55E', 'B': '#84CC16', 'C': '#EAB308', 'D': '#F97316', 'F': '#EF4444'}.get(m_grade, '#6B7280')
+        m_dim_labels = {
+            'enforcement_coverage': 'Enforcement Coverage',
+            'policy_coverage': 'Policy Coverage',
+            'lateral_movement_control': 'Lateral Movement Control',
+            'managed_asset_ratio': 'Managed Asset Ratio',
+            'risk_port_control': 'Risk Port Control',
+        }
+        maturity_bars = ''
+        for dim_key, dim_label in m_dim_labels.items():
+            dim = m_dims.get(dim_key, {})
+            dim_score = dim.get('score', 0)
+            dim_weight = dim.get('weight', 0)
+            dim_pct = round(dim_score / max(dim_weight, 1) * 100, 0) if dim_weight else 0
+            bar_color = '#22C55E' if dim_pct >= 70 else ('#EAB308' if dim_pct >= 40 else '#EF4444')
+            maturity_bars += (
+                f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px">'
+                f'<div style="width:200px;flex-shrink:0">{dim_label}</div>'
+                f'<div style="flex:1;height:16px;background:#2D3748;border-radius:4px;overflow:hidden">'
+                f'<div style="width:{dim_pct}%;height:100%;background:{bar_color};border-radius:4px"></div></div>'
+                f'<div style="width:60px;text-align:right;font-weight:600">{dim_score}/{dim_weight}</div>'
+                f'</div>'
+            )
+
+        maturity_html = (
+            '<div style="display:flex;align-items:center;gap:24px;margin:20px 0;padding:20px;'
+            'background:var(--card-bg);border:1px solid var(--border);border-radius:12px">'
+            f'<div style="text-align:center;min-width:100px">'
+            f'<div style="font-size:48px;font-weight:700;color:{m_grade_color};line-height:1">{m_grade}</div>'
+            f'<div style="font-size:14px;color:var(--slate-50);margin-top:4px" data-i18n="rpt_tr_maturity_score">'
+            f'Maturity: {m_score}/100</div></div>'
+            f'<div style="flex:1">{maturity_bars}</div></div>'
+        )
+
         body = (
             '<section id="summary" class="card report-hero">'
             '<div class="report-hero-top"><div class="report-kicker" data-i18n="rpt_kicker_traffic">Traffic Analytics Report</div>'
@@ -278,8 +317,11 @@ class HtmlExporter:
             '<p class="report-subtitle">'
             '<span data-i18n="rpt_generated">Generated:</span> ' + generated_at + '</p></div>'
             + summary_pills +
+            '<h2 data-i18n="rpt_tr_maturity_heading">Microsegmentation Maturity</h2>'
+            + maturity_html +
             '<h2 data-i18n="rpt_key_metrics">Key Metrics</h2>'
             '<div class="kpi-grid">' + kpi_cards + '</div>'
+            + trend_html +
             '<h2 data-i18n="rpt_key_findings">Key Findings</h2>' + key_findings_html +
             attack_summary_html +
             '</section>\n' +
@@ -287,7 +329,8 @@ class HtmlExporter:
             self._section('policy', 'rpt_tr_sec_policy', '2 \u00b7 Policy Decisions', self._mod02_html(), '拆解 Allow、Blocked 與 Potentially Blocked 的比例與細節，用來判斷目前 Policy 的實際落地程度。') + '\n' +
             self._section('uncovered', 'rpt_tr_sec_uncovered', '3 \u00b7 Uncovered Flows', self._mod03_html(), '聚焦尚未被有效 Policy 覆蓋的流量，協助找出應優先補強的服務與通訊方向。') + '\n' +
             self._section('ransomware', 'rpt_tr_sec_ransomware', '4 \u00b7 Ransomware Exposure', self._mod04_html(), '檢查與勒索軟體常見攻擊鏈相關的高風險通訊埠、允許流量與主機曝露情況。') + '\n' +
-            self._section('remote', 'rpt_tr_sec_remote', '5 \u00b7 Remote Access', self._mod05_html(), '整理與遠端管理或橫向擴散相關的服務活動，協助區分日常維運流量與敏感連線。') + '\n' +
+            # mod05 (Remote Access) consolidated into mod15 (Lateral Movement)
+
             self._section('user', 'rpt_tr_sec_user', '6 \u00b7 User &amp; Process', self._mod06_html(), '從使用者與程序視角補充流量背景，協助判斷這些連線是否符合既有操作模式。') + '\n' +
             self._section('matrix', 'rpt_tr_sec_matrix', '7 \u00b7 Cross-Label Matrix', self._mod07_html(), '以 Label 維度觀察跨群組互通情況，適合用來找出原本不應頻繁互動的區段。') + '\n' +
             self._section('unmanaged', 'rpt_tr_sec_unmanaged', '8 \u00b7 Unmanaged Hosts', self._mod08_html(), '盤點未受 VEN 管理的主機流量，這些主機通常位於可視性與控管邊界之外。') + '\n' +
@@ -318,6 +361,41 @@ class HtmlExporter:
             f'<section id="{id_}" class="card">'
             f'<h2 data-i18n="{i18n_key}">{title}</h2>'
             f'{intro_html}{content}</section>'
+        )
+
+    def _trend_deltas_html(self) -> str:
+        """Render trend delta indicators if a previous snapshot exists."""
+        deltas = self._r.get("_trend_deltas")
+        if not deltas:
+            return ""
+        rows = []
+        for d in deltas:
+            arrow = {"up": "\u2191", "down": "\u2193", "flat": "\u2192"}.get(d["direction"], "")
+            color = "#E53E3E" if d["direction"] == "up" else "#38A169" if d["direction"] == "down" else "#718096"
+            # For security metrics, up is bad (red), down is good (green)
+            # For coverage metrics, up is good — override color
+            metric_lower = d["metric"].lower()
+            if "coverage" in metric_lower or "readiness" in metric_lower or "maturity" in metric_lower:
+                color = "#38A169" if d["direction"] == "up" else "#E53E3E" if d["direction"] == "down" else "#718096"
+            pct_str = f' ({d["delta_pct"]:+.1f}%)' if d.get("delta_pct") is not None else ""
+            rows.append(
+                f'<tr><td>{d["metric"]}</td>'
+                f'<td style="text-align:right;padding:6px 12px">{d["previous"]:,.1f}</td>'
+                f'<td style="text-align:right;padding:6px 12px">{d["current"]:,.1f}</td>'
+                f'<td style="text-align:right;padding:6px 12px;color:{color};font-weight:700">'
+                f'{arrow} {d["delta"]:+,.1f}{pct_str}</td></tr>'
+            )
+        return (
+            '<h3 data-i18n="rpt_tr_trend_heading">Trend vs Previous Report</h3>'
+            '<table class="trend-table" style="width:auto;min-width:420px;max-width:680px;border-collapse:collapse;margin-bottom:16px;font-size:13px">'
+            '<thead><tr>'
+            '<th style="text-align:left;padding:8px 12px">Metric</th>'
+            '<th style="text-align:right;padding:8px 12px">Previous</th>'
+            '<th style="text-align:right;padding:8px 12px">Current</th>'
+            '<th style="text-align:right;padding:8px 12px">Delta</th>'
+            '</tr></thead><tbody>'
+            + ''.join(rows)
+            + '</tbody></table>'
         )
 
     def _subnote(self, text: str) -> str:
@@ -441,17 +519,31 @@ class HtmlExporter:
 
     def _mod03_html(self):
         m = self._r.get('mod03', {})
-        cov = m.get('coverage_pct', 0)
+        enforced_cov = m.get('enforced_coverage_pct', m.get('coverage_pct', 0))
+        staged_cov = m.get('staged_coverage_pct', 0)
+        true_gap = m.get('true_gap_pct', 0)
         inb_cov = m.get('inbound_coverage_pct')
         outb_cov = m.get('outbound_coverage_pct')
+
+        # Three-tier coverage bar: enforced (green) + staged (amber) + gap (red)
+        bar_html = (
+            '<div style="display:flex;height:28px;border-radius:6px;overflow:hidden;margin:12px 0 16px 0;font-size:12px;font-weight:600;color:#fff;text-align:center;line-height:28px">'
+            f'<div style="width:{enforced_cov}%;background:#38A169" title="Enforced">{enforced_cov}%</div>'
+            + (f'<div style="width:{staged_cov}%;background:#D69E2E" title="Staged">{staged_cov}%</div>' if staged_cov > 0 else '')
+            + (f'<div style="width:{true_gap}%;background:#E53E3E" title="True Gap">{true_gap}%</div>' if true_gap > 0 else '')
+            + '</div>'
+        )
+
         stats = (
             '<div class="coverage-grid">'
-            + _cov_stat('<span data-i18n="rpt_tr_overall_coverage">Overall Coverage</span>', str(cov) + '%')
+            + _cov_stat('<span data-i18n="rpt_tr_enforced_coverage">Enforced Coverage</span>', str(enforced_cov) + '%')
+            + _cov_stat('<span data-i18n="rpt_tr_staged_coverage">Staged Coverage</span>', str(staged_cov) + '%')
+            + _cov_stat('<span data-i18n="rpt_tr_true_gap">True Gap</span>', str(true_gap) + '%')
             + (_cov_stat('<span data-i18n="rpt_tr_inbound_coverage">Inbound Coverage</span>', str(inb_cov) + '%') if inb_cov is not None else '')
             + (_cov_stat('<span data-i18n="rpt_tr_outbound_coverage">Outbound Coverage</span>', str(outb_cov) + '%') if outb_cov is not None else '')
             + _cov_stat('<span data-i18n="rpt_col_uncovered_flows">Uncovered Flows</span>', str(m.get('total_uncovered', 0)))
             + '</div>'
-            + _progress_bar(cov)
+            + bar_html
         )
         out = (
             stats
@@ -693,7 +785,7 @@ class HtmlExporter:
                     f'<div class="finding-header">'
                     f'<span class="badge badge-{f.severity}">{f.severity}</span>'
                     f'<span class="finding-rule-id">{f.rule_id}</span>'
-                    f'<span class="finding-title">{f.rule_name}</span>'
+                    f'<span class="finding-title" data-i18n="rpt_rule_{f.rule_id}_name">{f.rule_name}</span>'
                     f'</div>'
                 )
                 if rule_how:
@@ -730,6 +822,39 @@ class HtmlExporter:
         recommendations = m.get('recommendations')
         app_env_scores = m.get('app_env_scores')
         score_bar = _progress_bar(score)
+        # Enforcement mode distribution
+        enforcement_dist = m.get('enforcement_mode_distribution', {})
+        dist_html = ''
+        if enforcement_dist:
+            mode_colors = {
+                'full': '#22C55E', 'selective': '#84CC16',
+                'visibility_only': '#EAB308', 'idle': '#6B7280',
+            }
+            total_wl = sum(enforcement_dist.values())
+            bars = []
+            for mode, count in sorted(enforcement_dist.items(), key=lambda x: {'full': 0, 'selective': 1, 'visibility_only': 2}.get(x[0], 9)):
+                pct = round(count / max(total_wl, 1) * 100, 1)
+                color = mode_colors.get(mode, '#6B7280')
+                label = mode.replace('_', ' ').title()
+                bars.append(
+                    f'<div style="width:{pct}%;background:{color};min-width:40px" title="{label}: {count}">{count}</div>'
+                )
+            dist_html = (
+                '<h4 data-i18n="rpt_tr_enforcement_dist">Enforcement Mode Distribution</h4>'
+                '<div style="display:flex;height:32px;border-radius:6px;overflow:hidden;margin:8px 0 16px 0;'
+                'font-size:12px;font-weight:600;color:#fff;text-align:center;line-height:32px">'
+                + ''.join(bars)
+                + '</div>'
+                '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:13px">'
+                + ''.join(
+                    f'<span><span style="display:inline-block;width:12px;height:12px;border-radius:2px;'
+                    f'background:{mode_colors.get(md, "#6B7280")};margin-right:4px"></span>'
+                    f'{md.replace("_", " ").title()}: {ct}</span>'
+                    for md, ct in sorted(enforcement_dist.items(), key=lambda x: {'full': 0, 'selective': 1, 'visibility_only': 2}.get(x[0], 9))
+                )
+                + '</div>'
+            )
+
         html = (
             self._subnote('readiness 分數用來評估目前環境是否適合進一步提高 enforcement 強度，分數越高通常代表收斂程度越好。') +
             f'<div style="display:flex;align-items:center;gap:24px;margin-bottom:16px;">'
@@ -738,6 +863,7 @@ class HtmlExporter:
             f'<div style="font-size:13px;color:var(--slate-50);margin-bottom:4px;"><span data-i18n="rpt_tr_readiness_score">Enforcement Readiness Score:</span> <b>{score}/100</b></div>'
             f'{score_bar}'
             f'</div></div>'
+            + dist_html
             + '<h4 data-i18n="rpt_tr_score_breakdown">Score Breakdown by Factor</h4>'
             + _df_to_html(factor_table)
         )
@@ -775,11 +901,25 @@ class HtmlExporter:
             return f'<p class="note">{m["error"]}</p>'
         total = m.get('total_lateral_flows', 0)
         pct = m.get('lateral_pct', 0)
-        html = (self._subnote('本區專注在與橫向移動有關的風險路徑，協助你確認哪些來源、服務與可達鏈最值得優先收斂。') + f'<p><span data-i18n="rpt_tr_lateral_flows">Lateral movement port flows:</span> '
+        html = (self._subnote('本區涵蓋所有與橫向移動有關的分析，包含 IP 層級的主機連線模式與 App(Env) 層級的圖論風險評估。') + f'<p><span data-i18n="rpt_tr_lateral_flows">Lateral movement port flows:</span> '
                 f'<b>{total:,}</b> ({pct}% <span data-i18n="rpt_tr_lateral_pct">of all flows</span>)</p>')
         service_summary = m.get('service_summary')
         if service_summary is not None and not service_summary.empty:
             html += '<h4 data-i18n="rpt_tr_lateral_by_service">Lateral Port Activity by Service</h4>' + _df_to_html(service_summary)
+
+        # IP-level analysis (consolidated from former mod05)
+        ip_talkers = m.get('ip_top_talkers')
+        if ip_talkers is not None and not ip_talkers.empty:
+            html += (
+                self._subnote('IP Top Talkers 用來找出最常參與橫向移動連線的來源主機，適合核對是否為已知管理節點。')
+                + '<h4 data-i18n="rpt_tr_ip_top_talkers">IP Top Talkers (Host-Level)</h4>'
+                + _df_to_html(ip_talkers)
+            )
+        ip_pairs = m.get('ip_top_pairs')
+        if ip_pairs is not None and not ip_pairs.empty:
+            html += '<h4 data-i18n="rpt_tr_ip_top_pairs">Top Host Pairs</h4>' + _df_to_html(ip_pairs)
+
+        # App(Env)-level graph analysis
         fan_out = m.get('fan_out_sources')
         if fan_out is not None and not fan_out.empty:
             html += '<h4 data-i18n="rpt_tr_fan_out">Fan-out Sources (Potential Scanner / Worm)</h4>' + _df_to_html(fan_out)

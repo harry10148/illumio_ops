@@ -54,6 +54,11 @@ def _betweenness_centrality(nodes: list[str], adjacency: dict[str, set[str]]) ->
     return {k: v / max_v for k, v in bc.items()}
 
 
+# Critical asset port groups for automatic tier boosting
+_DB_PORTS = {1433, 3306, 5432, 1521, 27017, 6379, 9200, 5984, 50000}
+_IDENTITY_PORTS = {88, 389, 636, 3268, 3269, 464}
+
+
 def _tier(score: float) -> str:
     if score >= 80:
         return "Tier-1 Critical"
@@ -62,6 +67,35 @@ def _tier(score: float) -> str:
     if score >= 40:
         return "Tier-3 Shared"
     return "Tier-4 Peripheral"
+
+
+def _detect_critical_asset_keys(df: pd.DataFrame) -> dict[str, set[str]]:
+    """Identify app(env) keys that serve as database or identity infrastructure.
+
+    Nodes that are *destinations* for DB or Identity ports are inherently
+    crown-jewel assets regardless of their topological position.
+    """
+    result: dict[str, set[str]] = {}
+    if df.empty or "port" not in df.columns:
+        return result
+
+    port_col = pd.to_numeric(df.get("port", -1), errors="coerce").fillna(-1).astype(int)
+
+    # Database providers: destinations receiving traffic on DB ports
+    db_mask = port_col.isin(_DB_PORTS)
+    if db_mask.any():
+        dst_key_col = df.loc[db_mask].get("dst_key")
+        if dst_key_col is not None:
+            result["database"] = set(dst_key_col.dropna().unique())
+
+    # Identity infrastructure: destinations receiving Kerberos/LDAP/GC traffic
+    id_mask = port_col.isin(_IDENTITY_PORTS)
+    if id_mask.any():
+        dst_key_col = df.loc[id_mask].get("dst_key")
+        if dst_key_col is not None:
+            result["identity"] = set(dst_key_col.dropna().unique())
+
+    return result
 
 
 def infrastructure_scoring(df: pd.DataFrame, top_n: int = 20) -> dict:
@@ -107,6 +141,11 @@ def infrastructure_scoring(df: pd.DataFrame, top_n: int = 20) -> dict:
     max_in_weight = max(in_weight.values(), default=1)
     max_out_weight = max(out_weight.values(), default=1)
 
+    # C2: Detect critical asset keys (database / identity infrastructure)
+    critical_assets = _detect_critical_asset_keys(app_flows)
+    db_keys = critical_assets.get("database", set())
+    id_keys = critical_assets.get("identity", set())
+
     rows: list[dict] = []
     attack_items: list[dict] = []
 
@@ -130,9 +169,25 @@ def infrastructure_scoring(df: pd.DataFrame, top_n: int = 20) -> dict:
         betweenness_score = bc.get(key, 0.0) * 100.0
 
         base_score = provider_score * 0.45 + consumer_score * 0.35 + betweenness_score * 0.2
+
+        # C2: Critical asset boost — crown jewels get a floor score
+        is_db = key in db_keys
+        is_identity = key in id_keys
+        asset_type = ""
+        if is_identity:
+            asset_type = "Identity Infrastructure"
+            base_score = max(base_score, 80.0)  # identity infra → at least Tier-1
+        elif is_db:
+            asset_type = "Database"
+            base_score = max(base_score, 65.0)  # database → at least Tier-2
+
         infra_score = round(base_score * dampening_factor * non_prod_penalty, 1)
 
-        if provider_score >= consumer_score * 1.3:
+        if is_identity:
+            role = "Identity"
+        elif is_db:
+            role = "Database"
+        elif provider_score >= consumer_score * 1.3:
             role = "Provider"
         elif consumer_score >= provider_score * 1.3:
             role = "Consumer"
@@ -158,6 +213,7 @@ def infrastructure_scoring(df: pd.DataFrame, top_n: int = 20) -> dict:
                 "infrastructure_score": infra_score,
                 "tier": _tier(infra_score),
                 "role": role,
+                "asset_type": asset_type,
             }
         )
 

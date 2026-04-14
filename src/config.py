@@ -57,7 +57,13 @@ _DEFAULT_CONFIG = {
         "password_hash": "",
         "password_salt": "",
         "secret_key": "",
-        "allowed_ips": []
+        "allowed_ips": [],
+        "tls": {
+            "enabled": False,
+            "cert_file": "",
+            "key_file": "",
+            "self_signed": False
+        }
     }
 }
 
@@ -134,14 +140,11 @@ class ConfigManager:
             changed = True
 
         if not gui.get("password_hash"):
-            # Generate a random initial password and hash it with PBKDF2.
-            # The user must set their own password on first login.
-            initial_password = _secrets.token_urlsafe(16)
+            # Default credentials: illumio / illumio
             salt = _secrets.token_hex(16)
             gui["username"] = "illumio"
             gui["password_salt"] = salt
-            gui["password_hash"] = hash_password(salt, initial_password)
-            gui["_initial_password"] = initial_password  # shown once, cleared on password change
+            gui["password_hash"] = hash_password(salt, "illumio")
             changed = True
 
         if changed:

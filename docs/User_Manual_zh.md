@@ -291,14 +291,13 @@ python illumio_ops.py --gui --port 8080
 
 ### 首次登入
 
-Web GUI 在首次啟動時會自動產生**隨機密碼**，儲存在 `config/config.json` 的 `web_gui._initial_password` 欄位中。
+預設帳號密碼：**帳號 `illumio`** / **密碼 `illumio`**。
 
-1. 開啟 `config/config.json`，找到 `_initial_password` 的值。
-2. 使用**帳號 `illumio`** 與產生的密碼登入。
-3. 登入後**立即至 Settings → Security 頁面修改密碼**。
-4. 建議設定 **IP 白名單**以限制存取來源。
+1. 使用預設帳號密碼登入。
+2. 登入後**立即至 Settings → Security 頁面修改密碼**。
+3. 建議設定 **IP 白名單**以限制存取來源。
 
-> **密碼重設**：若遺失密碼，請手動刪除 `config.json` 中 `web_gui` 區段的 `password_hash` 及 `password_salt` 欄位，下次啟動時會自動產生新的隨機密碼。
+> **密碼重設**：若遺失密碼，請手動刪除 `config/config.json` 中 `web_gui` 區段的 `password_hash` 及 `password_salt` 欄位以重設為預設值。
 
 ### 4.1 身份驗證
 

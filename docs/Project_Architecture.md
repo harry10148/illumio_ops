@@ -77,9 +77,7 @@ illumio_ops/
 ├── config/
 │   ├── config.json            # Runtime config (credentials, rules, alerts, settings)
 │   ├── config.json.example    # Example config template
-│   ├── report_config.yaml     # Security Findings rule thresholds
-│   ├── semantic_config.yaml   # Custom semantic rules (optional)
-│   └── csv_column_mapping.yaml# CSV column mapping for import
+│   └── report_config.yaml     # Security Findings rule thresholds
 │
 ├── src/
 │   ├── __init__.py            # Package init, exports __version__
@@ -232,7 +230,7 @@ The analyzer supports flexible filter conditions for traffic rules:
 **Architecture**: Flask backend exposing ~40 JSON API endpoints, consumed by a Vanilla JS frontend (`templates/index.html`).
 
 - **Security Middleware**: Mandates login authentication for all routes and enforces IP Allowlisting (CIDR support) via `@app.before_request`. Unauthorized requests are blocked with 401/403 status.
-- **Password Hashing**: Password hashing uses **PBKDF2-HMAC-SHA256** with 260,000 iterations (Python `hashlib.pbkdf2_hmac`, stdlib only). Legacy SHA256 hashes are auto-upgraded on next successful login. A random password is generated on first launch and stored as `_initial_password` in config.
+- **Password Hashing**: Password hashing uses **PBKDF2-HMAC-SHA256** with 260,000 iterations (Python `hashlib.pbkdf2_hmac`, stdlib only). Legacy SHA256 hashes are auto-upgraded on next successful login. Default credentials are `illumio` / `illumio` — users should change the password on first login.
 - **Login Rate Limiting**: In-memory per-IP tracker with thread-safe locking. 5 attempts per 60-second window; returns HTTP 429 on excess.
 - **CSRF Protection**: Uses the **Synchronizer Token Pattern**: token is stored in Flask session and injected into `index.html` via a `<meta name="csrf-token">` tag. JavaScript reads the token from the meta tag (not from a cookie). The CSRF cookie has been removed.
 - **Session Security**: Cryptographically signed session cookies. The `session_secret` is automatically generated on first run.

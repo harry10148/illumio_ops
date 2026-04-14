@@ -77,9 +77,7 @@ illumio_ops/
 ├── config/
 │   ├── config.json            # 執行時設定（憑證、規則、告警、偏好設定）
 │   ├── config.json.example    # 設定檔範本
-│   ├── report_config.yaml     # 安全發現規則閾值
-│   ├── semantic_config.yaml   # 自訂語意規則（選用）
-│   └── csv_column_mapping.yaml# CSV 欄位對映
+│   └── report_config.yaml     # 安全發現規則閾值
 │
 ├── src/
 │   ├── __init__.py            # 套件初始化，匯出 __version__
@@ -232,7 +230,7 @@ illumio_ops/
 **架構**：Flask 後端提供約 40 個 JSON API 端點，由 Vanilla JS 前端（`templates/index.html`）消費。
 
 - **安全邊界**：所有路由強制要求登入驗證，並透過 `@app.before_request` 實作 IP 白名單過濾（支援 CIDR）。未經授權的請求回傳 401/403。
-- **密碼雜湊**：密碼雜湊使用 **PBKDF2-HMAC-SHA256**，260,000 次迭代（Python `hashlib.pbkdf2_hmac`，僅使用標準函式庫）。舊版 SHA256 雜湊會在下次成功登入時自動升級。首次啟動時會產生隨機密碼，儲存為設定中的 `_initial_password`。
+- **密碼雜湊**：密碼雜湊使用 **PBKDF2-HMAC-SHA256**，260,000 次迭代（Python `hashlib.pbkdf2_hmac`，僅使用標準函式庫）。舊版 SHA256 雜湊會在下次成功登入時自動升級。預設帳號密碼為 `illumio` / `illumio`，使用者應於首次登入後修改密碼。
 - **登入速率限制**：記憶體內逐 IP 追蹤器，支援執行緒安全鎖定。每 60 秒視窗內最多 5 次嘗試；超過回傳 HTTP 429。
 - **CSRF 防護**：使用 **Synchronizer Token Pattern**：Token 儲存在 Flask session 中，並透過 `<meta name="csrf-token">` 標籤注入 `index.html`。JavaScript 從 meta 標籤讀取 Token（非從 Cookie）。CSRF Cookie 已移除。
 - **連線安全**：Session Cookies 經過加密簽署。`session_secret` 在首次執行時自動產生。

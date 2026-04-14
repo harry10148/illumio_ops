@@ -347,13 +347,21 @@ def _write_policy_usage_dashboard_summary(output_dir: str, result) -> str:
 def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     app = Flask(__name__, template_folder=os.path.join(_PKG_DIR, 'templates'), static_folder=os.path.join(_PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.config['TEMPLATES_AUTO_RELOAD'] = False
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
     app.config['CM'] = cm
-    
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+    app.config['PERMANENT_SESSION_LIFETIME'] = 3600
+
     # Initialize session secret
     cm.load()
-    app.secret_key = cm.config.get("web_gui", {}).get("secret_key", secrets.token_hex(32))
+    gui_cfg = cm.config.get("web_gui", {})
+    app.secret_key = gui_cfg.get("secret_key", secrets.token_hex(32))
+    # Enable Secure cookie flag when HTTPS is configured
+    tls_cfg = gui_cfg.get("tls", {})
+    if tls_cfg.get("enabled"):
+        app.config['SESSION_COOKIE_SECURE'] = True
     app.jinja_env.globals.update(t=t)
 
     @app.errorhandler(_RstDrop)
@@ -404,6 +412,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         # The CSRF token is injected into index.html via a <meta> tag (synchronizer token
         # pattern). The cookie is no longer needed for CSRF; remove it if present.
         response.delete_cookie('csrf_token')
+        # Security headers
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+        _tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
+        if _tls_cfg.get("enabled"):
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
     # ??? Frontend SPA ?????????????????????????????????????????????????????
@@ -455,7 +471,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 gui_cfg["password_hash"] = hash_password(new_salt, password)
                 cm.save()
                 logger.info("[GUI] Upgraded legacy SHA256 password hash to PBKDF2 for user '%s'.", saved_username)
-            # Clear one-time initial password if present
+            # Clear legacy _initial_password if present
             if gui_cfg.get("_initial_password"):
                 del gui_cfg["_initial_password"]
                 cm.save()
@@ -1248,6 +1264,45 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         cm.save()
         return jsonify({"ok": True})
 
+    # ── TLS Certificate Management ─────────────────────────────────────────
+
+    @app.route('/api/tls/status', methods=['GET'])
+    def api_tls_status():
+        cm.load()
+        tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
+        result = {
+            "enabled": bool(tls_cfg.get("enabled")),
+            "self_signed": bool(tls_cfg.get("self_signed")),
+            "cert_file": tls_cfg.get("cert_file", ""),
+            "key_file": tls_cfg.get("key_file", ""),
+        }
+        # Get cert info if self-signed
+        if tls_cfg.get("self_signed"):
+            cert_dir = os.path.join(_ROOT_DIR, "config", "tls")
+            cert_path = os.path.join(cert_dir, "self_signed.pem")
+            result["cert_info"] = _get_cert_info(cert_path)
+        elif tls_cfg.get("cert_file"):
+            result["cert_info"] = _get_cert_info(tls_cfg["cert_file"])
+        return jsonify(result)
+
+    @app.route('/api/tls/renew', methods=['POST'])
+    def api_tls_renew():
+        cm.load()
+        tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
+        if not tls_cfg.get("self_signed"):
+            return jsonify({"ok": False, "error": "Renew is only available for self-signed certificates."}), 400
+        cert_dir = os.path.join(_ROOT_DIR, "config", "tls")
+        try:
+            cert_path, key_path = _generate_self_signed_cert(cert_dir, force=True)
+            info = _get_cert_info(cert_path)
+            return jsonify({
+                "ok": True,
+                "message": "Self-signed certificate renewed. Restart the server to apply.",
+                "cert_info": info,
+            })
+        except RuntimeError as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
     @app.route('/api/pce-profiles', methods=['GET'])
     def api_list_pce_profiles():
         cm.load()
@@ -1517,6 +1572,10 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     def api_serve_report(filename):
         cm.load()
         reports_dir = _resolve_reports_dir(cm)
+        # Path traversal protection: ensure resolved path stays within reports_dir
+        target = os.path.realpath(os.path.join(reports_dir, filename))
+        if not target.startswith(os.path.realpath(reports_dir) + os.sep):
+            return jsonify({"ok": False, "error": "Invalid path"}), 403
         return send_from_directory(reports_dir, filename)
 
     @app.route('/api/reports/generate', methods=['POST'])
@@ -1555,8 +1614,9 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if csv_file.filename == '':
                     return jsonify({"ok": False, "error": t("gui_err_empty_csv")})
 
+                import uuid as _uuid
                 safe_filename = os.path.basename(csv_file.filename)
-                temp_path = os.path.join(tempfile.gettempdir(), safe_filename)
+                temp_path = os.path.join(tempfile.gettempdir(), f"{_uuid.uuid4().hex}_{safe_filename}")
                 csv_file.save(temp_path)
                 try:
                     result = gen.generate_from_csv(temp_path)
@@ -2685,6 +2745,84 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
 # ????????????????????????????????????????????????????????????????????????????????# Launch
 # ????????????????????????????????????????????????????????????????????????????????
+def _generate_self_signed_cert(cert_dir: str, force: bool = False) -> tuple[str, str]:
+    """Generate a self-signed TLS certificate for local HTTPS.
+
+    Args:
+        cert_dir: Directory to store cert and key files.
+        force: If True, regenerate even if existing cert is still valid.
+
+    Returns:
+        (cert_path, key_path) tuple.
+    """
+    import subprocess
+
+    os.makedirs(cert_dir, exist_ok=True)
+    cert_path = os.path.join(cert_dir, "self_signed.pem")
+    key_path = os.path.join(cert_dir, "self_signed_key.pem")
+
+    if not force and os.path.exists(cert_path) and os.path.exists(key_path):
+        return cert_path, key_path
+
+    try:
+        subprocess.run(
+            [
+                "openssl", "req", "-x509", "-newkey", "rsa:2048",
+                "-keyout", key_path, "-out", cert_path,
+                "-days", "365", "-nodes",
+                "-subj", "/CN=IllumioOps/O=IllumioPCEOps/C=TW",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        os.chmod(key_path, 0o600)
+        print(f"  Self-signed certificate generated: {cert_path}")
+        return cert_path, key_path
+    except FileNotFoundError:
+        raise RuntimeError(
+            "openssl command not found. Install OpenSSL to use self-signed certificates, "
+            "or provide your own cert_file and key_file in config."
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to generate self-signed certificate: {e.stderr.decode()}")
+
+
+def _get_cert_info(cert_path: str) -> dict:
+    """Read certificate expiry and subject via openssl."""
+    import subprocess
+    info = {"path": cert_path, "exists": os.path.exists(cert_path)}
+    if not info["exists"]:
+        return info
+    try:
+        result = subprocess.run(
+            ["openssl", "x509", "-in", cert_path, "-noout",
+             "-subject", "-enddate", "-startdate"],
+            capture_output=True, text=True, check=True,
+        )
+        for line in result.stdout.strip().splitlines():
+            if line.startswith("subject="):
+                info["subject"] = line[len("subject="):].strip()
+            elif line.startswith("notAfter="):
+                info["not_after"] = line[len("notAfter="):].strip()
+            elif line.startswith("notBefore="):
+                info["not_before"] = line[len("notBefore="):].strip()
+        # Check if expired
+        check = subprocess.run(
+            ["openssl", "x509", "-in", cert_path, "-noout", "-checkend", "0"],
+            capture_output=True,
+        )
+        info["expired"] = check.returncode != 0
+        # Check if expiring within 30 days
+        check30 = subprocess.run(
+            ["openssl", "x509", "-in", cert_path, "-noout", "-checkend", "2592000"],
+            capture_output=True,
+        )
+        info["expiring_soon"] = check30.returncode != 0
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        info["error"] = "openssl not available"
+    return info
+
+
 def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_mode=False):
     if not HAS_FLASK:
         print("Flask is not installed. The Web GUI requires Flask.")
@@ -2701,8 +2839,48 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
     _ML.init(os.path.join(_ROOT_DIR, 'logs'))
 
     app = _create_app(cm, persistent_mode=persistent_mode)
-    print(f"\n  Illumio PCE Ops ??Web GUI")
-    print(f"  Open in browser: http://127.0.0.1:{port}")
+
+    # TLS / HTTPS configuration
+    cm.load()
+    tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
+    ssl_context = None
+
+    if tls_cfg.get("enabled"):
+        import ssl
+        cert_file = tls_cfg.get("cert_file", "").strip()
+        key_file = tls_cfg.get("key_file", "").strip()
+
+        if cert_file and key_file:
+            # User-provided certificate
+            if not os.path.exists(cert_file):
+                print(f"  ERROR: TLS cert_file not found: {cert_file}")
+                return
+            if not os.path.exists(key_file):
+                print(f"  ERROR: TLS key_file not found: {key_file}")
+                return
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ssl_context.load_cert_chain(cert_file, key_file)
+            print(f"  TLS: Using certificate {cert_file}")
+        elif tls_cfg.get("self_signed"):
+            # Auto-generate self-signed certificate
+            cert_dir = os.path.join(_ROOT_DIR, "config", "tls")
+            try:
+                cert_file, key_file = _generate_self_signed_cert(cert_dir)
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                ssl_context.load_cert_chain(cert_file, key_file)
+                print(f"  TLS: Using self-signed certificate")
+            except RuntimeError as e:
+                print(f"  ERROR: {e}")
+                return
+        else:
+            print("  ERROR: TLS enabled but no cert_file/key_file and self_signed=false")
+            return
+
+    scheme = "https" if ssl_context else "http"
+    print(f"\n  Illumio PCE Ops — Web GUI")
+    print(f"  Open in browser: {scheme}://127.0.0.1:{port}")
+    if ssl_context and tls_cfg.get("self_signed"):
+        print(f"  Note: Self-signed certificate — browser will show a security warning.")
     if persistent_mode:
         print(f"  Running in persistent mode (Press Ctrl+C to stop the entire daemon).")
     else:
@@ -2710,6 +2888,6 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
 
     if not persistent_mode:
         import webbrowser
-        threading.Timer(1.5, lambda: webbrowser.open(f'http://127.0.0.1:{port}')).start()
+        threading.Timer(1.5, lambda: webbrowser.open(f'{scheme}://127.0.0.1:{port}')).start()
 
-    app.run(host=host, port=port, debug=False, use_reloader=False)
+    app.run(host=host, port=port, debug=False, use_reloader=False, ssl_context=ssl_context)

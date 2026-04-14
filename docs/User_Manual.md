@@ -289,14 +289,13 @@ All Web GUI modes REQUIRE authentication and support source IP restrictions.
 
 ### First Login
 
-The Web GUI generates a **random password** on first launch, stored in `config/config.json` under the `web_gui._initial_password` key.
+Default credentials: **username `illumio`** / **password `illumio`**.
 
-1. Open `config/config.json` and find the `_initial_password` value.
-2. Log in with **username `illumio`** and the generated password.
-3. **Change your password immediately** in the **Settings → Security** page.
-4. Configure **IP Allowlisting** to restrict access to trusted networks.
+1. Log in with the default credentials.
+2. **Change your password immediately** in the **Settings → Security** page.
+3. Configure **IP Allowlisting** to restrict access to trusted networks.
 
-> **Password Reset**: If you lose your password, delete the `password_hash` and `password_salt` keys from the `web_gui` section in `config.json`. A new random password will be generated on next launch.
+> **Password Reset**: If you lose your password, delete the `password_hash` and `password_salt` keys from the `web_gui` section in `config/config.json` to reset to defaults.
 
 ### 4.1 Authentication
 

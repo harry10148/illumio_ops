@@ -4,9 +4,6 @@ CSV (PCE UI Export) → Unified DataFrame
 
 Reads a CSV exported from the Illumio PCE UI and converts it into the
 Unified DataFrame schema used by all 12 analysis modules.
-
-Column name mapping is driven by config/csv_column_mapping.yaml so that
-different PCE versions / export formats are handled without code changes.
 """
 from __future__ import annotations
 
@@ -16,6 +13,58 @@ import logging
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# ─── PCE CSV column mapping ─────────────────────────────────────────────────
+
+_COLUMN_MAP = {
+    # Source endpoint
+    "Source IP":                "src_ip",
+    "Source Hostname":          "src_hostname",
+    "Source Name":              "src_hostname",
+    "Source Application":       "src_app",
+    "Source Environment":       "src_env",
+    "Source Location":          "src_loc",
+    "Source Role":              "src_role",
+    "Source Managed":           "src_managed",
+    # Destination endpoint
+    "Destination IP":           "dst_ip",
+    "Destination Hostname":     "dst_hostname",
+    "Destination Name":         "dst_hostname",
+    "Destination Application":  "dst_app",
+    "Destination Environment":  "dst_env",
+    "Destination Location":     "dst_loc",
+    "Destination Role":         "dst_role",
+    "Destination FQDN":         "dst_fqdn",
+    "Destination Managed":      "dst_managed",
+    # Connection info
+    "Port":                     "port",
+    "Protocol":                 "proto",
+    "Process":                  "process_name",
+    "User":                     "user_name",
+    "Connections":              "num_connections",
+    "State":                    "state",
+    "Policy Decision":          "policy_decision",
+    # Timestamps
+    "First Detected":           "first_detected",
+    "Last Detected":            "last_detected",
+    # Bytes
+    "Bytes In":                 "bytes_in_raw",
+    "Bytes Out":                "bytes_out_raw",
+    "Bytes":                    "bytes_total_raw",
+}
+
+_PROTO_MAP = {
+    "TCP": "TCP", "UDP": "UDP", "ICMP": "ICMP",
+    "6": "TCP", "17": "UDP", "1": "ICMP",
+}
+
+_POLICY_DECISION_MAP = {
+    "allowed": "allowed", "Allowed": "allowed",
+    "blocked": "blocked", "Blocked": "blocked",
+    "potentially_blocked": "potentially_blocked",
+    "Potentially Blocked": "potentially_blocked",
+    "unknown": "unknown", "Unknown": "unknown",
+}
 
 # ─── Byte-string → int helper ────────────────────────────────────────────────
 
@@ -66,21 +115,17 @@ class CSVParser:
     Parse a PCE UI traffic export CSV into a Unified DataFrame.
 
     Usage:
-        parser = CSVParser(mapping_config)
+        parser = CSVParser()
         df = parser.parse('/path/to/traffic.csv')
     """
 
     # Guaranteed label keys — must always be present (can be empty string)
     LABEL_KEYS = ('app', 'env', 'loc', 'role')
 
-    def __init__(self, mapping_config: dict):
-        """
-        Args:
-            mapping_config: contents of csv_column_mapping.yaml
-        """
-        self._col_map: dict = mapping_config.get('column_mapping', {})
-        self._proto_map: dict = mapping_config.get('proto_map', {})
-        self._pd_map: dict = mapping_config.get('policy_decision_map', {})
+    def __init__(self):
+        self._col_map = _COLUMN_MAP
+        self._proto_map = _PROTO_MAP
+        self._pd_map = _POLICY_DECISION_MAP
 
     # ── public API ───────────────────────────────────────────────────────────
 

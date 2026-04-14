@@ -80,7 +80,7 @@ scripts/
   audit_i18n_usage.py         i18n key audit script
   generate_alert_mail_samples.py  Alert email sample generator
 tests/                      19 test files, pytest suite
-config/                     config.json.example, report_config.yaml, semantic_config.yaml
+config/                     config.json.example, report_config.yaml
 docs/                       EN + ZH_TW documentation (10 files)
 deploy/                     systemd (Ubuntu/RHEL) + NSSM (Windows) service configs
 ```

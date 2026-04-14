@@ -1,18 +1,15 @@
 """
 src/report/rules_engine.py
-Dual-layer Rules Engine for Traffic Flow Security Analysis.
+Rules Engine for Traffic Flow Security Analysis.
 
-Layer 1: Built-in structural rules (B001–B009) — always executed, no label
-         semantics assumed.
-Layer 2: Semantic rules from config/semantic_config.yaml — optional, executed
-         only if the file exists and contains non-empty semantic_rules.
+Built-in structural rules (B001–B009, L001–L006) — always executed, no label
+semantics assumed.
 
 All findings are returned as a list[Finding] for direct use by Module 12
 (executive_summary) and the Excel/HTML exporters.
 """
 from __future__ import annotations
 
-import os
 import logging
 from dataclasses import dataclass, field
 from typing import Optional
@@ -78,7 +75,6 @@ class RulesEngine:
         self._thresholds = report_config.get('thresholds', {})
         self._risk_ports = self._build_risk_port_map(report_config)
         self._lateral_ports = set(report_config.get('lateral_movement_ports', []))
-        self._semantic_rules = self._load_semantic_rules(config_dir)
 
     # ── public ───────────────────────────────────────────────────────────────
 
@@ -86,7 +82,6 @@ class RulesEngine:
         """Run all rules and return sorted findings list."""
         findings: list[Finding] = []
         findings.extend(self._eval_builtin(df))
-        findings.extend(self._eval_semantic(df))
         findings.sort(key=lambda f: f.severity_rank)
         logger.info(f"[RulesEngine] {len(findings)} findings generated")
         return findings
@@ -1006,40 +1001,6 @@ class RulesEngine:
             evidence={'cross_env_lateral_flows': len(cross), 'top_env_pairs': str(top_pairs[:3]),
                       'top_ports': str(top_ports)},
         )
-
-    # ── semantic rules ───────────────────────────────────────────────────────
-
-    def _load_semantic_rules(self, config_dir: str) -> list[dict]:
-        """Load semantic_config.yaml if it exists and contains rules."""
-        path = os.path.join(config_dir, 'semantic_config.yaml')
-        if not os.path.exists(path):
-            return []
-        try:
-            import yaml
-        except ImportError:
-            logger.warning("[RulesEngine] pyyaml not installed — semantic rules skipped")
-            return []
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
-            rules = data.get('semantic_rules', []) or []
-            if rules:
-                logger.info(f"[RulesEngine] Loaded {len(rules)} semantic rules from {path}")
-            return rules
-        except Exception as e:
-            logger.warning(f"[RulesEngine] Could not load semantic config: {e}")
-            return []
-
-    def _eval_semantic(self, df: pd.DataFrame) -> list[Finding]:
-        """Evaluate semantic rules (basic condition matching)."""
-        if not self._semantic_rules:
-            return []
-        # Semantic rule evaluation is limited in Mode A — full implementation
-        # would require the label_semantics section from semantic_config.yaml.
-        # For now, log that semantic rules were found but skip evaluation.
-        logger.info(f"[RulesEngine] {len(self._semantic_rules)} semantic rules loaded but "
-                    "advanced evaluation not yet implemented in Mode A.")
-        return []
 
     # ── helpers ──────────────────────────────────────────────────────────────
 

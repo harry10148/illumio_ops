@@ -12,9 +12,9 @@
   - Legacy SHA256 hashes upgraded automatically on next successful login
   - No new external dependency
 
-- [x] **S2: Remove hardcoded default password fallback**
-  - `src/gui.py` — removed `"illumio"` default; no-hash config now rejects all logins
-  - First-run generates a random password stored as `_initial_password` in config
+- [x] **S2: Default credentials illumio/illumio**
+  - `src/config.py` — first-run sets default password `illumio` (PBKDF2 hashed)
+  - No `_initial_password` stored in config; users change password via Settings
 
 - [x] **S3: SMTP password env var override**
   - `src/alerts/plugins.py` — `ILLUMIO_SMTP_PASSWORD` env var takes precedence over config

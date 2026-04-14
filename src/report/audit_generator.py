@@ -614,6 +614,7 @@ class AuditGenerator:
         from src.report.analysis.audit.audit_mod01_health import audit_system_health
         from src.report.analysis.audit.audit_mod02_users import audit_user_activity
         from src.report.analysis.audit.audit_mod03_policy import audit_policy_changes
+        from src.report.analysis.audit.audit_mod04_correlation import audit_event_correlation
         from src.report.analysis.audit.audit_mod00_executive import audit_executive_summary
 
         results = {}
@@ -621,6 +622,7 @@ class AuditGenerator:
             ('mod01', lambda: audit_system_health(df)),
             ('mod02', lambda: audit_user_activity(df)),
             ('mod03', lambda: audit_policy_changes(df)),
+            ('mod04', lambda: audit_event_correlation(df)),
         ]
 
         for mod_id, fn in _MODS:
@@ -667,6 +669,20 @@ class AuditGenerator:
             write_audit_dashboard_summary(output_dir, result)
         except Exception as exc:
             logger.warning(f"[AuditGenerator] Failed to write dashboard summary: {exc}")
+
+        # Trend analysis: archive snapshot and compute deltas
+        try:
+            from src.report.trend_store import save_snapshot, load_previous, compute_deltas, build_kpi_dict_from_metadata
+            meta = self._build_report_metadata(result, file_format="snapshot")
+            kpi_dict = build_kpi_dict_from_metadata(meta.get("kpis", []))
+            ts = meta.get("generated_at", "")
+            prev = load_previous(output_dir, "audit")
+            save_snapshot(output_dir, "audit", kpi_dict, generated_at=ts)
+            if prev:
+                result.module_results["_trend_deltas"] = compute_deltas(kpi_dict, prev)
+        except Exception as exc:
+            logger.warning(f"[AuditGenerator] Trend snapshot failed: {exc}")
+
         return paths
 
     def _build_report_metadata(self, result: AuditReportResult, file_format: str) -> dict:

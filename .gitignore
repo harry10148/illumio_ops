@@ -1,5 +1,6 @@
 # Secrets and Personal Config
 config/config.json
+config/tls/
 config-old.json
 CLAUDE.md
 
