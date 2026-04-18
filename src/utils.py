@@ -13,6 +13,8 @@ from rich.console import Console as _RichConsole
 from rich.panel import Panel as _RichPanel
 from rich.text import Text as _RichText
 from rich import box as _rich_box
+import questionary as _q
+from questionary import Style as _QStyle
 
 from src.i18n import get_language, t
 
@@ -122,6 +124,17 @@ class Colors:
     UNDERLINE = _ansi(_RichStyle(underline=True))
 
 
+_QUESTIONARY_STYLE = _QStyle([
+    ("qmark", "fg:#00afff bold"),
+    ("question", "bold"),
+    ("answer", "fg:#00ff7f bold"),
+    ("pointer", "fg:#00afff bold"),
+    ("highlighted", "fg:#00afff bold"),
+    ("selected", "fg:#00ff7f"),
+    ("instruction", "fg:#808080"),
+])
+
+
 def safe_input(
     prompt: str,
     value_type=str,
@@ -130,6 +143,17 @@ def safe_input(
     hint=None,
     help_text=None,
 ):
+    """Prompt for input with type + range validation.
+
+    Backend uses questionary on interactive TTY for nicer prompts and
+    ctrl-c handling. Non-TTY path (piped input, tests, CI) falls back
+    to input() so unit tests with patch('builtins.input') continue to work.
+
+    Return semantics:
+      - str: returns stripped string, or "" if empty (go-back from str context)
+      - int/float: returns typed value, or None if empty (go-back sentinel)
+      - None returned on 0/"0" (back), -1/"-1" (cancel), EOF, KeyboardInterrupt
+    """
     if help_text:
         print(_console_safe_text(f"{Colors.DARK_GRAY}{help_text}{Colors.ENDC}"))
 
@@ -169,13 +193,34 @@ def safe_input(
         full_prompt += f" {Colors.DARK_GRAY}({def_text}: {hint}){Colors.ENDC}"
     full_prompt += f" {Colors.GREEN}{_console_prompt_symbol()}{Colors.ENDC} "
 
+    # Use questionary on interactive TTY for nicer prompts; fall back to input() otherwise
+    use_questionary = (
+        hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
+        and hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    )
+
     while True:
         raw = ""
         try:
-            try:
-                raw = input(full_prompt).strip()
-            except UnicodeEncodeError:
-                raw = input(_console_safe_text(full_prompt)).strip()
+            if use_questionary:
+                try:
+                    answer = _q.text(
+                        prompt + range_hint,
+                        style=_QUESTIONARY_STYLE,
+                        **({} if hint is None else {"instruction": f"(Default: {hint})"}),
+                    ).unsafe_ask()
+                    if answer is None:
+                        _set_last_input_action("back")
+                        return None
+                    raw = answer.strip()
+                except KeyboardInterrupt:
+                    _set_last_input_action("back")
+                    return None
+            else:
+                try:
+                    raw = input(full_prompt).strip()
+                except UnicodeEncodeError:
+                    raw = input(_console_safe_text(full_prompt)).strip()
 
             if raw.lower() in ["h", "?"]:
                 _set_last_input_action("help")
@@ -184,6 +229,11 @@ def safe_input(
                 continue
 
             if not raw:
+                # Empty input: for numeric types return None (go-back sentinel);
+                # for str return "" (unchanged back-compat for string prompts)
+                if value_type in (int, float):
+                    _set_last_input_action("back")
+                    return None
                 _set_last_input_action("empty")
                 return ""
 
