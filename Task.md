@@ -35,6 +35,21 @@
 
 ---
 
+## Phase 1: CLI UX 升級 ✅ DONE (2026-04-18)
+
+- [x] **P1**: rich + questionary + click + humanize integration
+  - `Colors`/`draw_panel`/`Spinner`/`safe_input` 底層改 rich/questionary，446 呼叫點無感升級
+  - 新 `src/cli/` click subcommand：`monitor`/`gui`/`report`/`status`/`version`
+  - `illumio_ops.py` 依 argv[1] 派送 click vs argparse，舊 flag 完整向後相容
+  - 主選單狀態列加「Last activity: 3 minutes ago」（humanize）
+  - Bash completion 腳本備好供 RPM 使用 (`scripts/illumio-ops-completion.bash`)
+  - Test count: 130 → 150（新增 20）；i18n audit 持續 0 findings
+  - **Branch**: `upgrade/phase-1-cli-rich` → squash merge + tag `v3.4.1-cli`
+  - Detailed plan: [docs/superpowers/plans/2026-04-18-phase-1-cli-rich.md](docs/superpowers/plans/2026-04-18-phase-1-cli-rich.md)
+  - **Next Wave A task**: Phase 2 (HTTP) ‖ Phase 3 (Settings) 已可並行
+
+---
+
 ## Phase 1: Security Hardening ✅ DONE
 
 - [x] **S1: Replace SHA256 with PBKDF2-HMAC-SHA256 (260k iterations, stdlib)**

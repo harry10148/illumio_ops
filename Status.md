@@ -1,9 +1,9 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-18  
-**Version:** v3.4.3-settings  
-**Branch:** upgrade/phase-3-settings-pydantic  
-**Phase:** 3 of 9 — Settings validation complete (see [docs/superpowers/plans/2026-04-18-upgrade-roadmap.md](docs/superpowers/plans/2026-04-18-upgrade-roadmap.md))
+**Version:** v3.4.1-cli + v3.4.3-settings (Wave A merged)  
+**Branch:** upgrade/phase-1-cli-rich (about to merge)  
+**Phase:** 3 of 9 (Phase 1 CLI + Phase 3 Settings merged; see [docs/superpowers/plans/2026-04-18-upgrade-roadmap.md](docs/superpowers/plans/2026-04-18-upgrade-roadmap.md))
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
 
