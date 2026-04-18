@@ -131,6 +131,32 @@ class ApiClient:
         self._async_job_prune_interval_seconds = _ASYNC_JOB_PRUNE_INTERVAL_SECONDS
         self._last_async_job_prune_at = 0.0
 
+        # ── HTTP session with connection pool + automatic retry (Phase 2) ──
+        import requests as _requests
+        from requests.adapters import HTTPAdapter as _HTTPAdapter
+        from urllib3.util.retry import Retry as _Retry
+
+        self._session = _requests.Session()
+        # verify: bool OR path to CA bundle; matches old ssl_ctx behavior
+        self._session.verify = bool(self.api_cfg.get('verify_ssl', True))
+        # Default headers on every request
+        self._session.headers.update({
+            "Authorization": self._auth_header,
+            "Accept": "application/json",
+        })
+        # Retry policy: 3 tries, exponential backoff, on 429/502/503/504
+        retry = _Retry(
+            total=MAX_RETRIES,
+            backoff_factor=1.0,            # 1s, 2s, 4s (roughly; urllib3 uses base * 2^(n-1))
+            status_forcelist=[429, 502, 503, 504],
+            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE", "HEAD"]),
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
+        adapter = _HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=retry)
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
+
     def _build_auth_header(self):
         credentials = f"{self.api_cfg['key']}:{self.api_cfg['secret']}"
         encoded = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
