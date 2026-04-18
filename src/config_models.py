@@ -72,6 +72,8 @@ class GeneralSettings(_Base):
     language: Literal["en", "zh_TW"] = "en"
     theme: Literal["light", "dark"] = "light"
     timezone: str = "local"
+    enable_health_check: bool = True
+    dashboard_queries: list = Field(default_factory=list)
 
 
 class ReportApiQuery(_Base):

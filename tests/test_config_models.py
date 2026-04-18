@@ -63,6 +63,17 @@ def test_config_schema_rejects_unknown_top_level_keys():
         })
 
 
+def test_config_example_file_validates():
+    """config/config.json.example must always pass validation (regression guard)."""
+    import json
+    from pathlib import Path
+    from src.config_models import ConfigSchema
+    example = Path(__file__).parent.parent / "config" / "config.json.example"
+    with open(example, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    ConfigSchema.model_validate(data)  # must not raise
+
+
 def test_dumped_model_has_all_legacy_dict_keys():
     """model_dump() output must include every key that the legacy
     _DEFAULT_CONFIG dict had, so cm.config[...] access patterns survive."""
