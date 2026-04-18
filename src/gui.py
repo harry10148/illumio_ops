@@ -2915,6 +2915,14 @@ def _get_cert_info(cert_path: str) -> dict:
     return info
 
 
+def build_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
+    """Public factory: build a configured Flask app bound to the given ConfigManager.
+
+    Pure constructor — does NOT call app.run(). Used by launch_gui and tests.
+    """
+    return _create_app(cm, persistent_mode=persistent_mode)
+
+
 def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_mode=False):
     if not HAS_FLASK:
         print("Flask is not installed. The Web GUI requires Flask.")
@@ -2930,7 +2938,7 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
     from src.module_log import ModuleLog as _ML
     _ML.init(os.path.join(_ROOT_DIR, 'logs'))
 
-    app = _create_app(cm, persistent_mode=persistent_mode)
+    app = build_app(cm, persistent_mode=persistent_mode)
 
     # TLS / HTTPS configuration
     cm.load()
