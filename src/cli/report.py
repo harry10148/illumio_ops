@@ -14,7 +14,6 @@ def report_group() -> None:
 @click.option("--email", is_flag=True)
 def report_traffic(source: str, file_path, fmt: str, output_dir, email: bool) -> None:
     """Generate Traffic Flow Report."""
-    import sys
     import os
     from src.config import ConfigManager
     from src.api_client import ApiClient
@@ -34,8 +33,7 @@ def report_traffic(source: str, file_path, fmt: str, output_dir, email: bool) ->
     result = (gen.generate_from_csv(file_path) if source == "csv"
               else gen.generate_from_api())
     if result.record_count == 0:
-        click.echo("No data for report", err=True)
-        sys.exit(1)
+        raise click.ClickException("No data for report")
     paths = gen.export(result, fmt=fmt, output_dir=out,
                        send_email=email, reporter=reporter if email else None)
     for p in paths:

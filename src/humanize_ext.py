@@ -1,7 +1,7 @@
 """humanize wrapper that follows the project's i18n language setting.
 
-Falls back gracefully if humanize's zh_TW locale is not available
-(humanize currently ships zh_CN; we map zh_TW → zh_CN at runtime).
+Falls back gracefully if a locale is not available
+(humanize ships zh_HK for traditional Chinese; we map zh_TW → zh_HK at runtime).
 """
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from src.i18n import get_language
 
 _LOCALE_MAP = {
     "en": None,        # default (no activate call)
-    "zh_TW": "zh_CN",  # humanize has zh_CN; good enough for zh_TW readers
-    "zh_CN": "zh_CN",
+    "zh_TW": "zh_HK",  # humanize has zh_HK with traditional characters ("2 小時")
+    "zh_CN": "zh_CN",  # simplified characters ("2小时")
 }
 
 

@@ -83,3 +83,28 @@ def test_safe_input_returns_none_on_empty_with_int_type():
     with patch("builtins.input", return_value=""):
         result = safe_input("prompt", int, range(0, 10))
     assert result is None
+
+
+def test_spinner_update_does_not_raise():
+    """Spinner.update() is a post-plan enhancement; must be safe to call."""
+    from src.utils import Spinner
+    with Spinner("initial") as s:
+        # update() should accept a new message without raising
+        s.update("in progress")
+        s.update("still working")
+
+
+def test_colors_fail_is_non_empty_when_tty(monkeypatch):
+    """Regression: _ansi/_make_ansi_codes must produce SGR bytes when stdout is a TTY.
+
+    This guards against a silent rich private API break — tests run non-TTY
+    where Colors.FAIL is legitimately empty, so a broken _ansi would still
+    pass all other tests.
+    """
+    from rich.style import Style as _RichStyle
+    import src.utils as utils_mod
+    # Bypass the Colors class and test _ansi directly with a TTY mock
+    with patch.object(utils_mod, "_stdout_is_tty", return_value=True):
+        result = utils_mod._ansi(_RichStyle(color="red"))
+    assert result != "", "_ansi returned empty even when TTY — _make_ansi_codes broken"
+    assert "\033[" in result, f"expected ANSI SGR, got {result!r}"

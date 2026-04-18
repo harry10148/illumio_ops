@@ -24,7 +24,11 @@ def cli(ctx: click.Context) -> None:
 @cli.command()
 def version() -> None:
     """Print the illumio-ops version."""
-    click.echo("illumio-ops 3.4.1-cli (Phase 1 — CLI UX upgrade)")
+    try:
+        from src import __version__
+    except ImportError:
+        __version__ = "unknown"
+    click.echo(f"illumio-ops {__version__}")
 
 
 cli.add_command(monitor_cmd)

@@ -29,3 +29,13 @@ def test_human_time_delta_zh_tw():
 
 def test_human_number_thousands():
     assert human_number(12345) in ("12,345", "12345")
+
+
+def test_human_time_ago_recent():
+    """human_time_ago must produce a readable relative-time string."""
+    from src.humanize_ext import human_time_ago
+    with patch("src.humanize_ext.get_language", return_value="en"):
+        past = _dt.datetime.now() - _dt.timedelta(minutes=5)
+        result = human_time_ago(past)
+    # Should mention "5 minutes" or similar
+    assert "minute" in result.lower() or "5" in result

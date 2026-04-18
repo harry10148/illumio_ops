@@ -91,10 +91,18 @@ def _spinner_frames() -> list[str]:
     return ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] if _stream_supports_text("⠋") else ["|", "/", "-", "\\"]
 
 
+# NOTE: _make_ansi_codes() is a private rich API (underscore prefix).
+# rich.Style.render("", reset=False) was the original plan target but the
+# reset= kwarg was removed in rich 13.x, so we fell back to this private call.
+# If this breaks on a rich upgrade, replace with a lookup table of hardcoded
+# SGR codes (FAIL=31, GREEN=32, CYAN=36, etc.) mapping rich named colors to
+# ANSI numbers. See: https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
 def _ansi(style: _RichStyle) -> str:
-    """Render a rich Style to its ANSI escape sequence (keeps back-compat).
+    """Render a rich Style to its ANSI escape sequence.
 
-    Auto-disabled when stdout is not a TTY (daemon/service mode).
+    Uses rich.Style._make_ansi_codes (private API) because the public
+    render() method no longer supports reset=False. Isolated here so a
+    future rich API change is a one-function fix.
     """
     if not _stdout_is_tty():
         return ""
