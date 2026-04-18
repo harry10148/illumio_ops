@@ -32,19 +32,12 @@ def build_scheduler(cm, interval_minutes: int = 10) -> BackgroundScheduler:
 
     sched = BackgroundScheduler(executors=executors, job_defaults=job_defaults)
 
-    _job_kwargs = {
-        "coalesce": True,
-        "max_instances": 1,
-        "misfire_grace_time": 60,
-    }
-
     sched.add_job(
         run_monitor_cycle,
         trigger=IntervalTrigger(minutes=interval_minutes),
         args=[cm],
         id="monitor_cycle",
         name="Monitor analysis cycle",
-        **_job_kwargs,
     )
     sched.add_job(
         tick_report_schedules,
@@ -52,7 +45,6 @@ def build_scheduler(cm, interval_minutes: int = 10) -> BackgroundScheduler:
         args=[cm],
         id="tick_report_schedules",
         name="Report schedule tick",
-        **_job_kwargs,
     )
     sched.add_job(
         tick_rule_schedules,
@@ -60,7 +52,6 @@ def build_scheduler(cm, interval_minutes: int = 10) -> BackgroundScheduler:
         args=[cm],
         id="tick_rule_schedules",
         name="Rule schedule tick",
-        **_job_kwargs,
     )
 
     logger.info(

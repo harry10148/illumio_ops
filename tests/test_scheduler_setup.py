@@ -60,14 +60,14 @@ def test_scheduler_not_started_by_factory():
 
 
 def test_misfire_grace_time_is_set():
+    """I2: misfire_grace_time now comes from job_defaults, not per-job kwargs."""
     from src.scheduler import build_scheduler
     sched = build_scheduler(_fake_cm(), interval_minutes=10)
-    job = sched.get_job("monitor_cycle")
-    assert job.misfire_grace_time == 60
+    assert sched._job_defaults.get("misfire_grace_time") == 60
 
 
 def test_max_instances_is_one():
+    """I2: max_instances now comes from job_defaults, not per-job kwargs."""
     from src.scheduler import build_scheduler
     sched = build_scheduler(_fake_cm(), interval_minutes=10)
-    job = sched.get_job("monitor_cycle")
-    assert job.max_instances == 1
+    assert sched._job_defaults.get("max_instances") == 1

@@ -1,6 +1,5 @@
 import sys
 import os
-import signal
 import logging
 import argparse
 from src.utils import setup_logger, Colors, safe_input, draw_panel, get_terminal_width, Spinner
@@ -41,20 +40,34 @@ def run_daemon_loop(interval_minutes: int):
     BackgroundScheduler (3 jobs: monitor_cycle, tick_report_schedules,
     tick_rule_schedules).  Resolves Status.md A3 (single-threaded blocking).
     """
+    import signal as _signal
+
+    # C1: Register signal handlers so SIGINT/SIGTERM trigger graceful shutdown
+    # (previous self-rolled loop had these; must preserve for systemd/docker)
+    _signal.signal(_signal.SIGINT, _signal_handler)
+    try:
+        _signal.signal(_signal.SIGTERM, _signal_handler)
+    except (AttributeError, ValueError):
+        # SIGTERM not available on Windows for non-console handlers; skip silently
+        pass
+
     _shutdown_event.clear()
+
+    from src.scheduler import build_scheduler
+    from src.scheduler.jobs import run_monitor_cycle
 
     cm = ConfigManager()
     print(t("daemon_start", interval=interval_minutes))
     print(t("daemon_stop_hint"))
     logger.info("Starting scheduler-backed daemon (interval=%dm)", interval_minutes)
 
-    from src.scheduler import build_scheduler
-    from src.scheduler.jobs import run_monitor_cycle
-
     sched = build_scheduler(cm, interval_minutes=interval_minutes)
-    sched.start()
 
     try:
+        # C2: start() inside try so a startup failure doesn't trigger shutdown
+        # of a never-started scheduler (would raise SchedulerNotRunningError).
+        sched.start()
+
         # Fire the first monitor cycle immediately rather than waiting a full interval
         run_monitor_cycle(cm)
 
@@ -63,7 +76,9 @@ def run_daemon_loop(interval_minutes: int):
             _shutdown_event.wait(timeout=1)
     finally:
         logger.info("Shutting down scheduler...")
-        sched.shutdown(wait=True)
+        # Guard against never-started scheduler raising SchedulerNotRunningError
+        if getattr(sched, "running", False):
+            sched.shutdown(wait=True)
         logger.info("Scheduler stopped")
         print(f"\n{t('daemon_stopped')}")
 
