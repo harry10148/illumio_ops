@@ -403,41 +403,38 @@ def draw_table(headers: list, rows: list):
 
 
 class Spinner:
-    """Context manager that shows a terminal spinner during long operations."""
+    """Context-manager spinner — now backed by rich.status.Status.
 
-    def __init__(self, label: str = ""):
-        self._label = label
-        self._stop = threading.Event()
-        self._thread = None
-        self._is_tty = _stdout_is_tty()
-        self._frames = _spinner_frames()
+    Usage (unchanged from previous API):
+        with Spinner("Working..."):
+            do_work()
+    """
+
+    def __init__(self, message: str = "", color: str = "cyan"):
+        self._message = message
+        self._color = color
+        self._status = None
 
     def __enter__(self):
-        if self._is_tty:
-            self._thread = threading.Thread(target=self._spin, daemon=True)
-            self._thread.start()
-        elif self._label:
-            print(self._label)
+        console = _get_console()
+        self._status = console.status(
+            f"[{self._color}]{self._message}[/{self._color}]",
+            spinner="dots",
+        )
+        self._status.__enter__()
         return self
 
-    def __exit__(self, *_exc):
-        self._stop.set()
-        if self._thread:
-            self._thread.join(timeout=1)
-        if self._is_tty:
-            sys.stdout.write("\r\033[K")
-            sys.stdout.flush()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._status is not None:
+            self._status.__exit__(exc_type, exc_val, exc_tb)
+            self._status = None
+        return False
 
     def update(self, label: str):
-        self._label = label
-
-    def _spin(self):
-        cycle = itertools.cycle(self._frames)
-        while not self._stop.is_set():
-            frame = next(cycle)
-            sys.stdout.write(f"\r{Colors.CYAN}{frame}{Colors.ENDC} {self._label}\033[K")
-            sys.stdout.flush()
-            self._stop.wait(0.08)
+        """Update spinner message (back-compat)."""
+        self._message = label
+        if self._status is not None:
+            self._status.update(f"[{self._color}]{label}[/{self._color}]")
 
 
 def progress_bar(current: int, total: int, label: str = "", width: int = 30):
