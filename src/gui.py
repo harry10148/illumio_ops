@@ -373,6 +373,31 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         strategy="fixed-window",
     )
 
+    # ── flask-talisman security headers ───────────────────────────────────────
+    from flask_talisman import Talisman
+
+    tls_enabled = cm.config.get("web_gui", {}).get("tls", {}).get("enabled", False)
+
+    # CSP: allow inline scripts/styles (SPA uses them); locked down otherwise
+    _csp = {
+        'default-src': "'self'",
+        'script-src': ["'self'", "'unsafe-inline'"],  # SPA inline JS
+        'style-src': ["'self'", "'unsafe-inline'"],   # SPA inline CSS
+        'img-src': ["'self'", "data:"],
+        'font-src': "'self'",
+        'connect-src': "'self'",
+    }
+
+    Talisman(
+        app,
+        force_https=tls_enabled,               # only when TLS is configured
+        strict_transport_security=tls_enabled,
+        content_security_policy=_csp,
+        content_security_policy_nonce_in=[],   # inline not nonce-based (SPA compat)
+        frame_options='DENY',
+        referrer_policy='strict-origin-when-cross-origin',
+    )
+
     @app.context_processor
     def inject_csrf():
         return dict(csrf_token=generate_csrf)
