@@ -452,9 +452,34 @@ class Analyzer:
                 logger.info("PCE health check OK.")
                 self.stats.record_pce_success("health", status=h_status, message=h_msg[:120])
 
-        # 2. Events
+        # 2. Events pipeline
+        event_triggers = self._run_event_analysis()
+
+        # 3. Traffic pipeline
+        traffic_stream, tr_rules, now_utc = self._fetch_traffic()
+        triggers = []
+        if traffic_stream is not None:
+            triggers = self._run_rule_engine(traffic_stream, tr_rules, now_utc)
+
+        # 4. Dispatch alerts for traffic triggers
+        self._dispatch_alerts(triggers, tr_rules)
+
+        self.save_state()
+        logger.info("Analysis cycle completed.")
+        gc.collect()
+
+    def _run_event_analysis(self) -> list:
+        """Poll events, normalise, run rule matching, and fire event alerts.
+
+        Returns a list of event-trigger dicts (one per triggered rule) so that
+        _dispatch_alerts can handle them if needed in the future.  Currently,
+        event alerts are dispatched directly inside this method for cohesion
+        with the existing reporter.add_event_alert() call site.
+        """
         print(f"{t('checking_events')}...")
+        event_triggers = []
         events = []
+        event_batch = None
         try:
             event_batch = self._fetch_event_batch()
             events = event_batch.events
@@ -485,8 +510,8 @@ class Analyzer:
                 unknown_count=self.state.get("event_parser_stats", {}).get("last_batch_unknown", 0),
                 parser_note_count=self.state.get("event_parser_stats", {}).get("parser_note_count", 0),
                 overflow_risk=bool(self.state.get("event_overflow")),
-                query_since=event_batch.query_since if "event_batch" in locals() else "",
-                query_until=event_batch.query_until if "event_batch" in locals() else "",
+                query_since=event_batch.query_since if event_batch is not None else "",
+                query_until=event_batch.query_until if event_batch is not None else "",
             )
 
             for rule in [r for r in self.cm.config["rules"] if r["type"] == "event"]:
@@ -507,7 +532,7 @@ class Analyzer:
                         self.stats.record_rule_trigger(rule, match_count=count_val, metric_value=count_val)
                         first = matches[0] if matches else {}
                         first_norm = normalized_by_id.get(event_identity(first)) or normalize_event(first)
-                        self.reporter.add_event_alert({
+                        alert_data = {
                             "time": first.get("timestamp", "N/A"),
                             "rule": rule["name"],
                             "desc": rule.get("desc"),
@@ -523,107 +548,137 @@ class Analyzer:
                                 normalized_by_id.get(event_identity(event)) or normalize_event(event)
                                 for event in matches[:5]
                             ],
-                        })
-
-        # 3. Traffic
-        tr_rules = [r for r in self.cm.config["rules"] if r["type"] in ["traffic", "bandwidth", "volume"]]
-        if tr_rules:
-            max_win = max([r.get('threshold_window', 10) for r in tr_rules])
-            now_utc = datetime.datetime.now(datetime.timezone.utc)
-            start_dt = now_utc - datetime.timedelta(minutes=max_win + 2)
-
-            traffic_stream = self.api.execute_traffic_query_stream(
-                start_dt.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                now_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                ["blocked", "potentially_blocked", "allowed"]
-            )
-
-            if traffic_stream:
-                rule_results = {r['id']: {'max_val': 0.0, 'top_matches': []} for r in tr_rules}
-
-                count_processed = 0
-                for f in traffic_stream:
-                    count_processed += 1
-
-                    bw_val, bw_note, _, _ = self.calculate_mbps(f)
-                    vol_val, vol_note = self.calculate_volume_mb(f)
-                    conn_val = int(f.get("num_connections") or f.get("count", 1))
-
-                    for rule in tr_rules:
-                        rid = rule['id']
-                        r_win = rule.get("threshold_window", 10)
-                        r_start = now_utc - datetime.timedelta(minutes=r_win)
-
-                        if not self.check_flow_match(rule, f, r_start):
-                            continue
-
-                        res = rule_results[rid]
-
-                        if rule["type"] == "bandwidth":
-                            if bw_val > res['max_val']:
-                                res['max_val'] = bw_val
-                            if bw_val > float(rule.get("threshold_count", 0)):
-                                f_copy = f.copy()
-                                f_copy['_metric_val'] = bw_val
-                                f_copy['_metric_fmt'] = f"{format_unit(bw_val, 'bandwidth')} {bw_note}"
-                                res['top_matches'].append(f_copy)
-
-                        elif rule["type"] == "volume":
-                            res['max_val'] += vol_val
-                            f_copy = f.copy()
-                            f_copy['_metric_val'] = vol_val
-                            f_copy['_metric_fmt'] = f"{format_unit(vol_val, 'volume')} {vol_note}"
-                            res['top_matches'].append(f_copy)
-
-                        else:  # Traffic Count
-                            res['max_val'] += conn_val
-                            f_copy = f.copy()
-                            f_copy['_metric_val'] = conn_val
-                            f_copy['_metric_fmt'] = str(conn_val)
-                            res['top_matches'].append(f_copy)
-
-                print(t('found_traffic', count=count_processed))
-                logger.info(f"Processed {count_processed} traffic flows.")
-
-                # Check Triggers
-                for rule in tr_rules:
-                    rid = rule['id']
-                    res = rule_results[rid]
-                    val = res['max_val']
-                    threshold = float(rule.get("threshold_count", 0))
-
-                    is_trigger = False
-                    if rule["type"] == "bandwidth":
-                        if len(res['top_matches']) > 0:
-                            is_trigger = True
-                    else:
-                        if val >= threshold:
-                            is_trigger = True
-
-                    if is_trigger and self._check_cooldown(rule):
-                        res['top_matches'].sort(key=lambda x: x.get('_metric_val', 0), reverse=True)
-                        top_10 = res['top_matches'][:10]
-                        self.stats.record_rule_trigger(rule, match_count=len(top_10), metric_value=val)
-
-                        ctr = Counter([self.get_traffic_details_key(m) for m in top_10])
-                        details = "<br>".join([f"{k}: {v}" for k, v in ctr.most_common(10)])
-
-                        alert_data = {
-                            "rule": rule["name"],
-                            "count": f"{val:.2f}" if rule['type'] != 'traffic' else str(int(val)),
-                            "criteria": self._build_criteria_str(rule),
-                            "details": details,
-                            "raw_data": top_10
                         }
+                        self.reporter.add_event_alert(alert_data)
+                        event_triggers.append(alert_data)
 
-                        if rule["type"] in ["bandwidth", "volume"]:
-                            self.reporter.add_metric_alert(alert_data)
-                        else:
-                            self.reporter.add_traffic_alert(alert_data)
+        return event_triggers
 
-        self.save_state()
-        logger.info("Analysis cycle completed.")
-        gc.collect()
+    def _fetch_traffic(self) -> tuple:
+        """Determine traffic rules, query the API, and return the raw stream.
+
+        Returns:
+            (traffic_stream, tr_rules, now_utc) where traffic_stream is the
+            generator/iterable from the API (or None if no rules or no data),
+            tr_rules is the filtered list of traffic/bandwidth/volume rules, and
+            now_utc is the datetime used as the query end boundary.
+        """
+        tr_rules = [r for r in self.cm.config["rules"] if r["type"] in ["traffic", "bandwidth", "volume"]]
+        if not tr_rules:
+            return None, tr_rules, datetime.datetime.now(datetime.timezone.utc)
+
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        max_win = max([r.get('threshold_window', 10) for r in tr_rules])
+        start_dt = now_utc - datetime.timedelta(minutes=max_win + 2)
+
+        traffic_stream = self.api.execute_traffic_query_stream(
+            start_dt.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            now_utc.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            ["blocked", "potentially_blocked", "allowed"]
+        )
+        return traffic_stream, tr_rules, now_utc
+
+    def _run_rule_engine(self, traffic_stream, tr_rules: list, now_utc) -> list:
+        """Iterate over traffic flows and accumulate per-rule match results.
+
+        Args:
+            traffic_stream: Iterable of raw traffic flow dicts from the API.
+            tr_rules: List of traffic/bandwidth/volume rule dicts.
+            now_utc: Reference datetime for sliding-window calculations.
+
+        Returns:
+            List of trigger dicts, one per rule that accumulated any matches.
+            Each dict contains: rule, rule_results entry (max_val, top_matches).
+        """
+        rule_results = {r['id']: {'max_val': 0.0, 'top_matches': []} for r in tr_rules}
+
+        count_processed = 0
+        for f in traffic_stream:
+            count_processed += 1
+
+            bw_val, bw_note, _, _ = self.calculate_mbps(f)
+            vol_val, vol_note = self.calculate_volume_mb(f)
+            conn_val = int(f.get("num_connections") or f.get("count", 1))
+
+            for rule in tr_rules:
+                rid = rule['id']
+                r_win = rule.get("threshold_window", 10)
+                r_start = now_utc - datetime.timedelta(minutes=r_win)
+
+                if not self.check_flow_match(rule, f, r_start):
+                    continue
+
+                res = rule_results[rid]
+
+                if rule["type"] == "bandwidth":
+                    if bw_val > res['max_val']:
+                        res['max_val'] = bw_val
+                    if bw_val > float(rule.get("threshold_count", 0)):
+                        f_copy = f.copy()
+                        f_copy['_metric_val'] = bw_val
+                        f_copy['_metric_fmt'] = f"{format_unit(bw_val, 'bandwidth')} {bw_note}"
+                        res['top_matches'].append(f_copy)
+
+                elif rule["type"] == "volume":
+                    res['max_val'] += vol_val
+                    f_copy = f.copy()
+                    f_copy['_metric_val'] = vol_val
+                    f_copy['_metric_fmt'] = f"{format_unit(vol_val, 'volume')} {vol_note}"
+                    res['top_matches'].append(f_copy)
+
+                else:  # Traffic Count
+                    res['max_val'] += conn_val
+                    f_copy = f.copy()
+                    f_copy['_metric_val'] = conn_val
+                    f_copy['_metric_fmt'] = str(conn_val)
+                    res['top_matches'].append(f_copy)
+
+        print(t('found_traffic', count=count_processed))
+        logger.info(f"Processed {count_processed} traffic flows.")
+
+        # Return a flat list of (rule, result) pairs for all rules
+        return [(rule, rule_results[rule['id']]) for rule in tr_rules]
+
+    def _dispatch_alerts(self, triggers: list, tr_rules: list) -> None:
+        """Evaluate threshold conditions and send traffic alerts to the reporter.
+
+        Args:
+            triggers: List of (rule, result_dict) pairs produced by _run_rule_engine.
+            tr_rules: The original list of traffic/bandwidth/volume rule dicts
+                      (used only for type information; mirrors the rules in triggers).
+        """
+        for rule, res in triggers:
+            val = res['max_val']
+            threshold = float(rule.get("threshold_count", 0))
+
+            is_trigger = False
+            if rule["type"] == "bandwidth":
+                if len(res['top_matches']) > 0:
+                    is_trigger = True
+            else:
+                if val >= threshold:
+                    is_trigger = True
+
+            if is_trigger and self._check_cooldown(rule):
+                res['top_matches'].sort(key=lambda x: x.get('_metric_val', 0), reverse=True)
+                top_10 = res['top_matches'][:10]
+                self.stats.record_rule_trigger(rule, match_count=len(top_10), metric_value=val)
+
+                ctr = Counter([self.get_traffic_details_key(m) for m in top_10])
+                details = "<br>".join([f"{k}: {v}" for k, v in ctr.most_common(10)])
+
+                alert_data = {
+                    "rule": rule["name"],
+                    "count": f"{val:.2f}" if rule['type'] != 'traffic' else str(int(val)),
+                    "criteria": self._build_criteria_str(rule),
+                    "details": details,
+                    "raw_data": top_10
+                }
+
+                if rule["type"] in ["bandwidth", "volume"]:
+                    self.reporter.add_metric_alert(alert_data)
+                else:
+                    self.reporter.add_traffic_alert(alert_data)
 
     def _check_cooldown(self, rule):
         rid = str(rule["id"])
