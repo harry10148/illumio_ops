@@ -4,13 +4,10 @@ import os
 import re
 import time
 import gzip
-import ssl
 import base64
 import datetime
 import ipaddress
 import logging
-import urllib.request
-import urllib.error
 import urllib.parse
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -22,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 MAX_TRAFFIC_RESULTS = 200000
 MAX_RETRIES = 3
-RETRY_BACKOFF_BASE = 2  # seconds
 _ASYNC_JOB_STATE_KEY = "async_query_jobs"
 _QUERY_LOOKUP_CACHE_TTL_SECONDS = 300
 _ASYNC_JOB_CACHE_MAX_AGE_DAYS = 7
@@ -114,7 +110,6 @@ class ApiClient:
         self.api_cfg = self.cm.config["api"]
         self.base_url = f"{self.api_cfg['url']}/api/v2/orgs/{self.api_cfg['org_id']}"
         self._auth_header = self._build_auth_header()
-        self._ssl_ctx = self._build_ssl_context()
         # Caches for rule scheduler features — TTLCache expires stale data after 15 min (Phase 2 Q5 fix)
         import time as _time
         from cachetools import TTLCache as _TTLCache
@@ -166,14 +161,6 @@ class ApiClient:
         credentials = f"{self.api_cfg['key']}:{self.api_cfg['secret']}"
         encoded = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         return f"Basic {encoded}"
-
-    def _build_ssl_context(self):
-        ctx = ssl.create_default_context()
-        if not self.api_cfg.get('verify_ssl', True):
-            logger.debug("SSL verification disabled — API connections are not secure")
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-        return ctx
 
     def _request(self, url, method="GET", data=None, headers=None, timeout=15, stream=False):
         """
