@@ -26,11 +26,25 @@ class _Base(BaseModel):
 
 
 class ApiSettings(_Base):
-    url: HttpUrl = Field(default="https://pce.example.com:8443")
+    # url is stored as plain str to avoid pydantic's trailing-slash normalization
+    # (HttpUrl validates the scheme; the validator strips any trailing slash).
+    url: str = Field(default="https://pce.example.com:8443")
     org_id: str = Field(default="1", min_length=1)
     key: str = Field(default="")
     secret: str = Field(default="")
     verify_ssl: bool = True
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url_scheme(cls, v: object) -> str:
+        """Accept only http/https URLs; reject ftp:// and other schemes."""
+        raw = str(v).strip().rstrip("/")
+        # Let pydantic's HttpUrl do the structural validation, then convert back
+        try:
+            HttpUrl(raw)
+        except Exception as exc:
+            raise ValueError(f"url: {exc}") from exc
+        return raw
 
 
 class AlertsSettings(_Base):
