@@ -27,7 +27,11 @@ import math
 from typing import Any
 
 import matplotlib
-matplotlib.use("Agg")  # headless backend
+
+# Only switch to headless backend if no interactive backend is already active.
+# This avoids breaking callers running in Jupyter / IDE / GUI contexts.
+if matplotlib.get_backend().lower() != "agg":
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import plotly.graph_objects as go
@@ -141,7 +145,11 @@ def render_matplotlib_png(spec: dict[str, Any]) -> bytes:
         ax.set_ylabel(spec.get("y_label", ""))
     elif chart_type == "heatmap":
         import numpy as np
-        matrix = np.array(data.get("matrix", [[0]]))
+        raw_matrix = data.get("matrix", [[0]])
+        # Guard: empty lists produce np.array([]) which imshow rejects with TypeError
+        if not raw_matrix or not raw_matrix[0]:
+            raw_matrix = [[0]]
+        matrix = np.array(raw_matrix)
         im = ax.imshow(matrix, cmap="viridis", aspect="auto")
         fig.colorbar(im, ax=ax)
         labels = data.get("labels", [])

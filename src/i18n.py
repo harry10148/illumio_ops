@@ -1156,6 +1156,8 @@ _ZH_EXPLICIT: dict[str, str] = {
     "gui_sched_fmt_all": "全部格式（HTML + CSV）",
     "gui_sched_fmt_html": "HTML 報表",
     "gui_sched_fmt_csv": "CSV 報表",
+    "gui_sched_fmt_pdf": "PDF",
+    "gui_sched_fmt_xlsx": "Excel (XLSX)",
     "gui_status_online": "Online",
     "gui_status_offline": "Offline",
     "gui_quick_search_placeholder": "快速搜尋字串",
@@ -1879,6 +1881,8 @@ _ZH_EXPLICIT.update({
     "rpt_lm_chart_title": "橫向移動圖",
     "rpt_pdf_saved": "PDF 報表已儲存：{path}",
     "rpt_xlsx_saved": "XLSX 報表已儲存：{path}",
+    "rpt_col_connections": "連線數",
+    "rpt_col_port": "Port",  # Port stays in English per glossary
 })
 
 

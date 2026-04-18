@@ -93,6 +93,19 @@ def test_both_engines_accept_identical_spec():
     assert png   # non-empty
 
 
+def test_render_matplotlib_png_handles_empty_heatmap():
+    """Empty heatmap matrix must not raise — fall back to 1x1 zero matrix."""
+    from src.report.exporters.chart_renderer import render_matplotlib_png
+    spec = {
+        "type": "heatmap",
+        "title": "empty",
+        "data": {"matrix": [], "labels": [], "ylabels": []},
+        "i18n": {"lang": "en"},
+    }
+    png = render_matplotlib_png(spec)
+    assert png.startswith(b'\x89PNG')
+
+
 def test_i18n_zh_tw_title_renders():
     from src.report.exporters.chart_renderer import render_plotly_html, render_matplotlib_png
     spec = {**SAMPLE_BAR_SPEC, "title": "前 5 名連接埠", "i18n": {"lang": "zh_TW"}}
