@@ -132,7 +132,7 @@ class ReportScheduler:
             _rslog.separator(f"Report Schedule: {schedule.get('name', '')}")
             _rslog.info(f"type={schedule.get('report_type')} format={schedule.get('format')} lookback={schedule.get('lookback_days')}d")
         except Exception:
-            pass
+            pass  # intentional fallback: ModuleLog is optional; schedule execution must not fail if logging setup fails
 
         name = schedule.get("name", "Unnamed")
         report_type = schedule.get("report_type", "traffic")
@@ -177,7 +177,7 @@ class ReportScheduler:
             try:
                 _rslog.info(f"Completed: {[os.path.basename(p) for p in paths]}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             max_reports = int(schedule.get("max_reports", 30))
             self._prune_by_count(output_dir, report_type, max_reports)
             self._prune_old_reports(output_dir)
@@ -187,7 +187,7 @@ class ReportScheduler:
             try:
                 _rslog.error(f"Failed: {e}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             logger.error(f"[Scheduler] '{name}': failed — {e}", exc_info=True)
             raise
 

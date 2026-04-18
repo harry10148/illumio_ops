@@ -482,7 +482,7 @@ class ConfigManager:
             try:
                 numeric_ids.append(int(rule.get("id", 0) or 0))
             except (TypeError, ValueError):
-                pass
+                pass  # intentional fallback: skip rules with non-numeric IDs when computing max ID
         bp_rules = self._best_practice_rules((max(numeric_ids) if numeric_ids else 0) + 1)
 
         if normalized_mode == "replace":

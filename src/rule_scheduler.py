@@ -54,7 +54,7 @@ class ScheduleDB:
                 with open(self.db_path, 'r', encoding='utf-8') as f:
                     self.db = json.load(f)
             except Exception:
-                self.db = {}
+                self.db = {}  # intentional fallback: use empty state if DB file is corrupt or unreadable
         else:
             self.db = {}
         return self.db
@@ -67,7 +67,7 @@ class ScheduleDB:
                 json.dump(self.db, f, indent=4, ensure_ascii=False)
             os.replace(tmp_path, self.db_path)
         except Exception:
-            # Fallback: direct write
+            # intentional fallback: atomic rename failed (e.g. cross-device), fall back to direct write
             with open(self.db_path, 'w', encoding='utf-8') as f:
                 json.dump(self.db, f, indent=4, ensure_ascii=False)
 

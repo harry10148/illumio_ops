@@ -44,7 +44,7 @@ def _iter_dataframes(data, prefix: str):
                 if not df.empty:
                     yield f'{prefix}.csv', df
             except Exception:
-                pass
+                pass  # intentional fallback: skip data sections that cannot be converted to a DataFrame
 
 class CsvExporter:
     """

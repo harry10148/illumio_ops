@@ -53,4 +53,4 @@ def fmt_ts_local(ts_str, tz: datetime.timezone) -> str:
         tz_label = f"UTC{sign}{hh}" if mm == 0 else f"UTC{sign}{hh}:{mm:02d}"
         return local_dt.strftime('%Y-%m-%d %H:%M') + f' ({tz_label})'
     except Exception:
-        return str(ts_str)
+        return str(ts_str)  # intentional fallback: return raw timestamp string if timezone formatting fails

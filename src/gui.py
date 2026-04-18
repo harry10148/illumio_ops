@@ -152,9 +152,9 @@ def _rst_drop():
             try:
                 sock.shutdown(_socket.SHUT_RDWR)
             except OSError:
-                pass
+                pass  # intentional fallback: socket may already be closed; RST linger is best-effort
     except Exception:
-        pass
+        pass  # intentional fallback: TCP RST socket introspection is best-effort; always raise _RstDrop regardless
     # Raise ??Flask will attempt to write the 500 but the socket is gone
     raise _RstDrop()
 
@@ -969,7 +969,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                         if elapsed < total_cd:
                             rem_mins = int((total_cd - elapsed) // 60) + 1
                 except Exception as e:
-                    pass
+                    logger.debug("Could not compute cooldown_remaining for rule {}: {}", rid, e)
             rule_out['cooldown_remaining'] = rem_mins
             throttle_entry = throttle_state.get(rid, {})
             rule_out['throttle_state'] = {
@@ -1170,7 +1170,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             for k in ('port', 'ex_port', 'proto', 'threshold_count', 'threshold_window', 'cooldown_minutes', 'pd'):
                 if k in old and old[k] is not None:
                     try: old[k] = int(old[k]) if k != 'threshold_count' else float(old[k])
-                    except (ValueError, TypeError): pass
+                    except (ValueError, TypeError): pass  # intentional fallback: keep raw value if numeric cast fails
             cm.save()
             return jsonify({"ok": True})
         return _err(t("gui_not_found"), 404)
@@ -1257,7 +1257,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 try:
                     rpt_cfg['retention_days'] = max(0, int(rpt_in['retention_days']))
                 except (TypeError, ValueError):
-                    pass
+                    pass  # intentional fallback: keep existing retention_days if new value is not numeric
         known_roots = {'api', 'email', 'smtp', 'alerts', 'settings', 'report', 'pce_profiles', 'active_pce_id'}
         for root in _plugin_config_roots():
             if root in known_roots or root not in d:
@@ -1563,7 +1563,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             try:
                 os.remove(metadata_path)
             except OSError:
-                pass
+                pass  # intentional fallback: metadata file deletion is best-effort
         return jsonify({"ok": True})
 
     @app.route('/api/reports/bulk-delete', methods=['POST'])
@@ -1596,7 +1596,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                     try:
                         os.remove(metadata_path)
                     except OSError:
-                        pass
+                        pass  # intentional fallback: metadata file deletion is best-effort in bulk delete
                 success_count += 1
             except Exception as e:
                 errors.append(f"{filename}: {str(e)}")
@@ -1632,7 +1632,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 _rlog.separator(f"Traffic Report {datetime.datetime.now().strftime('%H:%M:%S')}")
                 _rlog.info(f"source={d.get('source')} format={d.get('format')} range={d.get('start_date')}~{d.get('end_date')}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog is optional; report generation must not fail if logging setup fails
 
             cm.load()
             config_dir = _resolve_config_dir()
@@ -1658,8 +1658,8 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 finally:
                     try:
                         os.remove(temp_path)
-                    except:
-                        pass
+                    except OSError:
+                        pass  # intentional fallback: temp file cleanup is best-effort
             else:
                 start_date = d.get('start_date')
                 end_date = d.get('end_date')
@@ -1702,14 +1702,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if _rlog:
                     _rlog.info(f"Completed: {filenames}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
         except Exception as e:
             try:
                 if _rlog:
                     _rlog.error(f"Traffic report failed: {e}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             logger.error(f"Report generation failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
@@ -1726,7 +1726,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 _arlog.separator(f"Audit Report {datetime.datetime.now().strftime('%H:%M:%S')}")
                 _arlog.info(f"range={d.get('start_date')}~{d.get('end_date')}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog is optional; audit report must not fail if logging setup fails
 
             cm.load()
             config_dir = _resolve_config_dir()
@@ -1750,14 +1750,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if _arlog:
                     _arlog.info(f"Saved: {filenames}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count})
         except Exception as e:
             try:
                 if _arlog:
                     _arlog.error(f"Audit report generation failed: {e}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             logger.error(f"Audit generation failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
@@ -1773,7 +1773,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 _vrlog = _ML.get("reports")
                 _vrlog.separator(f"VEN Status Report {datetime.datetime.now().strftime('%H:%M:%S')}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog is optional; VEN status report must not fail if logging setup fails
 
             cm.load()
             api = ApiClient(cm)
@@ -1793,14 +1793,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if _vrlog:
                     _vrlog.info(f"Saved: {filenames}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             return jsonify({"ok": True, "files": filenames, "record_count": result.record_count, "kpis": kpis})
         except Exception as e:
             try:
                 if _vrlog:
                     _vrlog.error(f"VEN status report generation failed: {e}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             logger.error(f"VEN status report failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
@@ -1818,7 +1818,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 _pulog.separator(f"Policy Usage Report {datetime.datetime.now().strftime('%H:%M:%S')}")
                 _pulog.info(f"range={d.get('start_date')}~{d.get('end_date')}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog is optional; policy usage report must not fail if logging setup fails
 
             cm.load()
             api = ApiClient(cm)
@@ -1846,7 +1846,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if _pulog:
                     _pulog.info(f"Saved: {filenames}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             return jsonify({"ok": True, "files": filenames,
                             "record_count": result.record_count, "kpis": kpis,
                             "execution_stats": execution_stats, "execution_notes": execution_notes,
@@ -1858,7 +1858,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 if _pulog:
                     _pulog.error(f"Policy usage report generation failed: {e}")
             except Exception:
-                pass
+                pass  # intentional fallback: ModuleLog write is best-effort
             logger.error(f"Policy usage report failed: {e}", exc_info=True)
             return jsonify({"ok": False, "error": str(e)})
 
@@ -1876,7 +1876,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 with open(state_file, "r", encoding="utf-8") as f:
                     states = json.load(f).get("report_schedule_states", {})
             except Exception:
-                pass
+                pass  # intentional fallback: state enrichment is best-effort; schedules still listed without last-run state
         result = []
         for s in schedules:
             sid = str(s.get("id", ""))

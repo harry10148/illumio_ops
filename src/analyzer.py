@@ -143,7 +143,7 @@ class Analyzer:
                     if ts > cutoff:
                         valid.append(rec)
                 except (KeyError, ValueError):
-                    pass
+                    pass  # intentional fallback: skip malformed history records with missing/unparseable timestamp
             if valid:
                 new_history[rid] = valid
         self.state["history"] = new_history
@@ -270,7 +270,7 @@ class Analyzer:
                 if f_port and int(f_port) == int(rule["ex_port"]):
                     return False
             except (ValueError, TypeError):
-                pass
+                pass  # intentional fallback: skip exclude-port filter if port values are not numeric
         if rule.get("ex_src_label") and self._check_flow_labels(f.get('src', {}), rule["ex_src_label"]):
             return False
         if rule.get("ex_dst_label") and self._check_flow_labels(f.get('dst', {}), rule["ex_dst_label"]):
@@ -648,7 +648,7 @@ class Analyzer:
                     logger.info(f"Rule '{rule['name']}' in cooldown.")
                     return False
             except ValueError:
-                pass
+                pass  # intentional fallback: unparseable last_alert timestamp means cooldown is not enforced
 
         allowed, throttle_meta = self.alert_throttler.allow(rule, now_utc)
         if not allowed:
@@ -814,7 +814,7 @@ class Analyzer:
                 if p_int == 6: proto = "TCP"
                 elif p_int == 17: proto = "UDP"
                 elif p_int == 1: proto = "ICMP"
-            except (ValueError, TypeError): pass
+            except (ValueError, TypeError): pass  # intentional fallback: leave proto as raw string if not parseable
 
             # Determine process/user attribution via flow_direction:
             # - "inbound"  → captured by dst VEN → belongs to dst
@@ -966,7 +966,7 @@ class Analyzer:
                         try: e_time = datetime.datetime.strptime(pts, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=datetime.timezone.utc)
                         except ValueError:
                             try: e_time = datetime.datetime.strptime(pts, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
-                            except ValueError: pass
+                            except ValueError: pass  # intentional fallback: e_time stays None, event is not time-filtered
 
                     if e_time and e_time < rule_start: continue
 

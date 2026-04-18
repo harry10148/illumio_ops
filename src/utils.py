@@ -183,7 +183,7 @@ def safe_input(
             else:
                 range_hint = " [" + ",".join(str(v) for v in vals) + "]"
         except Exception:
-            range_hint = ""
+            range_hint = ""  # intentional fallback: skip range hint display if values are not iterable/numeric
 
     lang = get_language()
     shortcuts = t(

@@ -1045,7 +1045,7 @@ class ApiClient:
                 if flow_port is None or int(flow_port) != int(port_filter):
                     return False
             except (ValueError, TypeError):
-                pass
+                pass  # intentional fallback: skip port filter comparison if port values are not numeric
 
         proto_filter = filters.get('proto')
         if proto_filter:
@@ -1054,7 +1054,7 @@ class ApiClient:
                 if flow_proto is None or int(flow_proto) != int(proto_filter):
                     return False
             except (ValueError, TypeError):
-                pass
+                pass  # intentional fallback: skip proto filter comparison if proto values are not numeric
 
         # ── Any-side include filters (src OR dst must match) ─────────────────
         any_label = filters.get('any_label')
@@ -1085,7 +1085,7 @@ class ApiClient:
                 if flow_port is not None and int(flow_port) == int(ex_port):
                     return False
             except (ValueError, TypeError):
-                pass
+                pass  # intentional fallback: skip exclude-port filter comparison if port values are not numeric
 
         # ── Any-side exclude filters (exclude if src OR dst matches) ─────────
         ex_any_label = filters.get('ex_any_label')
@@ -1801,7 +1801,7 @@ class ApiClient:
                     else:
                         yield data
                 except json.JSONDecodeError:
-                    pass
+                    pass  # intentional fallback: skip non-JSON lines in JSONL stream (e.g. blank or partial lines)
 
         try:
             with gzip.GzipFile(fileobj=buffer, mode='rb') as f:

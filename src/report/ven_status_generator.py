@@ -156,7 +156,7 @@ class VenStatusGenerator:
             try:
                 return datetime.datetime.fromisoformat(ts.replace('Z', '+00:00'))
             except Exception:
-                return None
+                return None  # intentional fallback: return None for unparseable timestamps
 
         def _bool_mask(series, predicate):
             """Apply predicate safely; always returns a proper boolean Series."""
