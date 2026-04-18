@@ -82,17 +82,26 @@ illumio_ops/
 ├── src/
 │   ├── __init__.py            # Package init, exports __version__
 │   ├── main.py                # CLI argument parser, daemon/GUI orchestration, interactive menu
-│   ├── api_client.py          # Illumio REST API client with retry and streaming
+│   ├── api_client.py          # ApiClient facade (~765 LOC): HTTP core + delegation wrappers for all public methods
+│   ├── api/                   # Phase 9 domain classes (composed by ApiClient facade)
+│   │   ├── __init__.py
+│   │   ├── labels.py          # LabelResolver: label/IP-list/service TTL cache management
+│   │   ├── async_jobs.py      # AsyncJobManager: async query job lifecycle + state persistence
+│   │   └── traffic_query.py   # TrafficQueryBuilder: traffic payload construction + streaming
 │   ├── analyzer.py            # Rule engine: flow matching, metric calculation, state management
 │   ├── reporter.py            # Alert aggregation and multi-channel dispatch
 │   ├── config.py              # Configuration loading, saving, rule CRUD, atomic writes, PBKDF2 password hashing
+│   ├── exceptions.py          # Typed exception hierarchy: IllumioOpsError → APIError/ConfigError/etc.
+│   ├── interfaces.py          # typing.Protocol definitions: IApiClient, IReporter, IEventStore
+│   ├── href_utils.py          # Canonical extract_id(href) helper
+│   ├── loguru_config.py       # Central loguru setup: rotating file + TTY console + optional JSON SIEM sink
 │   ├── gui.py                 # Flask Web application (~40 JSON API endpoints), login rate limiting, CSRF synchronizer token
 │   ├── settings.py            # CLI interactive menus for rule/alert configuration
 │   ├── report_scheduler.py    # Scheduled report generation and email delivery
 │   ├── rule_scheduler.py      # Policy rule automation (recurring/one-time schedules, provision)
 │   ├── rule_scheduler_cli.py  # CLI and Web GUI interface for rule scheduler
-│   ├── i18n.py                # Internationalization dictionary (EN/ZH_TW) and language switching
-│   ├── utils.py               # Helpers: logging setup, ANSI colors, unit formatting, CJK width
+│   ├── i18n.py                # Internationalization dictionary (EN/ZH_TW) and language switching; _I18nState thread-safe singleton
+│   ├── utils.py               # Helpers: logging setup, ANSI colors, unit formatting, CJK width; _InputState thread-safe singleton
 │   ├── templates/             # Jinja2 HTML templates for Web GUI (SPA)
 │   ├── static/                # CSS/JS frontend assets
 │   └── report/                # Advanced report generation engine

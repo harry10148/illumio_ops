@@ -5,6 +5,19 @@
 
 ---
 
+## Phase 9: Architecture Refactor ✅ DONE (v3.7.0-refactor)
+
+- [x] **A5**: `events/shadow.py` evaluated — retained as active GUI endpoint; 17 tests added
+- [x] **Q3**: Canonical `extract_id()` in `src/href_utils.py`; duplicate copies removed
+- [x] **A4**: `src/exceptions.py` typed hierarchy (7 classes); silent fallback sites audited
+- [x] **Q1**: `Analyzer.run_analysis()` decomposed: 196→~20 lines orchestrating 5 private methods; 27 new tests
+- [x] **A3** (residuals): `_InputState` + `_I18nState` singletons with Lock; `deque(maxlen=200)` ring buffer; `_registry` lock
+- [x] **A2 + Q2**: `api_client.py` 2569→765 LOC facade; `src/api/` package: LabelResolver + AsyncJobManager + TrafficQueryBuilder; all 50+ public methods preserved
+- [x] **A1**: `src/interfaces.py` typing.Protocol (IApiClient/IReporter/IEventStore); `Analyzer.__init__` type-annotated; 4 mock-free tests
+- [x] 314 passed, 2 pre-existing PDF failures, 1 pre-existing subprocess timeout
+
+---
+
 ## Phase 7: Logging → loguru ✅ DONE (v3.6.0-loguru merged)
 
 - [x] `src/loguru_config.py` — `setup_loguru()`: rotating file + TTY console + optional JSON SIEM sink
