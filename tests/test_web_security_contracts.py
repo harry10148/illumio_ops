@@ -25,11 +25,8 @@ def app_client(tmp_path, monkeypatch):
         },
     }), encoding="utf-8")
     from src.config import ConfigManager
-    import src.gui as _gui_module
-    # Clear module-level rate-limit state to avoid test-ordering contamination.
-    # This is needed until flask-limiter replaces _login_attempts (Task 6).
-    _gui_module._login_attempts.clear()
     from src.gui import build_app  # factory introduced in Task 3
+    # flask-limiter uses per-app memory storage, so each app instance starts fresh.
     cm = ConfigManager(str(cfg))
     app = build_app(cm)
     app.config["TESTING"] = True

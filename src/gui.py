@@ -54,33 +54,6 @@ def _strip_ansi(text: str) -> str:
 
 # ????????????????????????????????????????????????????????????????????????????????# Flask Application Factory
 # ????????????????????????????????????????????????????????????????????????????????
-# Login rate limiter: {ip_address: [unix_timestamp, ...]}
-_login_attempts: dict = {}
-_login_attempts_lock = threading.Lock()
-_LOGIN_MAX_ATTEMPTS = 5
-_LOGIN_WINDOW_SECONDS = 60
-
-
-def _check_rate_limit(remote_addr: str) -> bool:
-    """Return True if the IP is within the allowed rate limit, False if blocked."""
-    import time as _time
-    now = _time.time()
-    with _login_attempts_lock:
-        attempts = _login_attempts.get(remote_addr, [])
-        # Prune timestamps outside the window
-        attempts = [ts for ts in attempts if now - ts < _LOGIN_WINDOW_SECONDS]
-        _login_attempts[remote_addr] = attempts
-        return len(attempts) < _LOGIN_MAX_ATTEMPTS
-
-
-def _record_failed_login(remote_addr: str) -> None:
-    import time as _time
-    now = _time.time()
-    with _login_attempts_lock:
-        attempts = _login_attempts.get(remote_addr, [])
-        attempts.append(now)
-        _login_attempts[remote_addr] = attempts
-
 def _check_ip_allowed(allowed_ips: list, remote_addr: str) -> bool:
     if not allowed_ips:
         return True
@@ -388,6 +361,18 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     csrf = CSRFProtect(app)
 
+    # ── flask-limiter rate limiting ────────────────────────────────────────────
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+
+    limiter = Limiter(
+        app=app,
+        key_func=get_remote_address,
+        default_limits=[],          # no global limit; apply per-endpoint
+        storage_uri="memory://",    # single-node deployment
+        strategy="fixed-window",
+    )
+
     @app.context_processor
     def inject_csrf():
         return dict(csrf_token=generate_csrf)
@@ -452,13 +437,9 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/api/login', methods=['POST'])
     @csrf.exempt
+    @limiter.limit("5 per minute")
     def api_login():
         from pydantic import ValidationError as _ValidationError
-        remote = request.remote_addr or ""
-        if not _check_rate_limit(remote):
-            logger.warning("[GUI] Login rate limit exceeded for IP: %s", remote)
-            return jsonify({"ok": False, "error": t("gui_err_too_many_attempts")}), 429
-
         try:
             form = LoginForm.model_validate(request.get_json(silent=True) or {})
         except _ValidationError as e:
@@ -477,7 +458,6 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         if not saved_hash:
             # No password configured — reject all logins until config is repaired
             logger.error("[GUI] Login attempted but no password hash configured.")
-            _record_failed_login(remote)
             return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
 
         if username == saved_username and verify_password(saved_hash, saved_salt, password):
@@ -495,7 +475,6 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 cm.save()
             return jsonify({"ok": True, "csrf_token": generate_csrf()})
 
-        _record_failed_login(remote)
         return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
 
     @app.route('/logout')
