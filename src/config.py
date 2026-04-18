@@ -9,6 +9,16 @@ from src.i18n import t, set_language
 
 logger = logging.getLogger(__name__)
 
+_SECRET_FIELD_TOKENS = {"key", "secret", "password", "secret_key", "token", "password_hash", "password_salt"}
+
+
+def _format_error_input(loc: tuple, raw_input):
+    """Redact secret-looking fields from validation error log output."""
+    for part in loc:
+        if any(tok in str(part).lower() for tok in _SECRET_FIELD_TOKENS):
+            return "[REDACTED]"
+    return repr(raw_input)
+
 # Determine Root Directory (parent of the package)
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(PKG_DIR)
@@ -137,8 +147,10 @@ class ConfigManager:
             # Format pydantic errors into readable log lines
             logger.error(f"Config validation failed: {e.error_count()} error(s):")
             for err in e.errors():
-                loc = ".".join(str(p) for p in err["loc"])
-                logger.error(f"  {loc}: {err['msg']} (input: {err.get('input')!r})")
+                loc_parts = err["loc"]
+                loc = ".".join(str(p) for p in loc_parts)
+                redacted = _format_error_input(loc_parts, err.get('input'))
+                logger.error(f"  {loc}: {err['msg']} (input: {redacted})")
             print(f"{Colors.FAIL}{t('error_loading_config', error=str(e)[:200])}{Colors.ENDC}")
             # Fall back to the merged data (preserves valid sections, logs errors).
             # This keeps the app functional even with partially invalid config.

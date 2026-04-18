@@ -11,8 +11,6 @@ Grep confirms these exact patterns appear in 10+ modules:
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
 
 import pytest
 

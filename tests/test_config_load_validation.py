@@ -73,3 +73,35 @@ def test_models_attribute_exposes_typed_schema(tmp_path):
     assert hasattr(cm, "models"), "cm.models must exist for typed access"
     assert cm.models.api.org_id == "1"
     assert cm.models.settings.language == "en"
+
+
+def test_config_with_rule_backups_reloads_cleanly(tmp_path):
+    """Regression: apply_best_practices writes rule_backups, which used to break pydantic validation."""
+    from src.config import ConfigManager
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({
+        "api": {"url": "https://p.test", "org_id": "1", "key": "k", "secret": "s"},
+        "rule_backups": [{"timestamp": "2026-01-01", "rules": [{"id": 1}]}],
+    }), encoding="utf-8")
+    cm = ConfigManager(str(cfg))
+    # rule_backups must survive the round-trip
+    assert cm.config["rule_backups"] == [{"timestamp": "2026-01-01", "rules": [{"id": 1}]}]
+    # Reload should not emit validation errors
+    cm2 = ConfigManager(str(cfg))
+    assert cm2.config["rule_backups"] == cm.config["rule_backups"]
+
+
+def test_load_redacts_secret_input_in_logs(tmp_path, caplog):
+    """ValidationError logs must NEVER include raw secret values."""
+    from src.config import ConfigManager
+    cfg = tmp_path / "config.json"
+    # Inject a secret with an invalid type that trips validation
+    cfg.write_text(json.dumps({
+        "api": {"url": "https://p.test", "org_id": "1",
+                "key": "valid_key", "secret": 99999}  # int instead of str
+    }), encoding="utf-8")
+    caplog.set_level(logging.ERROR)
+    ConfigManager(str(cfg))
+    combined = " ".join(r.message for r in caplog.records)
+    assert "99999" not in combined, "secret value leaked to logs"
+    assert "[REDACTED]" in combined or "secret" in combined.lower()

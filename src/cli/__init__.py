@@ -1,1 +1,1 @@
-# CLI package — populated by Phase 1 (root.py) and Phase 3 (config.py).
+# CLI package — contains config.py (Phase 3 `illumio-ops config` subcommands).

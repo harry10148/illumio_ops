@@ -38,12 +38,16 @@ class ApiSettings(_Base):
     @classmethod
     def validate_url_scheme(cls, v: object) -> str:
         """Accept only http/https URLs; reject ftp:// and other schemes."""
+        if v is None or str(v).strip() == "":
+            raise ValueError("url must be a non-empty http(s) URL")
         raw = str(v).strip().rstrip("/")
-        # Let pydantic's HttpUrl do the structural validation, then convert back
+        # Use HttpUrl as an oracle for scheme/structure, but keep the original string
         try:
             HttpUrl(raw)
-        except Exception as exc:
-            raise ValueError(f"url: {exc}") from exc
+        except Exception:
+            raise ValueError(
+                "url must use http or https scheme (e.g. https://pce.example.com:8443)"
+            ) from None
         return raw
 
 
@@ -73,7 +77,7 @@ class GeneralSettings(_Base):
     theme: Literal["light", "dark"] = "light"
     timezone: str = "local"
     enable_health_check: bool = True
-    dashboard_queries: list = Field(default_factory=list)
+    dashboard_queries: list[dict] = Field(default_factory=list)
 
 
 class ReportApiQuery(_Base):
@@ -122,7 +126,7 @@ class WebGuiSettings(_Base):
 class PceProfile(_Base):
     """Extra=allow since PCE profile shape may evolve; only require id + url."""
     model_config = ConfigDict(extra="allow")
-    id: int
+    id: int = Field(ge=1)
     url: str
     org_id: str = "1"
     key: str = ""
@@ -158,3 +162,5 @@ class ConfigSchema(_Base):
     active_pce_id: Optional[int] = None
     rule_scheduler: RuleSchedulerSettings = Field(default_factory=RuleSchedulerSettings)
     web_gui: WebGuiSettings = Field(default_factory=WebGuiSettings)
+    # Written by apply_best_practices(); must survive pydantic round-trips.
+    rule_backups: list = Field(default_factory=list)

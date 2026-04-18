@@ -59,5 +59,12 @@ def show(section: str | None) -> None:
     from src.config import ConfigManager
     console = Console()
     cm = ConfigManager()
-    data = cm.config if section is None else cm.config.get(section, {})
+    if section is None:
+        data = cm.config
+    elif section not in cm.config:
+        console.print(f"[red]Unknown section:[/red] {section!r}. "
+                      f"Valid sections: {', '.join(sorted(cm.config.keys()))}")
+        raise click.Abort()
+    else:
+        data = cm.config[section]
     console.print_json(data=data)

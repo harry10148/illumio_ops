@@ -16,7 +16,7 @@ def test_api_settings_rejects_non_http_url():
     from src.config_models import ApiSettings
     with pytest.raises(ValidationError) as exc:
         ApiSettings(url="ftp://wrong.test", org_id="1", key="k", secret="s")
-    assert "url" in str(exc.value).lower()
+    assert "http or https" in str(exc.value).lower()
 
 
 def test_smtp_settings_port_range():
