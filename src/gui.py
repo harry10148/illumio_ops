@@ -364,6 +364,19 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         app.config['SESSION_COOKIE_SECURE'] = True
     app.jinja_env.globals.update(t=t)
 
+    # ── flask-login setup ──────────────────────────────────────────────────────
+    from flask_login import LoginManager, current_user, login_user, logout_user
+    from src.auth_models import AdminUser, LoginForm
+
+    login_manager = LoginManager(app)
+    login_manager.login_view = "login_page"
+    login_manager.session_protection = "strong"
+
+    @login_manager.user_loader
+    def _load_user(user_id: str):
+        admin_name = cm.config.get("web_gui", {}).get("username", "illumio")
+        return AdminUser(admin_name) if user_id == admin_name else None
+
     @app.errorhandler(_RstDrop)
     def handle_rst_drop(e):
         # Socket is already closed with RST ??return an empty Response object
@@ -387,7 +400,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         # Bypass login routes
         if request.path in ['/login', '/api/login', '/logout']:
             return
-        if not session.get('logged_in'):
+        if not current_user.is_authenticated:
             if request.path.startswith('/api/'):
                 return _err(t("gui_err_unauthorized"), 401)
             return redirect('/login')
@@ -438,14 +451,19 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/api/login', methods=['POST'])
     def api_login():
+        from pydantic import ValidationError as _ValidationError
         remote = request.remote_addr or ""
         if not _check_rate_limit(remote):
             logger.warning("[GUI] Login rate limit exceeded for IP: %s", remote)
             return jsonify({"ok": False, "error": t("gui_err_too_many_attempts")}), 429
 
-        d = request.json or {}
-        username = d.get('username', '')
-        password = d.get('password', '')
+        try:
+            form = LoginForm.model_validate(request.get_json(silent=True) or {})
+        except _ValidationError as e:
+            return jsonify({"ok": False, "error": "invalid_form", "detail": str(e)}), 400
+
+        username = form.username
+        password = form.password
 
         cm.load()
         gui_cfg = cm.config.get("web_gui", {})
@@ -461,7 +479,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
 
         if username == saved_username and verify_password(saved_hash, saved_salt, password):
-            session['logged_in'] = True
+            login_user(AdminUser(username))
             if 'csrf_token' not in session:
                 session['csrf_token'] = secrets.token_hex(32)
             # Upgrade legacy SHA256 hash to PBKDF2 on successful login
@@ -482,6 +500,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/logout')
     def logout():
+        logout_user()
         session.clear()
         return redirect('/login')
 
