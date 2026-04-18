@@ -427,30 +427,46 @@ class Analyzer:
             }
             unknown_events[event_type] = entry
 
+    def _run_health_check(self) -> bool:
+        """Run the PCE health check if any system/pce_health rules are configured.
+
+        Records stats and fires health alerts as needed. The analysis cycle
+        always continues regardless of PCE health status; health failure is
+        informational, not a gate.
+
+        Returns:
+            True always — no health-check rules configured (skipped) or check
+            completed (passed or failed). False is reserved for future use.
+        """
+        pce_health_rules = [r for r in self.cm.config["rules"] if r.get("type") == "system" and r.get("filter_value") == "pce_health"]
+
+        if not pce_health_rules:
+            return True
+
+        print(f"{t('checking_pce_health')}...", end=" ", flush=True)
+        h_status, h_msg = self.api.check_health()
+        if h_status != 200:
+            print(f"{Colors.FAIL}{t('status_error')}{Colors.ENDC}")
+            logger.warning(f"PCE health check failed: {h_status} - {h_msg[:200]}")
+            self.stats.record_pce_error("health", h_msg[:200], status=h_status)
+            for rule in pce_health_rules:
+                if self._check_cooldown(rule):
+                    self.reporter.add_health_alert({
+                        "time": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "rule": rule["name"],
+                        "status": str(h_status),
+                        "details": h_msg[:200]
+                    })
+        else:
+            print(f"{Colors.GREEN}{t('status_ok')}{Colors.ENDC}")
+            logger.info("PCE health check OK.")
+            self.stats.record_pce_success("health", status=h_status, message=h_msg[:120])
+        return True
+
     def run_analysis(self):
         logger.info("Starting analysis cycle.")
         # 1. Health Check (only runs when a system rule with filter_value=pce_health is configured)
-        pce_health_rules = [r for r in self.cm.config["rules"] if r.get("type") == "system" and r.get("filter_value") == "pce_health"]
-
-        if pce_health_rules:
-            print(f"{t('checking_pce_health')}...", end=" ", flush=True)
-            h_status, h_msg = self.api.check_health()
-            if h_status != 200:
-                print(f"{Colors.FAIL}{t('status_error')}{Colors.ENDC}")
-                logger.warning(f"PCE health check failed: {h_status} - {h_msg[:200]}")
-                self.stats.record_pce_error("health", h_msg[:200], status=h_status)
-                for rule in pce_health_rules:
-                    if self._check_cooldown(rule):
-                        self.reporter.add_health_alert({
-                            "time": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            "rule": rule["name"],
-                            "status": str(h_status),
-                            "details": h_msg[:200]
-                        })
-            else:
-                print(f"{Colors.GREEN}{t('status_ok')}{Colors.ENDC}")
-                logger.info("PCE health check OK.")
-                self.stats.record_pce_success("health", status=h_status, message=h_msg[:120])
+        self._run_health_check()
 
         # 2. Events pipeline
         event_triggers = self._run_event_analysis()
@@ -587,8 +603,8 @@ class Analyzer:
             now_utc: Reference datetime for sliding-window calculations.
 
         Returns:
-            List of trigger dicts, one per rule that accumulated any matches.
-            Each dict contains: rule, rule_results entry (max_val, top_matches).
+            List of (rule, result_dict) pairs for ALL rules, each paired with
+            its accumulated result containing max_val and top_matches.
         """
         rule_results = {r['id']: {'max_val': 0.0, 'top_matches': []} for r in tr_rules}
 
