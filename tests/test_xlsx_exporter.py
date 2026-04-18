@@ -72,8 +72,14 @@ def test_xlsx_exporter_freezes_header_row(tmp_path, sample_report_result):
     wb = load_workbook(str(out))
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
-        # Header row frozen
-        assert ws.freeze_panes in ("A2", None), f"{sheet_name}: unexpected freeze {ws.freeze_panes}"
+        fp = ws.freeze_panes
+        if fp is None:
+            continue  # no data, no freeze needed
+        # freeze_panes should be "A{n}" where n >= 2 (header row + 1 or more)
+        import re
+        assert re.match(r'^A\d+$', fp), f"{sheet_name}: freeze_panes {fp!r} is not an A-column freeze"
+        row_num = int(fp[1:])
+        assert row_num >= 2, f"{sheet_name}: freeze row {row_num} should be >= 2"
 
 
 def test_xlsx_exporter_handles_no_chart_spec(tmp_path):

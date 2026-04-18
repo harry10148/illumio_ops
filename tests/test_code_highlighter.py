@@ -6,8 +6,9 @@ def test_highlight_json_outputs_html_with_classes():
     from src.report.exporters.code_highlighter import highlight_json
     out = highlight_json('{"name": "test", "value": 42}')
     assert '<div class="highlight"' in out or '<pre' in out
-    # pygments JSON lexer emits specific token classes
-    assert "hll" in out or '"name"' in out
+    # pygments JSON lexer emits span tags with token classes; string keys
+    # may be HTML-escaped (&quot;name&quot;) but the span wrapper must be present
+    assert 'span' in out and ('name' in out or '&quot;name&quot;' in out)
 
 
 def test_highlight_yaml_outputs_html():
