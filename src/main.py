@@ -1,6 +1,5 @@
 import sys
 import os
-import signal
 import logging
 import argparse
 from src.utils import setup_logger, Colors, safe_input, draw_panel, get_terminal_width, Spinner
@@ -35,89 +34,53 @@ def _signal_handler(signum, _frame):
 
 
 def run_daemon_loop(interval_minutes: int):
-    """Headless monitoring loop. Runs analysis at fixed intervals until stopped.
-    Also ticks the report scheduler every 60 seconds to check due schedules."""
+    """Headless monitoring loop — APScheduler-backed.
+
+    Replaces the previous self-rolled while/wait(60) loop with a
+    BackgroundScheduler (3 jobs: monitor_cycle, tick_report_schedules,
+    tick_rule_schedules).  Resolves Status.md A3 (single-threaded blocking).
+    """
+    import signal as _signal
+
+    # C1: Register signal handlers so SIGINT/SIGTERM trigger graceful shutdown
+    # (previous self-rolled loop had these; must preserve for systemd/docker)
+    _signal.signal(_signal.SIGINT, _signal_handler)
+    try:
+        _signal.signal(_signal.SIGTERM, _signal_handler)
+    except (AttributeError, ValueError):
+        # SIGTERM not available on Windows for non-console handlers; skip silently
+        pass
+
     _shutdown_event.clear()
 
+    from src.scheduler import build_scheduler
+    from src.scheduler.jobs import run_monitor_cycle
+
     cm = ConfigManager()
-    logger.info(f"Starting daemon loop (interval={interval_minutes}m)")
     print(t("daemon_start", interval=interval_minutes))
     print(t("daemon_stop_hint"))
+    logger.info("Starting scheduler-backed daemon (interval=%dm)", interval_minutes)
 
-    from src.report_scheduler import ReportScheduler
-    from src.module_log import ModuleLog as _ML
-    _mlog = _ML.get("monitor")
+    sched = build_scheduler(cm, interval_minutes=interval_minutes)
 
-    last_analysis_time = None
-    last_rule_check_time = None
-    interval_seconds = interval_minutes * 60
+    try:
+        # C2: start() inside try so a startup failure doesn't trigger shutdown
+        # of a never-started scheduler (would raise SchedulerNotRunningError).
+        sched.start()
 
-    while not _shutdown_event.is_set():
-        try:
-            import datetime as _dt
-            now = _dt.datetime.now(_dt.timezone.utc)
+        # Fire the first monitor cycle immediately rather than waiting a full interval
+        run_monitor_cycle(cm)
 
-            # Run monitoring analysis at the configured interval
-            if last_analysis_time is None or (now - last_analysis_time).total_seconds() >= interval_seconds:
-                logger.info("=== Starting monitoring cycle ===")
-                _mlog.separator(f"Monitoring Cycle {now.strftime('%Y-%m-%d %H:%M:%S')}")
-                _mlog.info(f"Starting monitoring analysis (interval={interval_minutes}min)")
-                api = ApiClient(cm)
-                rep = Reporter(cm)
-                ana = Analyzer(cm, api, rep)
-                ana.run_analysis()
-                rep.send_alerts()
-                last_analysis_time = now
-                logger.info("=== Monitoring cycle completed ===")
-                _mlog.info("Monitoring analysis completed")
-
-            # Tick the report scheduler every loop iteration (60-second base)
-            rep = Reporter(cm)
-            scheduler = ReportScheduler(cm, rep)
-            scheduler.tick()
-
-            # Rule Scheduler check (at configured interval, always enabled)
-            rule_check_interval = cm.config.get("rule_scheduler", {}).get("check_interval_seconds", 300)
-            if last_rule_check_time is None or (now - last_rule_check_time).total_seconds() >= rule_check_interval:
-                last_rule_check_time = now
-                _rs_mlog = _ML.get("rule_scheduler")
-                try:
-                    from src.rule_scheduler import ScheduleDB, ScheduleEngine
-                    import os as _os
-                    _pkg_dir = _os.path.dirname(_os.path.abspath(__file__))
-                    _root_dir = _os.path.dirname(_pkg_dir)
-                    _db_path = _os.path.join(_root_dir, "config", "rule_schedules.json")
-                    rs_db = ScheduleDB(_db_path)
-                    rs_db.load()
-                    _tz_str = cm.config.get('settings', {}).get('timezone', 'local')
-                    logger.info("[RuleScheduler] Starting check (tz=%s, schedules=%d)", _tz_str, len(rs_db.get_all()))
-                    _rs_mlog.info(f"Starting rule scheduler check (tz={_tz_str}, schedules={len(rs_db.get_all())})")
-                    rs_api = ApiClient(cm)
-                    rs_engine = ScheduleEngine(rs_db, rs_api)
-                    _rs_logs = rs_engine.check(silent=True, tz_str=_tz_str)
-                    import re as _re
-                    for _msg in _rs_logs:
-                        _clean = _re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', _msg)
-                        logger.info("[RuleScheduler] %s", _clean)
-                        _rs_mlog.info(_clean)
-                    try:
-                        from src.gui import _append_rs_logs
-                        _append_rs_logs(_rs_logs)
-                    except Exception:
-                        pass
-                except Exception as _rs_err:
-                    logger.error("[RuleScheduler] Error during check: %s", _rs_err, exc_info=True)
-                    _rs_mlog.error(f"Error during check: {_rs_err}")
-
-        except Exception as e:
-            _mlog.error(f"Monitoring cycle error: {e}")
-            logger.error(f"Error in monitoring cycle: {e}", exc_info=True)
-
-        # Always sleep 60 seconds between ticks (scheduler needs minute-level resolution)
-        _shutdown_event.wait(timeout=60)
-
-    logger.info("Daemon loop stopped.")
-    print(f"\n{t('daemon_stopped')}")
+        # Block until shutdown signal (1-second poll keeps signal responsive)
+        while not _shutdown_event.is_set():
+            _shutdown_event.wait(timeout=1)
+    finally:
+        logger.info("Shutting down scheduler...")
+        # Guard against never-started scheduler raising SchedulerNotRunningError
+        if getattr(sched, "running", False):
+            sched.shutdown(wait=True)
+        logger.info("Scheduler stopped")
+        print(f"\n{t('daemon_stopped')}")
 
 
 def run_daemon_with_gui(interval_minutes: int, port: int):

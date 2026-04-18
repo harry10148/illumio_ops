@@ -5,6 +5,29 @@
 
 ---
 
+## Phase 6: APScheduler 統一 ✅ DONE (2026-04-18)
+
+- [x] **P6**: Replace self-rolled daemon loop with APScheduler BackgroundScheduler
+  - `src/scheduler/__init__.py`: `build_scheduler(cm, interval_minutes)` factory
+    - ThreadPoolExecutor(max_workers=5), coalesce=True, max_instances=1, misfire_grace_time=60s
+  - `src/scheduler/jobs.py`: 3 job callables
+    - `run_monitor_cycle(cm)` — IntervalTrigger(minutes=N): Analyzer + Reporter
+    - `tick_report_schedules(cm)` — IntervalTrigger(seconds=60): ReportScheduler.tick()
+    - `tick_rule_schedules(cm)` — IntervalTrigger(seconds=check_interval_seconds): ScheduleEngine.check()
+  - `src/main.py` `run_daemon_loop()`: start scheduler, fire first cycle immediately, block on
+    `_shutdown_event` with 1s poll, `scheduler.shutdown(wait=True)` in finally
+  - `src/api_client.py`: `_cache_lock = threading.RLock()` — wraps all 5 TTLCache mutations
+    (invalidate_query_lookup_cache, invalidate_labels, update_label_cache write+rollback phases)
+  - Backward compat: `run_daemon_loop(interval_minutes: int)` signature preserved
+  - JSON schedule file formats (`config/rule_schedules.json`, `config/report_schedules.json`) unchanged
+  - **Status.md A3 + T3 resolved** (single-threaded daemon blocking)
+  - **Phase 2 TTLCache NOTE resolved** (thread-safety)
+  - Test count: baseline 192 → 212 (+20 new, 0 regressions)
+  - i18n audit: 0 findings
+  - Branch: `upgrade/phase-6-scheduler-aps` → tag `v3.5.2-scheduler`
+
+---
+
 ## Phase 3: 設定驗證 ✅ DONE (2026-04-18)
 
 - [x] **P3**: pydantic v2 + pydantic-settings integration
