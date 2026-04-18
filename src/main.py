@@ -287,9 +287,20 @@ def main_menu():
         current_theme = (settings.get("theme", "dark") or "dark").capitalize()
         shortcuts_line = t("cli_shortcuts_compact")
 
+        import datetime as _dt
+        from src.humanize_ext import human_time_ago
+        _last_activity_label = t("gui_last_activity", default="Last activity")
+        _last_activity_val = t("gui_no_log_activity", default="(no log activity)")
+        if os.path.exists(LOG_FILE):
+            try:
+                _mtime = _dt.datetime.fromtimestamp(os.path.getmtime(LOG_FILE))
+                _last_activity_val = human_time_ago(_mtime)
+            except Exception:
+                _last_activity_val = t("gui_no_log_activity", default="(no log activity)")
+
         lines = [
             f"API: {cm.config['api']['url']} | Rules: {len(cm.config['rules'])}",
-            f"Language: {current_lang} | Theme: {current_theme}",
+            f"Language: {current_lang} | Theme: {current_theme} | {_last_activity_label}: {_last_activity_val}",
             f"{Colors.DARK_GRAY}{shortcuts_line}{Colors.ENDC}",
             "-",
             t("main_menu_root_1"),

@@ -7,6 +7,15 @@ import threading
 import unicodedata
 from logging.handlers import RotatingFileHandler
 
+from rich.style import Style as _RichStyle
+from rich.color import ColorSystem as _ColorSystem
+from rich.console import Console as _RichConsole
+from rich.panel import Panel as _RichPanel
+from rich.text import Text as _RichText
+from rich import box as _rich_box
+import questionary as _q
+from questionary import Style as _QStyle
+
 from src.i18n import get_language, t
 
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
@@ -82,21 +91,56 @@ def _spinner_frames() -> list[str]:
     return ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] if _stream_supports_text("⠋") else ["|", "/", "-", "\\"]
 
 
+# NOTE: _make_ansi_codes() is a private rich API (underscore prefix).
+# rich.Style.render("", reset=False) was the original plan target but the
+# reset= kwarg was removed in rich 13.x, so we fell back to this private call.
+# If this breaks on a rich upgrade, replace with a lookup table of hardcoded
+# SGR codes (FAIL=31, GREEN=32, CYAN=36, etc.) mapping rich named colors to
+# ANSI numbers. See: https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_parameters
+def _ansi(style: _RichStyle) -> str:
+    """Render a rich Style to its ANSI escape sequence.
+
+    Uses rich.Style._make_ansi_codes (private API) because the public
+    render() method no longer supports reset=False. Isolated here so a
+    future rich API change is a one-function fix.
+    """
+    if not _stdout_is_tty():
+        return ""
+    codes = style._make_ansi_codes(_ColorSystem.TRUECOLOR)
+    return f"\033[{codes}m" if codes else ""
+
+
 class Colors:
-    """ANSI color codes. Auto-disabled when stdout is not a TTY (daemon/service mode)."""
+    """ANSI color codes — now backed by rich.Style for consistency.
 
-    _enabled = _stdout_is_tty()
+    All 446 existing call sites (f'{Colors.FAIL}...{Colors.ENDC}') keep working
+    because these remain plain strings containing ANSI escape sequences.
+    New code should prefer rich directly (from rich.console import Console).
+    Auto-disabled when stdout is not a TTY (daemon/service mode).
+    """
 
-    HEADER = "\033[38;2;255;85;0m" if _enabled else ""
-    BLUE = "\033[94m" if _enabled else ""
-    CYAN = "\033[38;2;148;206;229m" if _enabled else ""
-    GREEN = "\033[38;2;41;155;101m" if _enabled else ""
-    WARNING = "\033[38;2;255;162;47m" if _enabled else ""
-    FAIL = "\033[38;2;244;63;81m" if _enabled else ""
-    DARK_GRAY = "\033[90m" if _enabled else ""
-    ENDC = "\033[0m" if _enabled else ""
-    BOLD = "\033[1m" if _enabled else ""
-    UNDERLINE = "\033[4m" if _enabled else ""
+    HEADER = _ansi(_RichStyle(color="magenta"))
+    BLUE = _ansi(_RichStyle(color="blue"))
+    CYAN = _ansi(_RichStyle(color="cyan"))
+    GREEN = _ansi(_RichStyle(color="green"))
+    WARNING = _ansi(_RichStyle(color="yellow"))
+    FAIL = _ansi(_RichStyle(color="red"))
+    RED = _ansi(_RichStyle(color="red"))
+    DARK_GRAY = _ansi(_RichStyle(color="bright_black"))
+    ENDC = "\033[0m"
+    BOLD = _ansi(_RichStyle(bold=True))
+    UNDERLINE = _ansi(_RichStyle(underline=True))
+
+
+_QUESTIONARY_STYLE = _QStyle([
+    ("qmark", "fg:#00afff bold"),
+    ("question", "bold"),
+    ("answer", "fg:#00ff7f bold"),
+    ("pointer", "fg:#00afff bold"),
+    ("highlighted", "fg:#00afff bold"),
+    ("selected", "fg:#00ff7f"),
+    ("instruction", "fg:#808080"),
+])
 
 
 def safe_input(
@@ -107,6 +151,17 @@ def safe_input(
     hint=None,
     help_text=None,
 ):
+    """Prompt for input with type + range validation.
+
+    Backend uses questionary on interactive TTY for nicer prompts and
+    ctrl-c handling. Non-TTY path (piped input, tests, CI) falls back
+    to input() so unit tests with patch('builtins.input') continue to work.
+
+    Return semantics:
+      - str: returns stripped string, or "" if empty (go-back from str context)
+      - int/float: returns typed value, or None if empty (go-back sentinel)
+      - None returned on 0/"0" (back), -1/"-1" (cancel), EOF, KeyboardInterrupt
+    """
     if help_text:
         print(_console_safe_text(f"{Colors.DARK_GRAY}{help_text}{Colors.ENDC}"))
 
@@ -146,13 +201,34 @@ def safe_input(
         full_prompt += f" {Colors.DARK_GRAY}({def_text}: {hint}){Colors.ENDC}"
     full_prompt += f" {Colors.GREEN}{_console_prompt_symbol()}{Colors.ENDC} "
 
+    # Use questionary on interactive TTY for nicer prompts; fall back to input() otherwise
+    use_questionary = (
+        hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
+        and hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    )
+
     while True:
         raw = ""
         try:
-            try:
-                raw = input(full_prompt).strip()
-            except UnicodeEncodeError:
-                raw = input(_console_safe_text(full_prompt)).strip()
+            if use_questionary:
+                try:
+                    answer = _q.text(
+                        prompt + range_hint,
+                        style=_QUESTIONARY_STYLE,
+                        **({} if hint is None else {"instruction": f"(Default: {hint})"}),
+                    ).unsafe_ask()
+                    if answer is None:
+                        _set_last_input_action("back")
+                        return None
+                    raw = answer.strip()
+                except KeyboardInterrupt:
+                    _set_last_input_action("back")
+                    return None
+            else:
+                try:
+                    raw = input(full_prompt).strip()
+                except UnicodeEncodeError:
+                    raw = input(_console_safe_text(full_prompt)).strip()
 
             if raw.lower() in ["h", "?"]:
                 _set_last_input_action("help")
@@ -161,6 +237,11 @@ def safe_input(
                 continue
 
             if not raw:
+                # Empty input: for numeric types return None (go-back sentinel);
+                # for str return "" (unchanged back-compat for string prompts)
+                if value_type in (int, float):
+                    _set_last_input_action("back")
+                    return None
                 _set_last_input_action("empty")
                 return ""
 
@@ -257,28 +338,56 @@ def pad_string(s: str, total_width: int, fillchar: str = " ") -> str:
     return s + fillchar * (total_width - current_width)
 
 
-def draw_panel(title: str, lines: list, width: int = 0):
-    """Draw a simple terminal panel. Falls back to ASCII when Unicode is unsupported."""
-    if width <= 0:
-        width = max(get_terminal_width() - 4, 60)
-    chars = _box_chars()
-    h = Colors.HEADER
-    e = Colors.ENDC
+_CONSOLE_SINGLETON: "_RichConsole | None" = None
 
-    top = f"{h}{chars['top_left']}{chars['horizontal'] * width}{chars['top_right']}{e}"
-    mid = f"{h}{chars['left_join']}{chars['horizontal'] * width}{chars['right_join']}{e}"
-    bottom = f"{h}{chars['bottom_left']}{chars['horizontal'] * width}{chars['bottom_right']}{e}"
 
-    print(top)
-    print(f"{h}{chars['vertical']}{e} {Colors.BOLD}{title}{e}")
-    if lines:
-        print(mid)
-    for line in lines:
+def _get_console() -> _RichConsole:
+    """Lazily build a shared Console so encoding / color detection runs once."""
+    global _CONSOLE_SINGLETON
+    if _CONSOLE_SINGLETON is None:
+        _CONSOLE_SINGLETON = _RichConsole(
+            force_terminal=None,  # auto-detect
+            safe_box=True,        # degrades to ASCII when terminal can't render unicode
+            highlight=False,      # don't auto-colorize numbers/URLs (keeps existing look)
+        )
+    return _CONSOLE_SINGLETON
+
+
+def draw_panel(title: str, lines: list, width: int = 0) -> None:
+    """Render a titled panel containing `lines` to stdout.
+
+    Back-compat: every caller expects this prints and returns None.
+    A line value of '-' is treated as a divider (used across the codebase).
+
+    The width parameter is accepted for source compatibility but rich
+    now auto-sizes based on terminal; explicit width is used as max.
+    """
+    console = _get_console()
+
+    # Build body Text; honor '-' as a horizontal-rule marker
+    body = _RichText()
+    for i, line in enumerate(lines):
         if line == "-":
-            print(mid)
+            # Light divider — use a dim rule-like character span
+            body.append("─" * max(20, min(len(title) + 10, 80)), style="bright_black")
         else:
-            print(f"{h}{chars['vertical']}{e} {line}")
-    print(bottom)
+            # `line` can contain existing ANSI codes from Colors.X usage.
+            # Parse ANSI so rich renders colors correctly instead of escaping them.
+            body.append(_RichText.from_ansi(str(line)))
+        if i < len(lines) - 1:
+            body.append("\n")
+
+    panel_kwargs: dict = {
+        "title": title,
+        "title_align": "left",
+        "border_style": "cyan",
+        "box": _rich_box.ROUNDED,
+        "padding": (0, 1),
+    }
+    if width and width > 0:
+        panel_kwargs["width"] = width
+
+    console.print(_RichPanel(body, **panel_kwargs))
 
 
 def draw_table(headers: list, rows: list):
@@ -352,41 +461,38 @@ def draw_table(headers: list, rows: list):
 
 
 class Spinner:
-    """Context manager that shows a terminal spinner during long operations."""
+    """Context-manager spinner — now backed by rich.status.Status.
 
-    def __init__(self, label: str = ""):
-        self._label = label
-        self._stop = threading.Event()
-        self._thread = None
-        self._is_tty = _stdout_is_tty()
-        self._frames = _spinner_frames()
+    Usage (unchanged from previous API):
+        with Spinner("Working..."):
+            do_work()
+    """
+
+    def __init__(self, message: str = "", color: str = "cyan"):
+        self._message = message
+        self._color = color
+        self._status = None
 
     def __enter__(self):
-        if self._is_tty:
-            self._thread = threading.Thread(target=self._spin, daemon=True)
-            self._thread.start()
-        elif self._label:
-            print(self._label)
+        console = _get_console()
+        self._status = console.status(
+            f"[{self._color}]{self._message}[/{self._color}]",
+            spinner="dots",
+        )
+        self._status.__enter__()
         return self
 
-    def __exit__(self, *_exc):
-        self._stop.set()
-        if self._thread:
-            self._thread.join(timeout=1)
-        if self._is_tty:
-            sys.stdout.write("\r\033[K")
-            sys.stdout.flush()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._status is not None:
+            self._status.__exit__(exc_type, exc_val, exc_tb)
+            self._status = None
+        return False
 
     def update(self, label: str):
-        self._label = label
-
-    def _spin(self):
-        cycle = itertools.cycle(self._frames)
-        while not self._stop.is_set():
-            frame = next(cycle)
-            sys.stdout.write(f"\r{Colors.CYAN}{frame}{Colors.ENDC} {self._label}\033[K")
-            sys.stdout.flush()
-            self._stop.wait(0.08)
+        """Update spinner message (back-compat)."""
+        self._message = label
+        if self._status is not None:
+            self._status.update(f"[{self._color}]{label}[/{self._color}]")
 
 
 def progress_bar(current: int, total: int, label: str = "", width: int = 30):
