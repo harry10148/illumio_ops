@@ -1,4 +1,5 @@
 import json
+import orjson
 import os
 import re
 import time
@@ -237,7 +238,7 @@ class ApiClient:
             raise EventFetchError(status, err_msg[:1000])
 
         try:
-            data = json.loads(body)
+            data = orjson.loads(body)
         except Exception as exc:
             raise EventFetchError(status, f"Invalid events JSON: {exc}") from exc
 
@@ -869,7 +870,7 @@ class ApiClient:
             print(t("api_error_status", status=status, text=text))
             return
 
-        result = json.loads(body)
+        result = orjson.loads(body)
         if result.get("status") in ("queued", "pending") and not result.get("href"):
             logger.error(f"Async query accepted but no href returned: {result}")
             return
@@ -883,7 +884,7 @@ class ApiClient:
             if poll_status != 200:
                 continue
 
-            state = json.loads(poll_body).get("status")
+            state = orjson.loads(poll_body).get("status")
             if state == "completed":
                 print(f" {t('done')}")
                 logger.info("Traffic query completed.")
@@ -913,7 +914,7 @@ class ApiClient:
                     if poll_status != 200:
                         time.sleep(2)
                         continue
-                    poll_result = json.loads(poll_body)
+                    poll_result = orjson.loads(poll_body)
                     state = poll_result.get("status")
                     rules_state = poll_result.get("rules")
                     logger.info(f"update_rules poll [{attempt}]: status={state}, rules={rules_state}")
@@ -948,7 +949,7 @@ class ApiClient:
                             continue
                         if line.endswith(b','):
                             line = line[:-1]
-                        data = json.loads(line)
+                        data = orjson.loads(line)
                         if isinstance(data, list):
                             for item in data:
                                 yield item
@@ -963,7 +964,7 @@ class ApiClient:
                 if not line.strip():
                     continue
                 try:
-                    data = json.loads(line)
+                    data = orjson.loads(line)
                     if isinstance(data, list):
                         for item in data:
                             yield item
@@ -1403,7 +1404,7 @@ class ApiClient:
             if status != 200:
                 logger.error(f"Get Labels Failed: {status}")
                 return []
-            return json.loads(body)
+            return orjson.loads(body)
         except Exception as e:
             logger.error(f"Fetch Labels Error: {e}")
             return []
@@ -1414,7 +1415,7 @@ class ApiClient:
             payload = {"key": key, "value": value}
             status, body = self._request(url, method="POST", data=payload, timeout=10)
             if status == 201:
-                return json.loads(body)
+                return orjson.loads(body)
             logger.error(f"Create Label Failed: {status} - {body.decode(errors='replace')}")
             return {}
         except Exception as e:
@@ -1445,7 +1446,7 @@ class ApiClient:
             url = f"{self.api_cfg['url']}/api/v2{href}"
             status, body = self._request(url, timeout=10)
             if status == 200:
-                return json.loads(body)
+                return orjson.loads(body)
             logger.error(f"Get Workload Failed: {status} for {href}")
             return {}
         except Exception as e:
@@ -1473,7 +1474,7 @@ class ApiClient:
             url = f"{self.base_url}/workloads?{params}"
             status, body = self._request(url, timeout=30)
             if status == 200:
-                return json.loads(body)
+                return orjson.loads(body)
             err_msg = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
             logger.error(f"Fetch Managed Workloads Failed: {status} - {err_msg}")
             return []
@@ -1488,7 +1489,7 @@ class ApiClient:
             url = f"{self.base_url}/workloads?{query_str}"
             status, body = self._request(url, timeout=15)
             if status == 200:
-                return json.loads(body)
+                return orjson.loads(body)
             logger.error(f"Search Workloads Failed: {status}")
             return []
         except Exception as e:
@@ -1505,7 +1506,7 @@ class ApiClient:
         try:
             status, body = self._request(url, timeout=timeout)
             if status == 200:
-                return status, json.loads(body)
+                return status, orjson.loads(body)
             if status == 204:
                 return status, {}
             return status, None
@@ -1529,7 +1530,7 @@ class ApiClient:
         try:
             status, body = self._request(url, method="POST", data=payload, timeout=timeout)
             if status in (200, 201):
-                return status, json.loads(body) if body else {}
+                return status, orjson.loads(body) if body else {}
             return status, None
         except Exception as e:
             logger.error(f"API POST {endpoint}: {e}")
@@ -1695,7 +1696,7 @@ class ApiClient:
             text = body.decode('utf-8', errors='replace') if isinstance(body, bytes) else str(body)
             logger.debug(f"submit_async_query failed: {status} {text[:200]}")
             return None
-        result = json.loads(body)
+        result = orjson.loads(body)
         job_href = result.get("href")
         self._save_async_job_state(
             job_href,
@@ -1718,7 +1719,7 @@ class ApiClient:
             poll_status, poll_body = self._request(poll_url, timeout=15)
             if poll_status != 200:
                 continue
-            poll_result = json.loads(poll_body)
+            poll_result = orjson.loads(poll_body)
             state = poll_result.get("status")
             self._save_async_job_state(
                 job_href,
@@ -1746,7 +1747,7 @@ class ApiClient:
                     if poll_status != 200:
                         time.sleep(2)
                         continue
-                    poll_result = json.loads(poll_body)
+                    poll_result = orjson.loads(poll_body)
                     state = poll_result.get("status")
                     rules_state = poll_result.get("rules")
                     self._save_async_job_state(
@@ -1792,7 +1793,7 @@ class ApiClient:
                 elif isinstance(line, str) and line.endswith(','):
                     line = line[:-1]
                 try:
-                    data = json.loads(line)
+                    data = orjson.loads(line)
                     if isinstance(data, list):
                         for item in data:
                             yield item
@@ -2305,7 +2306,7 @@ class ApiClient:
             if status != 200:
                 return job_href, "pending"
             try:
-                poll_result = json.loads(body)
+                poll_result = orjson.loads(body)
                 state = poll_result.get("status", "pending")
                 self._save_async_job_state(
                     job_href,
