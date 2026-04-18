@@ -1,11 +1,33 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-18  
-**Version:** v3.4.1-cli + v3.4.2-http + v3.4.3-settings (Wave A complete)  
-**Branch:** main  
-**Phase:** 3 of 9 — Wave A (CLI + HTTP + Settings) complete (see [docs/superpowers/plans/2026-04-18-upgrade-roadmap.md](docs/superpowers/plans/2026-04-18-upgrade-roadmap.md))
+**Version:** v3.5.2-scheduler (Phase 6 complete)  
+**Branch:** upgrade/phase-6-scheduler-aps  
+**Phase:** 6 of 9 — APScheduler daemon unification complete  
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
+
+---
+
+## Phase 6 Complete (2026-04-18)
+
+Phase 6 — APScheduler daemon unification — on `upgrade/phase-6-scheduler-aps`.
+
+| Task | Status |
+|---|---|
+| `src/scheduler/__init__.py` — `build_scheduler()` factory | ✅ |
+| `src/scheduler/jobs.py` — 3 job callables (monitor, report, rule) | ✅ |
+| `run_daemon_loop` migrated to BackgroundScheduler | ✅ |
+| ApiClient `_cache_lock` (RLock) wrapping all 5 TTLCache mutation sites | ✅ |
+| `tests/test_daemon_contract.py` — signature lock (2 tests) | ✅ |
+| `tests/test_scheduler_setup.py` — factory + job config (8 tests) | ✅ |
+| `tests/test_scheduler_integration.py` — lifecycle + dispatch + shutdown (6 tests) | ✅ |
+| `tests/test_api_client_thread_safety.py` — concurrent cache safety (4 tests) | ✅ |
+| Test count: baseline 192 → 212 (+20 new, 0 regressions) | ✅ |
+| i18n audit: 0 findings | ✅ |
+| A3 daemon blocking: resolved ✅ | ✅ |
+| Phase 2 TTLCache NOTE: resolved ✅ | ✅ |
+| Shutdown < 10s: verified ✅ | ✅ |
 
 ---
 
@@ -138,7 +160,7 @@ deploy/                     systemd (Ubuntu/RHEL) + NSSM (Windows) service confi
 |---|---|---|---|
 | A1 | **MEDIUM** | Tight coupling (Analyzer->ApiClient->Reporter->Events) | Core modules |
 | A2 | **MEDIUM** | Global mutable state in multiple modules | `utils.py:21`, `i18n.py:8`, `gui.py:184`, `module_log.py:28` |
-| A3 | **MEDIUM** | Daemon loop single-threaded (one slow op blocks all) | `main.py:37-119` |
+| A3 | ✅ **RESOLVED** | Daemon loop single-threaded — replaced with APScheduler BackgroundScheduler (Phase 6) | `src/scheduler/` |
 | A4 | **MEDIUM** | Inconsistent error handling (return empty vs raise vs pass) | Across codebase |
 | A5 | **LOW** | `events/shadow.py` appears to duplicate matcher.py logic | `events/shadow.py` |
 
@@ -176,7 +198,7 @@ deploy/                     systemd (Ubuntu/RHEL) + NSSM (Windows) service confi
 |---|---|---|
 | T1 | `_rs_log_history` list reads not synchronized | `gui.py:184-197` |
 | T2 | Module-level globals (`_current_lang`, `_registry`) not thread-safe | `i18n.py`, `module_log.py` |
-| T3 | Daemon loop blocking — no concurrent task execution | `main.py:55-119` |
+| T3 | ✅ **RESOLVED** | Daemon loop blocking — APScheduler ThreadPoolExecutor (Phase 6) | `src/scheduler/` |
 
 ### Documentation Status
 
@@ -203,7 +225,7 @@ deploy/                     systemd (Ubuntu/RHEL) + NSSM (Windows) service confi
 | pydantic, pydantic-settings | Phase 3 (Settings) | ✓ |
 | flask-wtf, flask-limiter, flask-talisman, flask-login, argon2-cffi | Phase 4 (Web security) | ✓ |
 | openpyxl, weasyprint, matplotlib, plotly, pygments | Phase 5 (Reports) | ✓ |
-| APScheduler | Phase 6 (Scheduler) | ✓ |
+| APScheduler | Phase 6 (Scheduler) | ✓ **used** |
 | loguru | Phase 7 (Logging) | ✓ |
 
 **Dev-only** (`requirements-dev.txt`, NOT bundled):
