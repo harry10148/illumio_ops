@@ -1,8 +1,9 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-18  
-**Version:** v3.2.0  
-**Branch:** main  
+**Version:** v3.4.0-deps  
+**Branch:** upgrade/phase-0-deps  
+**Phase:** 0 of 9 — Dependency baseline complete (see [docs/superpowers/plans/2026-04-18-upgrade-roadmap.md](docs/superpowers/plans/2026-04-18-upgrade-roadmap.md))
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
 
@@ -171,14 +172,27 @@ deploy/                     systemd (Ubuntu/RHEL) + NSSM (Windows) service confi
 | Security_Rules_Reference (EN/ZH) | Fair | Rule names listed; no threshold tuning docs |
 | API_Cookbook (EN/ZH) | Fair | Only 2 scenarios; needs expansion |
 
-### Dependency Status
+### Dependency Status (Phase 0 — 2026-04-18)
 
-| Package | Purpose | Pinned? |
+**Production** (pinned in `requirements.txt`, bundled into future RPM):
+
+| Package | Phase | Pinned? |
 |---|---|---|
-| flask | Web GUI (optional) | No |
-| pandas | Report generation (optional) | No |
-| pyyaml | YAML config (optional) | No |
-| docx (npm) | .docx generation (Node.js script) | ^9.6.1 |
+| flask | existing | ✓ >=3.0,<4.0 |
+| pandas | existing (**mandatory** — 41 files, 338 DataFrame ops) | ✓ >=2.0,<3.0 |
+| pyyaml | existing (**mandatory** — report_config.yaml) | ✓ >=6.0,<7.0 |
+| rich, questionary, click, humanize | Phase 1 (CLI UX) | ✓ |
+| requests, orjson, cachetools | Phase 2 (HTTP + cache) | ✓ |
+| pydantic, pydantic-settings | Phase 3 (Settings) | ✓ |
+| flask-wtf, flask-limiter, flask-talisman, flask-login, argon2-cffi | Phase 4 (Web security) | ✓ |
+| openpyxl, weasyprint, matplotlib, plotly, pygments | Phase 5 (Reports) | ✓ |
+| APScheduler | Phase 6 (Scheduler) | ✓ |
+| loguru | Phase 7 (Logging) | ✓ |
+
+**Dev-only** (`requirements-dev.txt`, NOT bundled):
+pytest, pytest-cov, responses, freezegun, ruff, mypy, build, pyinstaller
+
+**CI gate**: `tests/test_dependency_baseline.py` runs `scripts/verify_deps.py` + enforces pin discipline (3 tests, all passing).
 
 ---
 

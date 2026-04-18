@@ -1,7 +1,22 @@
 # Active Tasks — illumio_ops
 
-**As of:** 2026-04-13  
-**Source:** Code Review (full project analysis)
+**As of:** 2026-04-18  
+**Source:** Code Review (full project analysis) + Upgrade Roadmap
+
+---
+
+## Phase 0: Dependency Baseline ✅ DONE (2026-04-18)
+
+- [x] **P0**: Pin all roadmap packages
+  - `requirements.txt`: 24 production packages pinned (flask + pandas + pyyaml + 21 new across Phase 1-7)
+  - `requirements-dev.txt`: 8 dev-only packages (pytest/ruff/mypy/pyinstaller/responses/freezegun/pytest-cov/build)
+  - `scripts/verify_deps.py`: import-test smoke script (handles Windows GTK3 absence for weasyprint)
+  - `tests/test_dependency_baseline.py`: 3-test CI gate (verify script exists, all prod imports succeed, no unpinned lines)
+  - All **130 tests pass** + 1 pre-existing skip; clean venv install verified
+  - **Branch**: `upgrade/phase-0-deps`, to be merged + tagged `v3.4.0-deps`
+  - Roadmap: [docs/superpowers/plans/2026-04-18-upgrade-roadmap.md](docs/superpowers/plans/2026-04-18-upgrade-roadmap.md)
+  - Detailed plan: [docs/superpowers/plans/2026-04-18-phase-0-deps.md](docs/superpowers/plans/2026-04-18-phase-0-deps.md)
+  - **Next**: Wave A — Phase 1 (CLI), Phase 2 (HTTP), Phase 3 (Settings) can run in parallel
 
 ---
 
