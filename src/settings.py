@@ -1856,7 +1856,7 @@ def manage_report_schedules_menu(cm: ConfigManager):
                 with open(state_file, "r", encoding="utf-8") as f:
                     states = _json.load(f).get("report_schedule_states", {})
             except Exception:
-                pass
+                pass  # intentional fallback: state enrichment is best-effort; schedules still listed without last-run state
 
         draw_panel(t("sched_menu_title"), [])
 

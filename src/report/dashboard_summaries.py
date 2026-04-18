@@ -12,7 +12,7 @@ def _records_from_table(table, limit: int = 10) -> list[dict]:
         if hasattr(table, "head") and hasattr(table, "to_dict"):
             return table.head(limit).to_dict(orient="records")
     except Exception:
-        return []
+        return []  # intentional fallback: return empty list if table is not DataFrame-compatible
     return []
 
 def build_audit_dashboard_summary(result) -> dict:

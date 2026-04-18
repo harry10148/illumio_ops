@@ -61,7 +61,7 @@ def tick_rule_schedules(cm) -> None:
             from src.gui import _append_rs_logs
             _append_rs_logs(logs)
         except Exception:
-            pass
+            pass  # intentional fallback: GUI log append is optional; schedule tick must not fail if GUI is unavailable
     except Exception as exc:
         logger.error("Rule schedule tick failed: {}", exc, exc_info=True)
         mlog.error(f"Rule schedule tick failed: {exc}")

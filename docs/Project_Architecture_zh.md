@@ -82,17 +82,26 @@ illumio_ops/
 ├── src/
 │   ├── __init__.py            # 套件初始化，匯出 __version__
 │   ├── main.py                # CLI 參數解析、Daemon/GUI 執行序協調、互動選單
-│   ├── api_client.py          # Illumio REST API 客戶端（含重試與串流）
+│   ├── api_client.py          # ApiClient Facade（~765 LOC）：HTTP 核心 + 所有公開方法的委派包裝
+│   ├── api/                   # Phase 9 領域類別（由 ApiClient facade 組合）
+│   │   ├── __init__.py
+│   │   ├── labels.py          # LabelResolver：標籤/IP 列表/服務 TTL 快取管理
+│   │   ├── async_jobs.py      # AsyncJobManager：非同步查詢工作生命週期 + 狀態持久化
+│   │   └── traffic_query.py   # TrafficQueryBuilder：流量查詢負載建構 + 串流
 │   ├── analyzer.py            # 規則引擎：流量比對、指標計算、狀態管理
 │   ├── reporter.py            # 告警聚合與多通道發送
 │   ├── config.py              # 設定載入/儲存、規則 CRUD、原子寫入、PBKDF2 密碼雜湊
+│   ├── exceptions.py          # 型別化例外階層：IllumioOpsError → APIError/ConfigError 等
+│   ├── interfaces.py          # typing.Protocol 定義：IApiClient、IReporter、IEventStore
+│   ├── href_utils.py          # 標準 extract_id(href) 輔助函式
+│   ├── loguru_config.py       # 集中式 loguru 設定：輪轉檔案 + TTY 彩色控制台 + 可選 JSON SIEM sink
 │   ├── gui.py                 # Flask Web 應用程式（約 40 個 JSON API 端點）、登入速率限制、CSRF Synchronizer Token
 │   ├── settings.py            # CLI 互動選單（規則/告警設定）
 │   ├── report_scheduler.py    # 排程報表產生與 Email 寄送
 │   ├── rule_scheduler.py      # 政策規則自動化（循環/一次性排程、部署）
 │   ├── rule_scheduler_cli.py  # 規則排程器的 CLI 與 Web GUI 介面
-│   ├── i18n.py                # 國際化字典（EN/ZH_TW）與語言切換
-│   ├── utils.py               # 工具函式：日誌設定、ANSI 色碼、單位格式化、CJK 寬度
+│   ├── i18n.py                # 國際化字典（EN/ZH_TW）與語言切換；_I18nState 執行緒安全單例
+│   ├── utils.py               # 工具函式：日誌設定、ANSI 色碼、單位格式化、CJK 寬度；_InputState 執行緒安全單例
 │   ├── templates/             # Jinja2 HTML 模板（Web GUI SPA）
 │   ├── static/                # CSS/JS 前端資源
 │   └── report/                # 進階報表產生引擎

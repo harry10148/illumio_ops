@@ -1,11 +1,27 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-19  
-**Version:** Wave A + Wave B + Phase 7 complete (v3.5.0-websec + v3.5.1-reports + v3.5.2-scheduler + v3.6.0-loguru)  
+**Version:** v3.7.0-refactor (Phase 9 Architecture Refactor complete)  
 **Branch:** main  
-**Phase:** 4/5/6/7 of 9 complete (Phase 9 Architecture Refactor remains)  
+**Phase:** All 9 phases complete  
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
+
+---
+
+## Phase 9 Complete (v3.7.0-refactor)
+
+Architecture debt A1/A2/A3/A4/A5 + Q1/Q2/Q3 fully resolved:
+
+- **A5 resolved**: `src/events/shadow.py` evaluated — retained (active GUI endpoint) with full test coverage (17 tests in `test_event_shadow.py`) and clear documentation.
+- **Q3 resolved**: Canonical `extract_id()` in `src/href_utils.py`; duplicate copies removed from `analyzer.py` and `rule_scheduler.py`.
+- **A4 resolved**: `src/exceptions.py` typed exception hierarchy (IllumioOpsError → APIError/ConfigError/ReportError/AlertError/SchedulerError/EventError); silent fallback sites in `api_client.py`, `analyzer.py`, `gui.py` audited and documented.
+- **Q1 resolved**: `Analyzer.run_analysis()` decomposed from 196 lines to ~20-line orchestrator calling `_fetch_traffic()`, `_run_event_analysis()`, `_run_rule_engine()`, `_run_health_check()`, `_dispatch_alerts()`.
+- **A3 resolved**: Thread-safety residuals fixed — `_InputState` singleton (`utils.py`), `_I18nState` singleton (`i18n.py`), `deque(maxlen=200)` ring buffer for GUI log history, `_registry` lock in `module_log.py`.
+- **A2 + Q2 resolved**: `api_client.py` split from 2569 LOC god-class → 765 LOC facade + 3 domain classes in `src/api/`: `LabelResolver` (labels.py), `AsyncJobManager` (async_jobs.py), `TrafficQueryBuilder` (traffic_query.py). All 50+ public methods preserved via delegation wrappers.
+- **A1 resolved**: `src/interfaces.py` with `IApiClient`, `IReporter`, `IEventStore` typing.Protocol definitions; `Analyzer.__init__` type-annotated; mock-free Protocol tests in `test_analyzer_with_mock_api.py`.
+
+New test files: `test_event_shadow.py` (17), `test_analyzer_decomposition.py` (27), `test_analyzer_with_mock_api.py` (4). Total: +48 new tests.
 
 ---
 
@@ -160,25 +176,25 @@ deploy/                     systemd (Ubuntu/RHEL) + NSSM (Windows) service confi
 | S4 | ✅ **RESOLVED** | flask-wtf CSRFProtect; token via X-CSRF-Token header | Phase 4 |
 | S5 | ✅ **RESOLVED** | flask-limiter 5/minute on /api/login | Phase 4 |
 | S6 | **MEDIUM** | SSL verification disableable via config | `api_client.py:140-144` |
-| S7 | **LOW** | Silent exception swallowing in critical paths | `api_client.py`, `analyzer.py`, `gui.py` |
+| S7 | ✅ **RESOLVED** | Silent fallback sites audited; `src/exceptions.py` typed hierarchy; intentional fallbacks documented (Phase 9) | `src/exceptions.py` |
 
 ### Architecture Issues
 
 | ID | Severity | Issue | Location |
 |---|---|---|---|
-| A1 | **MEDIUM** | Tight coupling (Analyzer->ApiClient->Reporter->Events) | Core modules |
-| A2 | **MEDIUM** | Global mutable state in multiple modules | `utils.py:21`, `i18n.py:8`, `gui.py:184`, `module_log.py:28` |
-| A3 | ✅ **RESOLVED** | Daemon loop single-threaded — replaced with APScheduler BackgroundScheduler (Phase 6) | `src/scheduler/` |
-| A4 | **MEDIUM** | Inconsistent error handling (return empty vs raise vs pass) | Across codebase |
-| A5 | **LOW** | `events/shadow.py` appears to duplicate matcher.py logic | `events/shadow.py` |
+| A1 | ✅ **RESOLVED** | Protocol interfaces `IApiClient`/`IReporter`/`IEventStore` in `src/interfaces.py`; `Analyzer.__init__` type-annotated (Phase 9) | `src/interfaces.py` |
+| A2 | ✅ **RESOLVED** | `api_client.py` split: 765 LOC facade + `src/api/` (LabelResolver, AsyncJobManager, TrafficQueryBuilder) (Phase 9) | `src/api/` |
+| A3 | ✅ **RESOLVED** | Daemon loop → APScheduler (Phase 6); thread-safety residuals fixed via singletons + deque (Phase 9) | `src/utils.py`, `src/i18n.py`, `src/gui.py`, `src/module_log.py` |
+| A4 | ✅ **RESOLVED** | `src/exceptions.py` typed hierarchy; silent fallback sites audited + documented (Phase 9) | `src/exceptions.py` |
+| A5 | ✅ **RESOLVED** | `events/shadow.py` evaluated, retained as active GUI endpoint with full test coverage (Phase 9) | `src/events/shadow.py` |
 
 ### Code Quality Issues
 
 | ID | Severity | Issue | Location |
 |---|---|---|---|
-| Q1 | **MEDIUM** | `run_analysis()` is 196 lines — needs decomposition | `analyzer.py:436-632` |
-| Q2 | **MEDIUM** | `api_client.py` is 2542 LOC with 50+ methods — god class | `api_client.py` |
-| Q3 | **LOW** | Duplicate `extract_id()` in analyzer and rule_scheduler | `analyzer.py`, `rule_scheduler.py` |
+| Q1 | ✅ **RESOLVED** | `run_analysis()` decomposed to ~20-line orchestrator + 5 private methods (Phase 9) | `analyzer.py` |
+| Q2 | ✅ **RESOLVED** | `api_client.py` split 2569→765 LOC facade; 3 domain classes in `src/api/` (Phase 9) | `src/api/` |
+| Q3 | ✅ **RESOLVED** | Canonical `extract_id()` in `src/href_utils.py`; duplicate copies removed (Phase 9) | `src/href_utils.py` |
 | Q4 | **LOW** | Inconsistent naming (tz_str vs timezone_str vs _tz_str) | Across codebase |
 | Q5 | ✅ **FIXED** | Label cache now uses TTLCache(ttl=900) — stale data resolved | `api_client.py` — Phase 2 |
 

@@ -71,6 +71,6 @@ def update_state_file(state_file: str, updater) -> dict:
             try:
                 os.unlink(tmp_path)
             except OSError:
-                pass
+                pass  # intentional fallback: tmp file cleanup is best-effort; original exception is re-raised
             raise
         return updated

@@ -67,7 +67,7 @@ class PolicyUsageGenerator:
             start_dt = datetime.datetime.fromisoformat(start_date.rstrip("Z"))
             lookback_days = max(1, (end_dt - start_dt).days)
         except Exception:
-            lookback_days = 30
+            lookback_days = 30  # intentional fallback: use default if date range cannot be parsed
 
         # Step 1 — load label/service cache for actor resolution
         print(t("rpt_pu_fetching_rulesets"))
@@ -428,7 +428,7 @@ class PolicyUsageGenerator:
                         continue
                 return parsed
         except Exception:
-            pass
+            pass  # intentional fallback: JSON parse failed, fall through to regex-based parsing
 
         parsed = {}
         for match in re.finditer(r"([^;]+?)\s+\((\d+)\)", text):
@@ -478,7 +478,7 @@ class PolicyUsageGenerator:
                 for r in flat_rules
             ])
         except Exception:
-            df = None
+            df = None  # intentional fallback: DataFrame construction may fail on edge-case data; result still returned without df
 
         return PolicyUsageResult(
             record_count=len(flat_rules),

@@ -46,7 +46,7 @@ class Reporter:
             tz_label = f"UTC{sign}{hh}:{mm}" if mm != '00' else f"UTC{sign}{hh}"
             return now.strftime('%Y-%m-%d %H:%M') + f' ({tz_label})'
         except Exception:
-            return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+            return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')  # intentional fallback: return UTC time if timezone offset calculation fails
 
     def add_health_alert(self, alert):
         self.health_alerts.append(alert)

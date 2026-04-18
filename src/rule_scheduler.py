@@ -9,6 +9,7 @@ import datetime
 from loguru import logger
 from src.utils import Colors
 from src.i18n import t
+from src.href_utils import extract_id  # canonical — also re-exported for rule_scheduler_cli.py
 
 def _now_in_tz(tz_str: str) -> datetime.datetime:
     """Return current naive datetime in the configured schedule timezone."""
@@ -37,10 +38,6 @@ def truncate(text, width):
         return text[:width - 3] + "..."
     return text.ljust(width)
 
-def extract_id(href):
-    """Extract the last segment from an Illumio HREF path."""
-    return href.split('/')[-1] if href else ""
-
 # ==========================================
 # Schedule Database
 # ==========================================
@@ -57,7 +54,7 @@ class ScheduleDB:
                 with open(self.db_path, 'r', encoding='utf-8') as f:
                     self.db = json.load(f)
             except Exception:
-                self.db = {}
+                self.db = {}  # intentional fallback: use empty state if DB file is corrupt or unreadable
         else:
             self.db = {}
         return self.db
@@ -70,7 +67,7 @@ class ScheduleDB:
                 json.dump(self.db, f, indent=4, ensure_ascii=False)
             os.replace(tmp_path, self.db_path)
         except Exception:
-            # Fallback: direct write
+            # intentional fallback: atomic rename failed (e.g. cross-device), fall back to direct write
             with open(self.db_path, 'w', encoding='utf-8') as f:
                 json.dump(self.db, f, indent=4, ensure_ascii=False)
 

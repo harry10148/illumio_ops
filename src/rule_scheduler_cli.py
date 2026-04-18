@@ -607,7 +607,7 @@ class _RuleSchedulerCLI:
             try:
                 self.api.update_rule_note(href, "", remove=True)
             except Exception:
-                pass
+                pass  # intentional fallback: rule note removal is best-effort; local DB delete proceeds regardless
             self.db.delete(href)
             print(f"  {Colors.GREEN}[OK] ID {k} {t('rs_delete_done')}{Colors.ENDC}")
 

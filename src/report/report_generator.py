@@ -395,7 +395,7 @@ class ReportGenerator:
             tz = _parse_tz(tz_str)
             results['mod12']['generated_at'] = _fmt_tz_now(tz)
         except Exception:
-            pass  # keep mod12's default if parsing fails
+            pass  # intentional fallback: keep mod12's default generated_at if timezone parsing fails
 
         # Date range
         first = df['first_detected'].min() if 'first_detected' in df.columns else pd.NaT

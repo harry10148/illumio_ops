@@ -155,7 +155,7 @@ class RulesEngine:
                 d = str(row.get('dst_ip', '')).split('.')
                 return len(s) == 4 and len(d) == 4 and s[:3] == d[:3]
             except Exception:
-                return False
+                return False  # intentional fallback: any error in subnet check means "not same /24"
 
         matched['_same_subnet'] = matched.apply(_same_24, axis=1)
 
