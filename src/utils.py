@@ -9,6 +9,10 @@ from logging.handlers import RotatingFileHandler
 
 from rich.style import Style as _RichStyle
 from rich.color import ColorSystem as _ColorSystem
+from rich.console import Console as _RichConsole
+from rich.panel import Panel as _RichPanel
+from rich.text import Text as _RichText
+from rich import box as _rich_box
 
 from src.i18n import get_language, t
 
@@ -276,28 +280,56 @@ def pad_string(s: str, total_width: int, fillchar: str = " ") -> str:
     return s + fillchar * (total_width - current_width)
 
 
-def draw_panel(title: str, lines: list, width: int = 0):
-    """Draw a simple terminal panel. Falls back to ASCII when Unicode is unsupported."""
-    if width <= 0:
-        width = max(get_terminal_width() - 4, 60)
-    chars = _box_chars()
-    h = Colors.HEADER
-    e = Colors.ENDC
+_CONSOLE_SINGLETON: "_RichConsole | None" = None
 
-    top = f"{h}{chars['top_left']}{chars['horizontal'] * width}{chars['top_right']}{e}"
-    mid = f"{h}{chars['left_join']}{chars['horizontal'] * width}{chars['right_join']}{e}"
-    bottom = f"{h}{chars['bottom_left']}{chars['horizontal'] * width}{chars['bottom_right']}{e}"
 
-    print(top)
-    print(f"{h}{chars['vertical']}{e} {Colors.BOLD}{title}{e}")
-    if lines:
-        print(mid)
-    for line in lines:
+def _get_console() -> _RichConsole:
+    """Lazily build a shared Console so encoding / color detection runs once."""
+    global _CONSOLE_SINGLETON
+    if _CONSOLE_SINGLETON is None:
+        _CONSOLE_SINGLETON = _RichConsole(
+            force_terminal=None,  # auto-detect
+            safe_box=True,        # degrades to ASCII when terminal can't render unicode
+            highlight=False,      # don't auto-colorize numbers/URLs (keeps existing look)
+        )
+    return _CONSOLE_SINGLETON
+
+
+def draw_panel(title: str, lines: list, width: int = 0) -> None:
+    """Render a titled panel containing `lines` to stdout.
+
+    Back-compat: every caller expects this prints and returns None.
+    A line value of '-' is treated as a divider (used across the codebase).
+
+    The width parameter is accepted for source compatibility but rich
+    now auto-sizes based on terminal; explicit width is used as max.
+    """
+    console = _get_console()
+
+    # Build body Text; honor '-' as a horizontal-rule marker
+    body = _RichText()
+    for i, line in enumerate(lines):
         if line == "-":
-            print(mid)
+            # Light divider — use a dim rule-like character span
+            body.append("─" * max(20, min(len(title) + 10, 80)), style="bright_black")
         else:
-            print(f"{h}{chars['vertical']}{e} {line}")
-    print(bottom)
+            # `line` can contain existing ANSI codes from Colors.X usage.
+            # Parse ANSI so rich renders colors correctly instead of escaping them.
+            body.append(_RichText.from_ansi(str(line)))
+        if i < len(lines) - 1:
+            body.append("\n")
+
+    panel_kwargs: dict = {
+        "title": title,
+        "title_align": "left",
+        "border_style": "cyan",
+        "box": _rich_box.ROUNDED,
+        "padding": (0, 1),
+    }
+    if width and width > 0:
+        panel_kwargs["width"] = width
+
+    console.print(_RichPanel(body, **panel_kwargs))
 
 
 def draw_table(headers: list, rows: list):
