@@ -1,4 +1,22 @@
-"""Compare current event matching with legacy analyzer semantics."""
+# evaluated for removal 2026-04-19: retained — active GUI endpoint + unique legacy comparison logic
+"""Diagnostic comparison tool — NOT production matching logic.
+
+This module provides two things:
+
+1. ``matches_event_rule_legacy`` — a simplified event-matching algorithm
+   that mirrors the original Illumio analyzer semantics (exact comma-separated
+   type list, no regex, no negation, no pipe-separated alternatives, no nested
+   field matching).  It is intentionally kept simple so divergences from the
+   current ``matcher.py`` implementation are visible.
+
+2. ``compare_event_rules`` — runs both matching algorithms over the same set of
+   events and returns a per-rule diff report.  This is consumed by the GUI
+   endpoints ``/api/events/shadow_compare`` and ``/api/events/rule_test`` to let
+   operators discover rules whose behaviour changed when the matcher was upgraded.
+
+**Do not use ``matches_event_rule_legacy`` for production alert dispatch.**
+Production dispatch always uses ``matches_event_rule`` from ``matcher.py``.
+"""
 
 from __future__ import annotations
 
