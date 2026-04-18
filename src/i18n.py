@@ -1869,6 +1869,12 @@ _PHRASE_OVERRIDES = {
     "No report schedules.": "目前沒有報表排程。",
 }
 
+_ZH_EXPLICIT.update({
+    "gui_last_activity": "最後活動時間",
+    "gui_no_log_activity": "(無日誌活動)",
+})
+
+
 def _humanize_key_en(key: str) -> str:
     if key.startswith("event_label_"):
         key = key[len("event_label_"):]

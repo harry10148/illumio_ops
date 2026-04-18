@@ -1474,5 +1474,7 @@
   "wgs_tls_key_prompt": "Private key file path (blank = keep)",
   "wgs_tls_threshold_prompt": "Days before expiry to trigger renewal",
   "wgs_tls_renew_not_self": "Renew only applies to self-signed mode.",
-  "wgs_tls_renewed": "Certificate renewed. Restart the Web GUI to apply."
+  "wgs_tls_renewed": "Certificate renewed. Restart the Web GUI to apply.",
+  "gui_last_activity": "Last activity",
+  "gui_no_log_activity": "(no log activity)"
 }
