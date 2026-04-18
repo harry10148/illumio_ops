@@ -303,6 +303,16 @@ async function loadSettings() {
         <div class="form-group"><label data-i18n="gui_tls_key_file">Private Key File Path</label><input id="s-tls-key" value="${escapeHtml(_tlsStatus.key_file || '')}" placeholder="/path/to/key.pem"></div>
       </div>
     </div>
+    <div id="s-tls-auto-renew-row" style="display:${_tlsStatus.self_signed ? 'block' : 'none'};margin-top:6px;">
+      <div class="chk" style="margin-bottom:6px"><label><input type="checkbox" id="s-tls-auto-renew" ${_tlsStatus.auto_renew !== false ? 'checked' : ''}> <span data-i18n="gui_tls_auto_renew">Auto-renew on startup before expiry</span></label></div>
+      <div class="form-row" style="align-items:center;gap:8px;">
+        <div class="form-group" style="flex:0 0 auto;max-width:180px;">
+          <label data-i18n="gui_tls_auto_renew_days">Renew when days left ≤</label>
+          <input id="s-tls-auto-renew-days" type="number" min="1" max="365" value="${_tlsStatus.auto_renew_days ?? 30}">
+        </div>
+        <small style="color:var(--dim)" data-i18n="gui_tls_auto_renew_hint">Self-signed certs default to 5 years; auto-renew regenerates them when they get close to expiring.</small>
+      </div>
+    </div>
     <div id="s-tls-cert-info"></div>
   </div>
 </fieldset>
@@ -340,7 +350,11 @@ async function loadSettings() {
 function toggleTlsMode() {
   const selfSigned = $('s-tls-selfsigned');
   const custom = $('s-tls-custom');
-  if (custom) custom.style.display = (selfSigned && selfSigned.checked) ? 'none' : 'block';
+  const autoRenewRow = $('s-tls-auto-renew-row');
+  const isSelfSigned = !!(selfSigned && selfSigned.checked);
+  if (custom) custom.style.display = isSelfSigned ? 'none' : 'block';
+  // Auto-renew only applies to self-signed certs we control.
+  if (autoRenewRow) autoRenewRow.style.display = isSelfSigned ? 'block' : 'none';
 }
 
 function _renderTlsCertInfo() {
@@ -356,8 +370,14 @@ function _renderTlsCertInfo() {
   const expiredBadge = info.expired
     ? '<span style="color:var(--danger);font-weight:600;margin-left:8px;">EXPIRED</span>'
     : (info.expiring_soon ? '<span style="color:var(--warn, orange);font-weight:600;margin-left:8px;">EXPIRING SOON</span>' : '');
+  const days = _tlsStatus.days_remaining;
+  // Show days-remaining row when openssl was able to read expiry; omit
+  // otherwise so we don't show a misleading "0" for missing info.
+  const daysRow = (typeof days === 'number')
+    ? `<div><strong data-i18n="gui_tls_days_remaining">Days Remaining</strong>: ${days}</div>`
+    : '';
   const renewBtn = _tlsStatus.self_signed
-    ? `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="renewTlsCert()" data-i18n="gui_tls_renew">Renew Certificate</button>`
+    ? `<button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="renewTlsCert()" data-i18n="gui_tls_renew">Renew Now</button>`
     : '';
   el.innerHTML = `
     <div class="card" style="margin-top:10px;padding:14px 18px;">
@@ -366,6 +386,7 @@ function _renderTlsCertInfo() {
         <div><strong>Subject:</strong> ${escapeHtml(info.subject || '-')}</div>
         <div><strong data-i18n="gui_tls_valid_from">Valid From</strong>: ${escapeHtml(info.not_before || '-')}</div>
         <div><strong data-i18n="gui_tls_valid_until">Valid Until</strong>: ${escapeHtml(info.not_after || '-')}${expiredBadge}</div>
+        ${daysRow}
       </div>
       ${renewBtn}
     </div>`;
@@ -415,11 +436,17 @@ async function saveSettings() {
   // Save TLS settings
   const tlsEnabled = $('s-tls-enabled')?.checked || false;
   const tlsSelfSigned = $('s-tls-selfsigned')?.checked || false;
+  // auto_renew defaults to true; only treat an explicit uncheck as opt-out.
+  const autoRenewEl = $('s-tls-auto-renew');
+  const autoRenew = autoRenewEl ? autoRenewEl.checked : true;
+  const autoRenewDays = parseInt($('s-tls-auto-renew-days')?.value, 10) || 30;
   await post('/api/tls/config', {
     enabled: tlsEnabled,
     self_signed: tlsSelfSigned,
     cert_file: $('s-tls-cert')?.value?.trim() || '',
     key_file: $('s-tls-key')?.value?.trim() || '',
+    auto_renew: autoRenew,
+    auto_renew_days: autoRenewDays,
   });
 
   // Clear password fields after save

@@ -1275,14 +1275,21 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             "self_signed": bool(tls_cfg.get("self_signed")),
             "cert_file": tls_cfg.get("cert_file", ""),
             "key_file": tls_cfg.get("key_file", ""),
+            # Default auto_renew=True so new installs get protected out of
+            # the box; users who explicitly disabled it keep their choice.
+            "auto_renew": bool(tls_cfg.get("auto_renew", True)),
+            "auto_renew_days": int(tls_cfg.get("auto_renew_days", 30)),
+            "default_validity_days": _SELF_SIGNED_VALIDITY_DAYS,
         }
-        # Get cert info if self-signed
+        cert_path = None
         if tls_cfg.get("self_signed"):
-            cert_dir = os.path.join(_ROOT_DIR, "config", "tls")
-            cert_path = os.path.join(cert_dir, "self_signed.pem")
+            cert_path = os.path.join(_ROOT_DIR, "config", "tls", "self_signed.pem")
             result["cert_info"] = _get_cert_info(cert_path)
         elif tls_cfg.get("cert_file"):
-            result["cert_info"] = _get_cert_info(tls_cfg["cert_file"])
+            cert_path = tls_cfg["cert_file"]
+            result["cert_info"] = _get_cert_info(cert_path)
+        if cert_path:
+            result["days_remaining"] = _cert_days_remaining(cert_path)
         return jsonify(result)
 
     @app.route('/api/tls/config', methods=['POST'])
@@ -1295,6 +1302,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         tls["self_signed"] = bool(d.get("self_signed", False))
         tls["cert_file"] = str(d.get("cert_file", "")).strip()
         tls["key_file"] = str(d.get("key_file", "")).strip()
+        tls["auto_renew"] = bool(d.get("auto_renew", True))
+        # Clamp the threshold into a sensible range so the UI can't push a
+        # zero (auto-renew every restart) or a negative value.
+        try:
+            days = int(d.get("auto_renew_days", 30))
+        except (TypeError, ValueError):
+            days = 30
+        tls["auto_renew_days"] = max(1, min(days, 365))
         cm.save()
         return jsonify({"ok": True, "message": "TLS settings saved. Restart the server to apply."})
 
@@ -2758,12 +2773,20 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
 # ????????????????????????????????????????????????????????????????????????????????# Launch
 # ????????????????????????????????????????????????????????????????????????????????
-def _generate_self_signed_cert(cert_dir: str, force: bool = False) -> tuple[str, str]:
+# Default validity period for self-signed certs. 5 years keeps the cert
+# effectively "set and forget" for internal deployments while still giving
+# the auto-renew path meaningful runway before expiry.
+_SELF_SIGNED_VALIDITY_DAYS = 1825  # 5 years
+
+
+def _generate_self_signed_cert(cert_dir: str, force: bool = False,
+                               days: int = _SELF_SIGNED_VALIDITY_DAYS) -> tuple[str, str]:
     """Generate a self-signed TLS certificate for local HTTPS.
 
     Args:
         cert_dir: Directory to store cert and key files.
         force: If True, regenerate even if existing cert is still valid.
+        days: Validity period in days (default: 5 years).
 
     Returns:
         (cert_path, key_path) tuple.
@@ -2782,14 +2805,14 @@ def _generate_self_signed_cert(cert_dir: str, force: bool = False) -> tuple[str,
             [
                 "openssl", "req", "-x509", "-newkey", "rsa:2048",
                 "-keyout", key_path, "-out", cert_path,
-                "-days", "365", "-nodes",
+                "-days", str(days), "-nodes",
                 "-subj", "/CN=IllumioOps/O=IllumioPCEOps/C=TW",
             ],
             check=True,
             capture_output=True,
         )
         os.chmod(key_path, 0o600)
-        print(f"  Self-signed certificate generated: {cert_path}")
+        print(f"  Self-signed certificate generated ({days} days): {cert_path}")
         return cert_path, key_path
     except FileNotFoundError:
         raise RuntimeError(
@@ -2798,6 +2821,62 @@ def _generate_self_signed_cert(cert_dir: str, force: bool = False) -> tuple[str,
         )
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Failed to generate self-signed certificate: {e.stderr.decode()}")
+
+
+def _cert_days_remaining(cert_path: str) -> int | None:
+    """Return the number of days until the cert expires, or None if unknown.
+
+    Negative values mean the cert is already expired. Works via openssl's
+    enddate field so no Python cryptography dependency is required.
+    """
+    import subprocess
+    from datetime import datetime, timezone
+
+    if not os.path.exists(cert_path):
+        return None
+    try:
+        result = subprocess.run(
+            ["openssl", "x509", "-in", cert_path, "-noout", "-enddate"],
+            capture_output=True, text=True, check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    line = result.stdout.strip()
+    if not line.startswith("notAfter="):
+        return None
+    # "notAfter=Sep  3 12:34:56 2030 GMT"
+    raw = line[len("notAfter="):].strip()
+    try:
+        expiry = datetime.strptime(raw, "%b %d %H:%M:%S %Y %Z")
+    except ValueError:
+        try:
+            expiry = datetime.strptime(raw.replace("GMT", "UTC"), "%b %d %H:%M:%S %Y %Z")
+        except ValueError:
+            return None
+    expiry = expiry.replace(tzinfo=timezone.utc)
+    delta = expiry - datetime.now(timezone.utc)
+    return int(delta.total_seconds() // 86400)
+
+
+def _maybe_auto_renew_self_signed(cert_dir: str, threshold_days: int = 30) -> tuple[bool, int | None]:
+    """Regenerate the self-signed cert if it expires within ``threshold_days``.
+
+    Called at server startup. Returns ``(renewed, days_remaining_after)`` so
+    the caller can log what happened.
+    """
+    cert_path = os.path.join(cert_dir, "self_signed.pem")
+    days = _cert_days_remaining(cert_path)
+    if days is None:
+        # No cert present (or openssl unavailable) — caller will generate
+        # one fresh via the normal path.
+        return False, None
+    if days > threshold_days:
+        return False, days
+    try:
+        _generate_self_signed_cert(cert_dir, force=True)
+    except RuntimeError:
+        return False, days
+    return True, _cert_days_remaining(cert_path)
 
 
 def _get_cert_info(cert_path: str) -> dict:
@@ -2878,10 +2957,24 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
             # Auto-generate self-signed certificate
             cert_dir = os.path.join(_ROOT_DIR, "config", "tls")
             try:
+                # Auto-renew on startup when opted in and the existing cert
+                # is within `auto_renew_days` (default 30) of expiry. No-op
+                # if the cert is still comfortably valid.
+                if tls_cfg.get("auto_renew", True):
+                    threshold = int(tls_cfg.get("auto_renew_days", 30))
+                    renewed, days_after = _maybe_auto_renew_self_signed(
+                        cert_dir, threshold_days=threshold
+                    )
+                    if renewed:
+                        print(f"  TLS: Self-signed cert auto-renewed ({days_after} days remaining).")
                 cert_file, key_file = _generate_self_signed_cert(cert_dir)
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
                 ssl_context.load_cert_chain(cert_file, key_file)
-                print(f"  TLS: Using self-signed certificate")
+                days_left = _cert_days_remaining(cert_file)
+                if days_left is not None:
+                    print(f"  TLS: Using self-signed certificate ({days_left} days remaining)")
+                else:
+                    print(f"  TLS: Using self-signed certificate")
             except RuntimeError as e:
                 print(f"  ERROR: {e}")
                 return
