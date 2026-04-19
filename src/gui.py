@@ -451,6 +451,13 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         app.config['SESSION_COOKIE_SECURE'] = True
     app.jinja_env.globals.update(t=t)
 
+    # ── pygments CSS — generated once at startup ───────────────────────────────
+    from src.report.exporters.code_highlighter import get_highlight_css as _ghcss
+    from pathlib import Path as _Path
+    _pygments_css = _Path(app.static_folder) / "pygments.css"
+    if not _pygments_css.exists():
+        _pygments_css.write_text(_ghcss(), encoding="utf-8")
+
     # ── humanize Jinja filters ─────────────────────────────────────────────────
     from src.humanize_ext import human_time_ago as _hta, human_size as _hs, human_number as _hn
 
@@ -1345,6 +1352,17 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     def api_delete_rule(idx):
         cm.remove_rules_by_index([idx])
         return jsonify({"ok": True})
+
+    @app.route('/api/rules/<int:idx>/highlight')
+    def api_rule_highlight(idx: int):
+        import json as _json
+        from src.report.exporters.code_highlighter import highlight_json
+        cm.load()
+        rules = cm.config.get("rules", [])
+        if idx < 0 or idx >= len(rules):
+            return _err(t("gui_not_found"), 404)
+        html = highlight_json(_json.dumps(rules[idx], indent=2, ensure_ascii=False))
+        return jsonify({"html": html})
 
     # ??? API: Settings ????????????????????????????????????????????????????
     @app.route('/api/settings')
