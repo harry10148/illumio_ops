@@ -263,6 +263,38 @@ class VenStatusGenerator:
             {'i18n_key': 'rpt_ven_kpi_lost_48h', 'value': str(len(df_lost_yest))},
         ]
 
+        # Chart 1: VEN status pie (online vs offline)
+        status_chart_spec = None
+        total_for_chart = len(df_online) + len(df_offline)
+        if total_for_chart > 0:
+            status_chart_spec = {
+                "type": "pie",
+                "title": "VEN Agent Status",
+                "data": {
+                    "labels": ["Online", "Offline"],
+                    "values": [len(df_online), len(df_offline)],
+                },
+                "i18n": {"lang": "en"},
+            }
+
+        # Chart 2: VEN count by OS platform (if os column exists)
+        os_chart_spec = None
+        os_col = next((c for c in ("os_id", "os_type", "os", "os_platform") if c in df.columns), None)
+        if os_col and not df.empty:
+            os_counts = df[os_col].fillna("Unknown").astype(str).str.strip().replace("", "Unknown").value_counts()
+            if len(os_counts) > 0:
+                os_chart_spec = {
+                    "type": "bar",
+                    "title": "VEN by OS Platform",
+                    "x_label": "OS",
+                    "y_label": "VEN Count",
+                    "data": {
+                        "labels": os_counts.index.tolist()[:10],
+                        "values": os_counts.values.tolist()[:10],
+                    },
+                    "i18n": {"lang": "en"},
+                }
+
         return {
             'generated_at':   _fmt_tz_str(now),
             'kpis':           kpis,
@@ -270,4 +302,6 @@ class VenStatusGenerator:
             'offline':        _clean(df_offline),
             'lost_today':     _clean(df_lost_today),
             'lost_yesterday': _clean(df_lost_yest),
+            'status_chart_spec': status_chart_spec,
+            'os_chart_spec': os_chart_spec,
         }
