@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 class _Base(BaseModel):
     """Base class that rejects unknown keys (catches typos in config.json)."""
@@ -50,7 +50,10 @@ class ApiSettings(_Base):
 
 class AlertsSettings(_Base):
     active: list[str] = Field(default_factory=lambda: ["mail"])
-    line_channel_access_token: str = ""
+    line_channel_access_token: str = Field(
+        default="",
+        validation_alias=AliasChoices("line_channel_access_token", "line_token"),
+    )
     line_target_id: str = ""
     webhook_url: str = ""
 
