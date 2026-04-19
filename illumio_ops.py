@@ -20,8 +20,13 @@ from __future__ import annotations
 
 import sys
 
+import os as _os
+
 # Known click subcommand names; anything else falls back to argparse.
 _CLICK_SUBCOMMANDS = {"monitor", "gui", "report", "status", "version", "-h", "--help"}
+
+# Route to click for shell completion generation
+_COMPLETION_ENV = _os.environ.get("_ILLUMIO_OPS_COMPLETE", "")
 
 
 def _looks_like_click_invocation(argv: list[str]) -> bool:
@@ -31,7 +36,7 @@ def _looks_like_click_invocation(argv: list[str]) -> bool:
 
 if __name__ == "__main__":
     try:
-        if _looks_like_click_invocation(sys.argv):
+        if _COMPLETION_ENV or _looks_like_click_invocation(sys.argv):
             from src.cli.root import cli
             cli(prog_name="illumio-ops")
         else:
