@@ -408,6 +408,7 @@ function openSchedModal(sched) {
   $('sched-minute').value   = sched ? (sched.minute !== undefined ? sched.minute : 0) : 0;
   $('sched-lookback').value = sched ? (sched.lookback_days || 7) : 7;
   $('sched-max-reports').value = sched ? (sched.max_reports !== undefined ? sched.max_reports : 30) : 30;
+  $('sched-cron-expr').value = sched ? (sched.cron_expr || '') : '';
 
   const fmt = sched ? (sched.format || ['html']) : ['html'];
   $('sched-format').value = fmt.length > 1 ? 'all' : (fmt[0] || 'html');
@@ -464,6 +465,7 @@ async function saveSchedule() {
     email_recipients: recipients,
     enabled: true,
     ...(schedFilters ? { filters: schedFilters } : {}),
+    ...($('sched-cron-expr').value.trim() ? { cron_expr: $('sched-cron-expr').value.trim() } : {}),
   };
 
   const _headers = { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() };

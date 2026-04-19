@@ -136,6 +136,7 @@ class ReportSchedule(_Base):
     model_config = ConfigDict(extra="allow")
     id: Optional[int] = None
     name: str = ""
+    cron_expr: Optional[str] = None  # e.g. "0 8 * * MON-FRI"
 
 class Rule(_Base):
     """Runtime rule — shape varies by type. Keep flexible."""

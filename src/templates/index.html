@@ -830,6 +830,14 @@
       </div>
 
       <div class="form-group">
+        <label data-i18n="gui_sched_cron_expr">Cron Expression (advanced — overrides frequency above)</label>
+        <input type="text" id="sched-cron-expr" style="width:100%;"
+          placeholder="0 8 * * MON-FRI — leave blank to use daily/weekly/monthly above"
+          data-i18n-placeholder="gui_sched_cron_expr_placeholder">
+        <small style="color:var(--dim)" data-i18n="gui_sched_cron_expr_hint">Standard 5-field cron: min hour dom month dow. Example: 0 8 * * MON-FRI</small>
+      </div>
+
+      <div class="form-group">
         <div class="chk"><label><input type="checkbox" id="sched-email" onchange="onSchedEmailChange()"> <span data-i18n="gui_sched_email">Send by Email</span></label></div>
       </div>
 
