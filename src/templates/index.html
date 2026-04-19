@@ -202,6 +202,14 @@
       <div id="cd-list" class="cards" style="margin-bottom:0;"></div>
     </fieldset>
 
+    <!-- Live Plotly charts (auto-refresh every 60s) -->
+    <div class="dashboard-charts" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div id="chart-traffic-timeline" style="min-height:200px;"></div>
+      <div id="chart-policy-decisions" style="min-height:200px;"></div>
+      <div id="chart-ven-status" style="min-height:200px;"></div>
+      <div id="chart-rule-hits" style="min-height:200px;"></div>
+    </div>
+
     <!-- Sub Navigation for Traffic & Quarantine -->
     <div class="sub-nav">
       <button class="sub-nav-btn active" onclick="switchQTab('traffic')" id="qbtn-traffic">

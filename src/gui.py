@@ -291,6 +291,146 @@ def _build_policy_usage_dashboard_summary(result) -> dict:
 def _write_policy_usage_dashboard_summary(output_dir: str, result) -> str:
     return write_policy_usage_dashboard_summary(output_dir, result)
 
+
+# ---------------------------------------------------------------------------
+# Dashboard chart helpers (Task 5)
+# ---------------------------------------------------------------------------
+
+def _spec_to_plotly_figure(spec: dict):
+    """Convert a chart_spec dict to a plotly Figure (not HTML)."""
+    import math
+    import plotly.graph_objects as go
+
+    chart_type = spec.get("type")
+    data = spec.get("data", {})
+    title = spec.get("title", "")
+
+    if chart_type == "bar":
+        fig = go.Figure(go.Bar(x=data.get("labels", []), y=data.get("values", []),
+                               marker_color="rgb(55, 83, 109)"))
+        fig.update_layout(title=title, xaxis_title=spec.get("x_label", ""),
+                          yaxis_title=spec.get("y_label", ""))
+    elif chart_type == "pie":
+        fig = go.Figure(go.Pie(labels=data.get("labels", []),
+                               values=data.get("values", []), hole=0.3))
+        fig.update_layout(title=title)
+    elif chart_type == "line":
+        fig = go.Figure(go.Scatter(x=data.get("x", []), y=data.get("y", []),
+                                   mode="lines+markers"))
+        fig.update_layout(title=title, xaxis_title=spec.get("x_label", ""),
+                          yaxis_title=spec.get("y_label", ""))
+    else:
+        fig = go.Figure()
+        fig.update_layout(title=f"Unsupported type: {chart_type}")
+    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      font=dict(color="#cdd3de"), margin=dict(l=40, r=20, t=40, b=40))
+    return fig
+
+
+def _load_state_for_charts() -> dict:
+    try:
+        state_file = _resolve_state_file()
+        if os.path.exists(state_file):
+            with open(state_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def _build_traffic_timeline_spec(cm_ref) -> dict:
+    from src.i18n import t, get_language
+    from collections import Counter
+    state = _load_state_for_charts()
+    timeline = state.get("event_timeline", [])
+    counts: Counter = Counter()
+    for entry in timeline:
+        ts = entry.get("timestamp", "")[:10]
+        if ts:
+            counts[ts] += 1
+    sorted_days = sorted(counts.keys())[-14:]
+    return {
+        "type": "line",
+        "title": t("rpt_dash_traffic_title", default="Events Last 14 Days"),
+        "x_label": t("rpt_time", default="Date"),
+        "y_label": t("rpt_event_count", default="Events"),
+        "data": {"x": sorted_days, "y": [counts[d] for d in sorted_days]},
+        "i18n": {"lang": get_language()},
+    }
+
+
+def _build_policy_decisions_spec(cm_ref) -> dict:
+    from src.i18n import t, get_language
+    reports_dir = _resolve_reports_dir(cm_ref)
+    snapshot_path = os.path.join(reports_dir, "latest_snapshot.json")
+    allowed = blocked = potential = 0
+    try:
+        if os.path.exists(snapshot_path):
+            with open(snapshot_path, "r", encoding="utf-8") as f:
+                snap = json.load(f)
+            allowed = snap.get("allowed_flows", 0)
+            blocked = snap.get("blocked_flows", 0)
+            potential = snap.get("potentially_blocked_flows", 0)
+    except Exception:
+        pass
+    return {
+        "type": "pie",
+        "title": t("rpt_dash_pd_title", default="Policy Decisions (Latest Report)"),
+        "data": {
+            "labels": [t("rpt_pd_allowed", default="Allowed"),
+                       t("rpt_pd_blocked", default="Blocked"),
+                       t("rpt_pd_potential", default="Potentially Blocked")],
+            "values": [allowed, blocked, potential],
+        },
+        "i18n": {"lang": get_language()},
+    }
+
+
+def _build_ven_status_spec(cm_ref) -> dict:
+    from src.i18n import t, get_language
+    state = _load_state_for_charts()
+    pce_stats = state.get("pce_stats", {})
+    health = pce_stats.get("health_status", "unknown")
+    ok = 1 if health == "ok" else 0
+    err = 1 if health not in ("ok", "unknown") else 0
+    unknown = 1 if health == "unknown" else 0
+    return {
+        "type": "pie",
+        "title": t("rpt_dash_ven_title", default="PCE Health Status"),
+        "data": {
+            "labels": [t("rpt_status_ok", default="OK"),
+                       t("rpt_status_error", default="Error"),
+                       t("rpt_status_unknown", default="Unknown")],
+            "values": [ok, err, unknown],
+        },
+        "i18n": {"lang": get_language()},
+    }
+
+
+def _build_rule_hits_spec(cm_ref) -> dict:
+    from src.i18n import t, get_language
+    from collections import Counter
+    state = _load_state_for_charts()
+    timeline = state.get("event_timeline", [])
+    rule_counts: Counter = Counter()
+    for entry in timeline:
+        if entry.get("kind") == "rule_trigger":
+            name = entry.get("title", "unnamed")
+            rule_counts[name] += 1
+    top = rule_counts.most_common(10)
+    return {
+        "type": "bar",
+        "title": t("rpt_dash_rule_hits_title", default="Top Rule Triggers"),
+        "x_label": t("rpt_rule", default="Rule"),
+        "y_label": t("rpt_hit_count", default="Hits"),
+        "data": {
+            "labels": [r for r, _ in top] or [t("rpt_no_triggers", default="No triggers")],
+            "values": [c for _, c in top] or [0],
+        },
+        "i18n": {"lang": get_language()},
+    }
+
+
 def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     app = Flask(__name__, template_folder=os.path.join(_PKG_DIR, 'templates'), static_folder=os.path.join(_PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
@@ -1508,6 +1648,26 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             return jsonify({"ok": False, "error": str(e)})
 
     # ??? API: Reports ??????????????????????????????????????????????????????
+
+    @app.route('/api/dashboard/chart/<chart_id>')
+    def api_dashboard_chart(chart_id: str):
+        _builders = {
+            "traffic_timeline": _build_traffic_timeline_spec,
+            "policy_decisions": _build_policy_decisions_spec,
+            "ven_status": _build_ven_status_spec,
+            "rule_hits": _build_rule_hits_spec,
+        }
+        builder = _builders.get(chart_id)
+        if not builder:
+            return _err(f"Unknown chart_id: {chart_id}", 404)
+        try:
+            spec = builder(cm)
+            fig = _spec_to_plotly_figure(spec)
+            return jsonify(fig.to_plotly_json())
+        except Exception as exc:
+            logger.warning("Dashboard chart {} error: {}", chart_id, exc)
+            return _err(str(exc), 500)
+
     @app.route('/api/reports', methods=['GET'])
     def api_list_reports():
         cm.load()
