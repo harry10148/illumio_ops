@@ -1,6 +1,7 @@
 """Module 9: Traffic Distribution."""
 from __future__ import annotations
 import pandas as pd
+from src.i18n import t, get_language
 
 LABEL_KEYS = ('env', 'app', 'role', 'loc')
 
@@ -71,5 +72,20 @@ def traffic_distribution(df: pd.DataFrame, top_n: int = 20) -> dict:
                   .reset_index().sort_values('num_connections', ascending=False)
                   .rename(columns={'proto': 'Protocol', 'num_connections': 'Connections'}))
     result['proto_distribution'] = proto_dist
+
+    # chart_spec: top ports bar
+    if not port_dist.empty:
+        port_labels = [str(p) for p in port_dist['Port'].tolist()[:20]]
+        port_values = [int(v) for v in port_dist['Connections'].tolist()[:20]]
+    else:
+        port_labels, port_values = [], []
+    result['chart_spec'] = {
+        'type': 'bar',
+        'title': t('rpt_mod09_chart_title', default='Top 20 Ports by Flow Count'),
+        'x_label': t('rpt_port', default='Port'),
+        'y_label': t('rpt_flow_count', default='Connections'),
+        'data': {'labels': port_labels, 'values': port_values},
+        'i18n': {'lang': get_language()},
+    }
 
     return result
