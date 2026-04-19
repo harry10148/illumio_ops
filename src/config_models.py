@@ -106,6 +106,10 @@ class RuleSchedulerSettings(_Base):
     enabled: bool = True
     check_interval_seconds: int = Field(default=300, ge=60)   # min 1 minute
 
+class SchedulerSettings(_Base):
+    persist: bool = False          # enable SQLAlchemy job store for daemon restart durability
+    db_path: str = "config/scheduler.db"
+
 class WebGuiTls(_Base):
     enabled: bool = False
     cert_file: str = ""
@@ -156,6 +160,7 @@ class ConfigSchema(_Base):
     pce_profiles: list[PceProfile] = Field(default_factory=list)
     active_pce_id: Optional[int] = None
     rule_scheduler: RuleSchedulerSettings = Field(default_factory=RuleSchedulerSettings)
+    scheduler: SchedulerSettings = Field(default_factory=SchedulerSettings)
     web_gui: WebGuiSettings = Field(default_factory=WebGuiSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     # Written by apply_best_practices(); must survive pydantic round-trips.

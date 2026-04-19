@@ -48,6 +48,7 @@ pygments>=2.17,<3.0
 
 # ── Phase 6: Scheduler ───────────────────────────────────────────────────────
 APScheduler>=3.10,<4.0
+SQLAlchemy>=2.0           # optional: required when scheduler.persist=true
 
 # ── Phase 7: Logging ─────────────────────────────────────────────────────────
 loguru>=0.7,<0.8
