@@ -65,8 +65,9 @@ def run_daemon_loop(interval_minutes: int):
         # of a never-started scheduler (would raise SchedulerNotRunningError).
         sched.start()
 
-        # Fire the first monitor cycle immediately rather than waiting a full interval
-        run_monitor_cycle(cm)
+        # Fire the first monitor cycle immediately without blocking signal-driven
+        # shutdown of the daemon entrypoint.
+        threading.Thread(target=run_monitor_cycle, args=(cm,), daemon=True).start()
 
         # Block until shutdown signal (1-second poll keeps signal responsive)
         while not _shutdown_event.is_set():
@@ -509,7 +510,13 @@ def main():
     parser.add_argument(
         "--report",
         action="store_true",
-        help="Generate a Traffic Flow Report (requires: pip install pandas pyyaml)",
+        help="Generate a report from the command line (requires: pip install pandas pyyaml)",
+    )
+    parser.add_argument(
+        "--report-type",
+        choices=["traffic", "audit", "ven_status", "policy_usage"],
+        default="traffic",
+        help="Report type: traffic (default), audit, ven_status, or policy_usage",
     )
     parser.add_argument(
         "--source",
@@ -570,31 +577,52 @@ def main():
             print(t("report_requires_pandas"))
             print(t("cli_pip_install_hint", pkg="pandas pyyaml"))
             sys.exit(1)
-        from src.report.report_generator import ReportGenerator
-        from src.api_client import ApiClient
-        from src.reporter import Reporter
-        cm = ConfigManager()
-        api = ApiClient(cm)
-        reporter = Reporter(cm)
-        PKG_DIR = os.path.dirname(os.path.abspath(__file__))
-        ROOT_DIR = os.path.dirname(PKG_DIR)
-        config_dir = os.path.join(ROOT_DIR, 'config')
-        output_dir = args.output_dir or cm.config.get('report', {}).get('output_dir', 'reports')
-        if not os.path.isabs(output_dir):
-            output_dir = os.path.join(ROOT_DIR, output_dir)
-        gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
-        if args.source == 'csv':
-            if not args.file:
-                print(t("cli_source_csv_requires_file"))
-                sys.exit(1)
-            result = gen.generate_from_csv(args.file)
-        else:
-            result = gen.generate_from_api()
-        if result.record_count == 0:
-            print(t("no_data_report"))
-            sys.exit(1)
-        paths = gen.export(result, fmt=args.format, output_dir=output_dir,
-                           send_email=args.email, reporter=reporter if args.email else None)
+        import click
+        from src.cli.report import (
+            generate_audit_report,
+            generate_policy_usage_report,
+            generate_traffic_report,
+            generate_ven_status_report,
+        )
+        try:
+            if args.report_type == "traffic":
+                paths = generate_traffic_report(
+                    source=args.source,
+                    file_path=args.file,
+                    fmt=args.format,
+                    output_dir=args.output_dir,
+                    email=args.email,
+                )
+            elif args.report_type == "audit":
+                if args.email:
+                    raise click.ClickException("--email is only supported for traffic reports")
+                if args.source != "api":
+                    raise click.ClickException("--source csv is not supported for audit reports")
+                paths = generate_audit_report(
+                    fmt=args.format,
+                    output_dir=args.output_dir,
+                )
+            elif args.report_type == "ven_status":
+                if args.email:
+                    raise click.ClickException("--email is only supported for traffic reports")
+                if args.source != "api":
+                    raise click.ClickException("--source csv is not supported for ven_status reports")
+                paths = generate_ven_status_report(
+                    fmt=args.format,
+                    output_dir=args.output_dir,
+                )
+            else:
+                if args.email:
+                    raise click.ClickException("--email is only supported for traffic reports")
+                paths = generate_policy_usage_report(
+                    source=args.source,
+                    file_path=args.file,
+                    fmt=args.format,
+                    output_dir=args.output_dir,
+                )
+        except click.ClickException as exc:
+            print(exc.format_message())
+            sys.exit(exc.exit_code)
         print(t("cli_generated"))
         for p in paths:
             print(f"  {p}")

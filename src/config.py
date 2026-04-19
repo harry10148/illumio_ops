@@ -243,6 +243,11 @@ class ConfigManager:
 
     def add_or_update_rule(self, new_rule):
         for i, rule in enumerate(self.config["rules"]):
+            if new_rule.get("id") is not None and new_rule.get("id") == rule.get("id"):
+                self.config["rules"][i] = new_rule
+                self.save()
+                return
+
             is_same = False
             if new_rule["type"] == rule["type"]:
                 if new_rule["type"] == "event" and new_rule.get("filter_value") == rule.get("filter_value"):

@@ -2,7 +2,7 @@
 """Illumio PCE Ops — Entry Point.
 
 Two parsers coexist:
-- click-based subcommands (preferred): illumio-ops monitor/gui/report/status/version
+- click-based subcommands (preferred): illumio-ops monitor/gui/report/rule/workload/config/status/version
 - legacy argparse flags (backwards-compatible): --monitor, --gui, --report, -i, -p
 
 The dispatcher below picks which to use based on argv[1] — if it matches a
@@ -23,7 +23,7 @@ import sys
 import os as _os
 
 # Known click subcommand names; anything else falls back to argparse.
-_CLICK_SUBCOMMANDS = {"monitor", "gui", "report", "status", "version", "-h", "--help"}
+_CLICK_SUBCOMMANDS = {"monitor", "gui", "report", "rule", "workload", "config", "status", "version", "-h", "--help"}
 
 # Route to click for shell completion generation
 _COMPLETION_ENV = _os.environ.get("_ILLUMIO_OPS_COMPLETE", "")

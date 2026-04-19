@@ -52,5 +52,25 @@ def test_new_status_subcommand_works():
 def test_help_shows_subcommands():
     result = _run(["--help"])
     assert result.returncode == 0
-    for sub in ("monitor", "gui", "report", "status", "version"):
+    for sub in ("monitor", "gui", "report", "rule", "workload", "config", "status", "version"):
         assert sub in result.stdout
+
+
+def test_legacy_help_lists_expected_flags():
+    result = _run(["--help"])
+    assert result.returncode == 0
+    for flag in (
+        "--monitor",
+        "--monitor-gui",
+        "--interval",
+        "--gui",
+        "--port",
+        "--report",
+        "--report-type",
+        "--source",
+        "--file",
+        "--format",
+        "--email",
+        "--output-dir",
+    ):
+        assert flag in result.stdout

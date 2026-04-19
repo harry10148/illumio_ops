@@ -102,6 +102,22 @@ def test_ip_whitelist(app_persistent):
         response = app_persistent.full_dispatch_request()
         assert response.status_code == 302
 
+
+def test_ip_whitelist_allows_single_ipv4_when_remote_is_ipv4_mapped_ipv6(app_persistent):
+    from src.gui import _RstDrop
+
+    with app_persistent.test_request_context('/', environ_base={'REMOTE_ADDR': '::ffff:127.0.0.1'}):
+        response = app_persistent.full_dispatch_request()
+        assert response.status_code == 302
+
+    with app_persistent.test_request_context('/', environ_base={'REMOTE_ADDR': '::ffff:192.168.1.99'}):
+        response = app_persistent.full_dispatch_request()
+        assert response.status_code == 302
+
+    with app_persistent.test_request_context('/', environ_base={'REMOTE_ADDR': '::ffff:10.0.0.1'}):
+        with pytest.raises(_RstDrop):
+            app_persistent.preprocess_request()
+
 def test_api_security_endpoints(app_persistent):
     client = app_persistent.test_client()
     # Authenticate first
@@ -147,6 +163,26 @@ def test_api_security_rejects_invalid_allowlist(client):
     assert res.status_code == 400
     assert res.json["ok"] is False
     assert "localhost" in res.json["error"]
+
+
+def test_api_security_normalizes_single_ip_allowlist_entries(app_persistent):
+    client = app_persistent.test_client()
+    res_login = client.post('/api/login', json={
+        "username": "admin",
+        "password": "testpass"
+    }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
+    csrf_token = _csrf(res_login)
+
+    res = client.post('/api/security', json={
+        "allowed_ips": ["::ffff:192.168.1.1", "127.0.0.1/32", "::1"]
+    }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'}, headers={'X-CSRF-Token': csrf_token})
+
+    assert res.status_code == 200
+    refreshed = client.get('/api/security', environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
+    assert refreshed.status_code == 200
+    assert "192.168.1.1" in refreshed.json["allowed_ips"]
+    assert "127.0.0.1/32" in refreshed.json["allowed_ips"]
+    assert "::1" in refreshed.json["allowed_ips"]
 
 
 def test_event_viewer_returns_normalized_events(app_persistent, monkeypatch):

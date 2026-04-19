@@ -183,8 +183,10 @@ class _RuleSchedulerCLI:
             print(f"{Colors.HEADER}╰{'─' * 40}{Colors.ENDC}")
 
             ans = clean_input(input(f"{Colors.CYAN}❯{Colors.ENDC} ")).strip()
-            if ans.lower() in ['q', 'b', '']:
+            if ans.lower() in ['q', 'b']:
                 return
+            if not ans:
+                continue
 
             try:
                 if ans.lower() == 'a':

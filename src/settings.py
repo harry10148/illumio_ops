@@ -1,5 +1,6 @@
 import os
 import datetime
+import re
 from src.events.catalog import KNOWN_EVENT_TYPES
 from src.utils import Colors, safe_input, draw_panel, draw_table, get_last_input_action
 from src.config import ConfigManager
@@ -99,6 +100,30 @@ def _wizard_confirm(summary_lines):
     if not answer:
         return True
     return answer in ["y", "yes", "是", "好"]
+
+
+_MANAGE_RULES_COMMAND_RE = re.compile(r"^\s*([dm])\s*(\d+(?:\s*,\s*\d+)*)\s*$", re.IGNORECASE)
+
+
+def _parse_manage_rules_command(raw: str):
+    text = (raw or "").strip()
+    match = _MANAGE_RULES_COMMAND_RE.fullmatch(text)
+    if not match:
+        raise ValueError(t("error_manage_rules_command"))
+
+    action = match.group(1).lower()
+    indices = [int(part.strip()) for part in match.group(2).split(",")]
+
+    if action == "m":
+        if len(indices) != 1:
+            raise ValueError(t("error_manage_rules_modify_single"))
+        return action, indices[0]
+
+    return action, indices
+
+
+def _empty_uses_default(default_value) -> bool:
+    return get_last_input_action() == "empty" and default_value not in (None, "")
 
 # Events that support Status (Success/Failure) and Severity filtering
 ACTION_EVENTS = [
@@ -673,11 +698,12 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         t("pd_select_default"), int, range(0, 5), allow_cancel=True, hint=str(def_pd)
     )
     if pd_sel is None:
-        if should_restart_flow():
-            add_traffic_menu(cm, edit_rule=edit_rule)
-        return
-    if pd_sel == "":
-        pd_sel = def_pd
+        if _empty_uses_default(def_pd):
+            pd_sel = def_pd
+        else:
+            if should_restart_flow():
+                add_traffic_menu(cm, edit_rule=edit_rule)
+            return
 
     # Menu mapping: 1=Blocked(pd=2), 2=Potential(pd=0), 3=Allowed(pd=1), 4=All(pd=-1)
     if pd_sel == 1:
@@ -698,11 +724,12 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         t("port_input"), int, allow_cancel=True, hint=str(def_port) if def_port else ""
     )
     if port_in is None:
-        if should_restart_flow():
-            add_traffic_menu(cm, edit_rule=edit_rule)
-        return
-    if port_in == "":
-        port_in = int(def_port) if def_port else None
+        if _empty_uses_default(def_port):
+            port_in = int(def_port)
+        else:
+            if should_restart_flow():
+                add_traffic_menu(cm, edit_rule=edit_rule)
+            return
 
     proto_in = None
     if port_in:
@@ -715,11 +742,12 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
             t("proto_select"), int, range(0, 3), allow_cancel=True, hint=str(def_proto)
         )
         if p_sel is None:
-            if should_restart_flow():
-                add_traffic_menu(cm, edit_rule=edit_rule)
-            return
-        if p_sel == "":
-            p_sel = def_proto
+            if _empty_uses_default(def_proto):
+                p_sel = def_proto
+            else:
+                if should_restart_flow():
+                    add_traffic_menu(cm, edit_rule=edit_rule)
+                return
 
         if p_sel == 1:
             proto_in = 6
@@ -758,20 +786,26 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         hint=str(def_win),
     )
     if win_in is None:
-        if should_restart_flow():
-            add_traffic_menu(cm, edit_rule=edit_rule)
-        return
-    win = int(win_in) if win_in != "" else def_win
+        if _empty_uses_default(def_win):
+            win_in = def_win
+        else:
+            if should_restart_flow():
+                add_traffic_menu(cm, edit_rule=edit_rule)
+            return
+    win = win_in
 
     def_cnt = edit_rule.get("threshold_count", 10) if edit_rule else 10
     cnt_in = safe_input(
         t("trigger_threshold_count"), int, allow_cancel=True, hint=str(def_cnt)
     )
     if cnt_in is None:
-        if should_restart_flow():
-            add_traffic_menu(cm, edit_rule=edit_rule)
-        return
-    cnt = int(cnt_in) if cnt_in != "" else def_cnt
+        if _empty_uses_default(def_cnt):
+            cnt_in = def_cnt
+        else:
+            if should_restart_flow():
+                add_traffic_menu(cm, edit_rule=edit_rule)
+            return
+    cnt = cnt_in
 
     def_cd = edit_rule.get("cooldown_minutes", win) if edit_rule else win
     cd_in = safe_input(
@@ -782,10 +816,13 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         help_text=t("def_cooldown"),
     )
     if cd_in is None:
-        if should_restart_flow():
-            add_traffic_menu(cm, edit_rule=edit_rule)
-        return
-    cd = int(cd_in) if cd_in != "" else def_cd
+        if _empty_uses_default(def_cd):
+            cd_in = def_cd
+        else:
+            if should_restart_flow():
+                add_traffic_menu(cm, edit_rule=edit_rule)
+            return
+    cd = cd_in
 
     src_label_val, src_ip_val = (
         (src_in, None) if src_in and "=" in src_in else (None, src_in)
@@ -801,9 +838,12 @@ def add_traffic_menu(cm: ConfigManager, edit_rule=None):
         t("ex_port_input"), int, allow_cancel=True, hint=str(def_ex_port)
     )
     if ex_port_in is None:
-        if should_restart_flow():
-            add_traffic_menu(cm, edit_rule=edit_rule)
-        return
+        if _empty_uses_default(def_ex_port):
+            ex_port_in = int(def_ex_port)
+        else:
+            if should_restart_flow():
+                add_traffic_menu(cm, edit_rule=edit_rule)
+            return
 
     def_ex_src = (
         edit_rule.get("ex_src_label", edit_rule.get("ex_src_ip", ""))
@@ -929,11 +969,12 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         t("please_select"), int, range(0, 3), allow_cancel=True, hint=str(def_msel)
     )
     if m_sel is None:
-        if should_restart_flow():
-            add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-        return
-    if m_sel == "" and def_msel:
-        m_sel = def_msel
+        if _empty_uses_default(def_msel):
+            m_sel = def_msel
+        else:
+            if should_restart_flow():
+                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+            return
     if not m_sel or m_sel not in (1, 2):
         return
 
@@ -949,11 +990,12 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         t("port_input"), int, allow_cancel=True, hint=str(def_port) if def_port else ""
     )
     if port_in is None:
-        if should_restart_flow():
-            add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-        return
-    if port_in == "":
-        port_in = int(def_port) if def_port else None
+        if _empty_uses_default(def_port):
+            port_in = int(def_port)
+        else:
+            if should_restart_flow():
+                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+            return
 
     proto_in = None
     if port_in:
@@ -966,15 +1008,18 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
             t("proto_select"), int, range(0, 3), allow_cancel=True, hint=str(def_proto)
         )
         if p_sel is None:
-            if should_restart_flow():
-                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-            return
+            if _empty_uses_default(def_proto):
+                p_sel = def_proto
+            else:
+                if should_restart_flow():
+                    add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+                return
         if p_sel == 1:
             proto_in = 6
         elif p_sel == 2:
             proto_in = 17
-        elif p_sel == "":
-            proto_in = edit_rule.get("proto") if edit_rule else None
+        elif p_sel == 0:
+            proto_in = None
 
     def_src = (
         edit_rule.get("src_label", edit_rule.get("src_ip_in", "")) if edit_rule else ""
@@ -1012,10 +1057,13 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         help_text=t("def_traffic_vol"),
     )
     if th_in is None:
-        if should_restart_flow():
-            add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-        return
-    th = float(th_in) if th_in != "" else (float(def_th) if def_th != "" else None)
+        if _empty_uses_default(def_th):
+            th_in = float(def_th)
+        else:
+            if should_restart_flow():
+                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+            return
+    th = float(th_in)
     if th is None:
         return
 
@@ -1030,10 +1078,13 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         hint=str(def_win),
     )
     if win_in is None:
-        if should_restart_flow():
-            add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-        return
-    win = int(win_in) if win_in != "" else def_win
+        if _empty_uses_default(def_win):
+            win_in = def_win
+        else:
+            if should_restart_flow():
+                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+            return
+    win = win_in
 
     def_cd = edit_rule.get("cooldown_minutes", win) if edit_rule else win
     cd_in = safe_input(
@@ -1044,10 +1095,13 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         help_text=t("def_cooldown"),
     )
     if cd_in is None:
-        if should_restart_flow():
-            add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-        return
-    cd = int(cd_in) if cd_in != "" else def_cd
+        if _empty_uses_default(def_cd):
+            cd_in = def_cd
+        else:
+            if should_restart_flow():
+                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+            return
+    cd = cd_in
 
     print(f"\n{Colors.CYAN}{t('excludes_optional')}{Colors.ENDC}")
     def_ex_port = edit_rule.get("ex_port", "") if edit_rule else ""
@@ -1055,9 +1109,12 @@ def add_bandwidth_volume_menu(cm: ConfigManager, edit_rule=None):
         t("ex_port_input"), int, allow_cancel=True, hint=str(def_ex_port)
     )
     if ex_port_in is None:
-        if should_restart_flow():
-            add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
-        return
+        if _empty_uses_default(def_ex_port):
+            ex_port_in = int(def_ex_port)
+        else:
+            if should_restart_flow():
+                add_bandwidth_volume_menu(cm, edit_rule=edit_rule)
+            return
 
     def_ex_src = (
         edit_rule.get("ex_src_label", edit_rule.get("ex_src_ip", ""))
@@ -1235,58 +1292,51 @@ def manage_rules_menu(cm: ConfigManager):
         if cm.config["rules"]:
             draw_table(headers, rows)
 
-        val = (
-            input(
-                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('input_delete_indices')} {Colors.GREEN}❯{Colors.ENDC} "
-            )
-            .strip()
-            .lower()
+        val = safe_input(
+            t("input_manage_rules_action", default=t("input_delete_indices")),
+            str,
+            allow_cancel=True,
+            help_text=t("help_manage_rules_command"),
         )
-        if val == "0" or not val:
+        if val in (None, ""):
             break
 
-        if val.startswith("d ") or (
-            val.startswith("d") and len(val) > 1 and val[1].isdigit()
-        ):
-            # Handle both 'd 0, 1' and 'd0, 1'
-            target = val[1:].strip()
-            if target.startswith("d"):
-                target = target[1:].strip()
+        try:
+            action, target = _parse_manage_rules_command(val)
+        except ValueError as exc:
+            print(f"{Colors.FAIL}{exc}{Colors.ENDC}")
+            input(
+                f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "
+            )
+            continue
+
+        if action == "d":
             try:
-                indices = [int(x.strip()) for x in target.split(",")]
-                cm.remove_rules_by_index(indices)
+                cm.remove_rules_by_index(target)
                 print(t("done"))
             except Exception as e:
                 print(t("error_deleting", error=str(e)))
-        elif val.startswith("m ") or (
-            val.startswith("m") and len(val) > 1 and val[1].isdigit()
-        ):
-            target = val[1:].strip()
-            if target.startswith("m"):
-                target = target[1:].strip()
+        elif action == "m":
             try:
-                idx = int(target)
-                if 0 <= idx < len(cm.config["rules"]):
-                    rule = cm.config["rules"][idx]
-                    print(
-                        f"\n{Colors.CYAN}{t('modifying_rule', name=rule['name'])}{Colors.ENDC}"
-                    )
-                    rtype = rule["type"]
-                    cm.remove_rules_by_index([idx])
-                    if rtype == "event":
-                        add_event_menu(cm, edit_rule=rule)
-                    elif rtype == "system":
-                        add_system_health_menu(cm, edit_rule=rule)
-                    elif rtype == "traffic":
-                        add_traffic_menu(cm, edit_rule=rule)
-                    elif rtype in ["bandwidth", "volume"]:
-                        add_bandwidth_volume_menu(cm, edit_rule=rule)
+                idx = target
+                if not (0 <= idx < len(cm.config["rules"])):
+                    raise ValueError(t("error_out_of_range"))
+
+                rule = cm.config["rules"][idx]
+                print(
+                    f"\n{Colors.CYAN}{t('modifying_rule', name=rule['name'])}{Colors.ENDC}"
+                )
+                rtype = rule["type"]
+                if rtype == "event":
+                    add_event_menu(cm, edit_rule=rule)
+                elif rtype == "system":
+                    add_system_health_menu(cm, edit_rule=rule)
+                elif rtype == "traffic":
+                    add_traffic_menu(cm, edit_rule=rule)
+                elif rtype in ["bandwidth", "volume"]:
+                    add_bandwidth_volume_menu(cm, edit_rule=rule)
             except Exception as e:
                 print(t("error_modifying", error=str(e)))
-        else:
-            print(
-                f"{Colors.FAIL}{t('error_format', default='Invalid format.')}{Colors.ENDC}"
-            )
 
         input(
             f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "

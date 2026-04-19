@@ -5,6 +5,83 @@
 
 ---
 
+## CLI Audit / Hotfix (2026-04-19)
+
+- [x] `Rules > Manage` legacy menu audited and fixed: prompt now explains `m <idx>` / `d <idx[,idx...]>`, `h/?` shows command help, modify rejects multi-index input, original rule is preserved until edit/save completes, and regression tests added for help/delete/modify/error flows.
+
+## CLI + Wizard Bug Fixes (2026-04-19)
+
+- [x] **Bug 1 — CLI subcommand routing**: `illumio_ops.py` `_CLICK_SUBCOMMANDS` was missing `rule`, `workload`, `config`; commands like `illumio-ops rule list` silently fell back to the interactive menu. Fixed by adding all three names. (`illumio_ops.py:26`)
+- [x] **Bug 2 — Wizard silent exit on Enter key**: `safe_input()` in `src/utils.py:262` conflated empty Enter with "go back" for int fields (both returned `None` with action=`"back"`). Changed to action=`"empty"` for empty Enter. All int-field None-handlers in `add_traffic_menu` and `add_bandwidth_volume_menu` (`src/settings.py`) updated to check `get_last_input_action() == "empty"` before applying defaults, so pressing Enter accepts the default instead of silently aborting the wizard. 14 tests pass.
+
+## CLI Full Review Follow-up (2026-04-19)
+
+- [x] **Finding 1 — Report CLI surface mismatch**: click `report` now supports `traffic` / `audit` / `ven-status` / `policy-usage`, and legacy argparse `--report` path now supports `--report-type traffic|audit|ven_status|policy_usage`.
+- [x] **Finding 2 — `workload list --limit` lacks lower-bound validation**: `--limit` now uses `click.IntRange(min=1)` so invalid values fail fast before any API call.
+- [x] **Finding 3 — Rule Scheduler blank Enter silently exits**: `schedule_management_ui()` no longer treats empty input as back; blank Enter now refreshes the screen instead of exiting.
+- [x] **Compatibility matrix**: added explicit regression coverage for entrypoint click/argparse detection, legacy `--report-type` dispatch by report kind, `--monitor-gui` / `--gui` dispatch, and click `report` subcommand argument mapping.
+
+## Source IP Trust Review (2026-04-19)
+
+- [x] Reviewed current source-IP trust path in Web GUI (`web_gui.allowed_ips`).
+- [x] Fixed single-IP mismatch for IPv4-mapped IPv6 remotes and loopback equivalence in [src/gui.py](/mnt/d/OneDrive/RD/illumio_ops/src/gui.py).
+- [x] Added regression coverage for exact-IP allowlist, mapped IPv6 remotes, and allowlist normalization in [tests/test_gui_security.py](/mnt/d/OneDrive/RD/illumio_ops/tests/test_gui_security.py).
+
+---
+
+## Phase 13: PCE Cache + SIEM Forwarder 📋 PLANNED (2026-04-19)
+
+Plan: [docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md](docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md) • Target tag: `v3.11.0-siem-cache` • Branch: `feature/phase-13-siem-cache`
+
+- [ ] **T1**: Branch + baseline (422 passed)
+- [ ] **T2**: SQLAlchemy models + WAL schema (6 tables: events / traffic_raw / traffic_agg / watermarks / dispatch / dead_letter)
+- [ ] **T3**: Global rate limiter (token bucket, 400/min default) + `ApiClient._request(rate_limit=...)` feature flag
+- [ ] **T4**: Watermark store (per-source cursor with error recording)
+- [ ] **T5**: Events ingestor (sync ≤ 10k, async via `Prefer: respond-async` beyond)
+- [ ] **T6**: Traffic filter + deterministic sampler (`hash(src,dst,port)` for idempotent drops)
+- [ ] **T7**: Traffic ingestor (async `/traffic_flows/async_queries`, 200k cap, filter+sample applied)
+- [ ] **T8**: Traffic aggregator (daily rollup to `pce_traffic_flows_agg`, idempotent UPSERT)
+- [ ] **T9**: Retention worker (per-table TTL purge)
+- [ ] **T10**: Formatters — CEF + JSON Lines + RFC5424 syslog header wrapper
+- [ ] **T11**: Transports — UDP / TCP / TCP+TLS / Splunk HEC (stdlib `socket`/`ssl` + `requests`)
+- [ ] **T12**: Dispatcher + DLQ with exponential backoff (cap 1h) and quarantine after N retries
+- [ ] **T13**: Config models (pydantic v2) + APScheduler job registration behind flags
+- [ ] **T14**: CLI `illumio-ops siem test|status|replay|purge|dlq`
+- [ ] **T15**: Flask blueprint `/api/siem/` — destinations CRUD + DLQ admin + UDP warning banner
+- [ ] **T16**: Docs — `docs/PCE_Cache.md`, `docs/SIEM_Forwarder.md`, update `docs/SIEM_Integration.md`
+- [ ] **T17**: E2E test + i18n audit + Status/Task updates + PR + tag
+
+---
+
+## Phase 14: Reports on PCE Cache 📋 PLANNED (2026-04-19)
+
+Plan: [docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md](docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md) • Target tag: `v3.12.0-reports-cache` • Branch: `feature/phase-14-reports-cache`
+
+- [ ] **T1**: Branch + baseline (≥ 470 passed post-Phase 13)
+- [ ] **T2**: `CacheReader` facade with full/partial/miss coverage semantics
+- [ ] **T3**: `AuditGenerator` cache-first + API fallback
+- [ ] **T4**: `ReportGenerator` traffic cache-first + API fallback (raw + agg)
+- [ ] **T5**: `BackfillRunner` + `illumio-ops cache backfill|status|retention` + GUI modal
+- [ ] **T6**: HTML report "Data source" pill (cache / API / mixed) in both audit + traffic exporters
+- [ ] **T7**: Docs (user manual section) + E2E + final validation + PR + tag
+
+---
+
+## Phase 15: Alerts on PCE Cache 📋 PLANNED (2026-04-19)
+
+Plan: [docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md](docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md) • Target tag: `v3.13.0-alerts-cache` • Branch: `feature/phase-15-alerts-cache` (independent of Phase 14)
+
+- [ ] **T1**: Branch + baseline
+- [ ] **T2**: `IngestionCursor` additive table (per-consumer cursor with `(ingested_at, id)` tuple)
+- [ ] **T3**: `CacheSubscriber` with persistent cursor
+- [ ] **T4**: `Analyzer` event/flow paths read from subscriber when cache enabled
+- [ ] **T5**: `EventPoller` adapter delegates to subscriber
+- [ ] **T6**: 30s monitor tick when `pce_cache.enabled` (drops from `interval_minutes`)
+- [ ] **T7**: Cache lag monitor — warns on stalled ingestor
+- [ ] **T8**: Docs (architecture diagram update) + E2E + PR + tag
+
+---
+
 ## Phase 12: Polish & Advanced ✅ DONE (v3.10.0-polish, 2026-04-19)
 
 - [x] **T1**: Branch + baseline (406 passing)

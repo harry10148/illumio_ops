@@ -44,6 +44,32 @@ _ANSI_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub('', text)
 
+
+def _normalize_ip_token(value: str):
+    token = str(value or "").strip()
+    if not token:
+        raise ValueError("empty ip token")
+    if "/" in token:
+        network = ipaddress.ip_network(token, strict=False)
+        if isinstance(network, ipaddress.IPv6Network) and network.network_address.ipv4_mapped:
+            mapped = network.network_address.ipv4_mapped
+            prefix = max(0, network.prefixlen - 96)
+            return ipaddress.ip_network(f"{mapped}/{prefix}", strict=False)
+        return network
+    addr = ipaddress.ip_address(token)
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+        return addr.ipv4_mapped
+    return addr
+
+
+def _loopback_equivalent(left, right) -> bool:
+    return (
+        isinstance(left, (ipaddress.IPv4Address, ipaddress.IPv6Address))
+        and isinstance(right, (ipaddress.IPv4Address, ipaddress.IPv6Address))
+        and left.is_loopback
+        and right.is_loopback
+    )
+
 # ????????????????????????????????????????????????????????????????????????????????# Event Catalog (mirrors settings.py)
 # ????????????????????????????????????????????????????????????????????????????????# We now dynamically import FULL_EVENT_CATALOG from src.settings inside the API route.
 
@@ -53,18 +79,19 @@ def _check_ip_allowed(allowed_ips: list, remote_addr: str) -> bool:
     if not allowed_ips:
         return True
     try:
-        remote = ipaddress.ip_address(remote_addr)
+        remote = _normalize_ip_token(remote_addr)
     except ValueError:
         return False
     for allowed in allowed_ips:
         try:
-            if '/' in allowed:
-                net = ipaddress.ip_network(allowed, strict=False)
+            normalized = _normalize_ip_token(allowed)
+            if isinstance(normalized, (ipaddress.IPv4Network, ipaddress.IPv6Network)):
+                net = normalized
                 if remote in net:
                     return True
             else:
-                ip = ipaddress.ip_address(allowed)
-                if remote == ip:
+                ip = normalized
+                if remote == ip or _loopback_equivalent(remote, ip):
                     return True
         except ValueError:
             continue
@@ -78,11 +105,8 @@ def _validate_allowed_ips(values) -> tuple[list, list]:
         if not item:
             continue
         try:
-            if "/" in item:
-                ipaddress.ip_network(item, strict=False)
-            else:
-                ipaddress.ip_address(item)
-            normalized.append(item)
+            canonical = _normalize_ip_token(item)
+            normalized.append(str(canonical))
         except ValueError:
             invalid.append(item)
     return normalized, invalid

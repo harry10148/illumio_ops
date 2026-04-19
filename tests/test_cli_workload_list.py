@@ -73,3 +73,13 @@ def test_workload_list_empty(tmp_path, monkeypatch):
         result = runner.invoke(cli, ["workload", "list"])
     assert result.exit_code == 0
     assert "Workloads" in result.output
+
+
+def test_workload_list_rejects_non_positive_limit():
+    from src.cli.root import cli
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["workload", "list", "--limit", "0"])
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--limit'" in result.output

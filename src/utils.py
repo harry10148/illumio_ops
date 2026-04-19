@@ -256,10 +256,11 @@ def safe_input(
                 continue
 
             if not raw:
-                # Empty input: for numeric types return None (go-back sentinel);
-                # for str return "" (unchanged back-compat for string prompts)
+                # Empty input: for numeric types return None with action="empty"
+                # so callers can distinguish "user pressed Enter (use default)"
+                # from "user pressed 0 (go back)".  str prompts keep returning "".
                 if value_type in (int, float):
-                    _set_last_input_action("back")
+                    _set_last_input_action("empty")
                     return None
                 _set_last_input_action("empty")
                 return ""

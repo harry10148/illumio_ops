@@ -78,11 +78,12 @@ def test_safe_input_returns_int_from_valid_input():
 
 
 def test_safe_input_returns_none_on_empty_with_int_type():
-    """Empty input with int returns None (sentinel for 'go back')."""
-    from src.utils import safe_input
+    """Empty int input returns None with action='empty' so callers can apply defaults."""
+    from src.utils import get_last_input_action, safe_input
     with patch("builtins.input", return_value=""):
         result = safe_input("prompt", int, range(0, 10))
     assert result is None
+    assert get_last_input_action() == "empty"
 
 
 def test_spinner_update_does_not_raise():

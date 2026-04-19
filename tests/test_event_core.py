@@ -273,6 +273,41 @@ def test_system_rules_overwrite_by_filter_value(tmp_path):
     assert cm.config["rules"][0]["cooldown_minutes"] == 15
 
 
+def test_add_or_update_rule_matches_existing_rule_by_id(tmp_path):
+    from src.config import ConfigManager
+
+    config_file = tmp_path / "config.json"
+    config_file.write_text(
+        '{"api":{"url":"test","org_id":"1","key":"","secret":""},"rules":[]}',
+        encoding="utf-8",
+    )
+
+    cm = ConfigManager(config_file=str(config_file))
+    original_rule = {
+        "id": 1001,
+        "type": "traffic",
+        "name": "Old Traffic Name",
+        "threshold_count": 10,
+        "threshold_window": 10,
+        "cooldown_minutes": 30,
+    }
+    updated_rule = {
+        "id": 1001,
+        "type": "traffic",
+        "name": "Renamed Traffic Rule",
+        "threshold_count": 25,
+        "threshold_window": 10,
+        "cooldown_minutes": 15,
+    }
+
+    cm.add_or_update_rule(original_rule)
+    cm.add_or_update_rule(updated_rule)
+
+    assert len(cm.config["rules"]) == 1
+    assert cm.config["rules"][0]["name"] == "Renamed Traffic Rule"
+    assert cm.config["rules"][0]["threshold_count"] == 25
+
+
 def test_analyzer_count_threshold_uses_event_timestamps(monkeypatch, tmp_path):
     state_file = tmp_path / "state.json"
     monkeypatch.setattr("src.analyzer.STATE_FILE", str(state_file))

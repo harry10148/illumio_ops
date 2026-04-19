@@ -14,7 +14,7 @@ def workload_group() -> None:
 
 @workload_group.command("list")
 @click.option("--env", default=None, help="Filter by env label value (e.g. 'prod')")
-@click.option("--limit", type=int, default=50, help="Max rows to display")
+@click.option("--limit", type=click.IntRange(min=1), default=50, help="Max rows to display")
 @click.option(
     "--enforcement",
     type=click.Choice(["full", "selective", "visibility_only", "idle", "all"]),

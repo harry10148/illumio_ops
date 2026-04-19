@@ -15,7 +15,12 @@ from src.cli.workload import workload_group
              context_settings={"help_option_names": ["-h", "--help"]})
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    """Illumio PCE Ops — monitoring, reporting, and policy management."""
+    """Illumio PCE Ops — monitoring, reporting, and policy management.
+
+    Legacy flags remain supported via the compatibility entrypoint:
+    --monitor, --monitor-gui, -i/--interval, --gui, -p/--port, --report,
+    --report-type, --source, --file, --format, --email, --output-dir.
+    """
     if ctx.invoked_subcommand is None:
         # No subcommand → defer to the legacy interactive main menu.
         # Imported lazily to avoid argparse side-effects.
