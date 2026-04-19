@@ -89,17 +89,33 @@ class ReportScheduler:
         states = self._load_states()
         sid = str(schedule.get("id", ""))
         last_run_str = states.get(sid, {}).get("last_run")
+        last_run_dt = None
         if last_run_str:
             try:
-                last_run = datetime.datetime.fromisoformat(last_run_str)
+                last_run_dt = datetime.datetime.fromisoformat(last_run_str)
                 # Strip tzinfo if present (legacy UTC-stored timestamps) so
                 # subtraction works against the naive schedule-local `now`.
-                if last_run.tzinfo is not None:
-                    last_run = last_run.replace(tzinfo=None)
-                if (now - last_run).total_seconds() < _MIN_RERUN_GAP:
+                if last_run_dt.tzinfo is not None:
+                    last_run_dt = last_run_dt.replace(tzinfo=None)
+                if (now - last_run_dt).total_seconds() < _MIN_RERUN_GAP:
                     return False
             except ValueError:
                 pass
+
+        # cron_expr branch: use APScheduler CronTrigger to decide if due
+        cron_expr = schedule.get("cron_expr")
+        if cron_expr:
+            try:
+                from apscheduler.triggers.cron import CronTrigger
+                trigger = CronTrigger.from_crontab(cron_expr, timezone="UTC")
+                # Make now timezone-aware for APScheduler
+                now_aware = now.replace(tzinfo=datetime.timezone.utc)
+                prev = last_run_dt.replace(tzinfo=datetime.timezone.utc) if last_run_dt else None
+                next_fire = trigger.get_next_fire_time(prev, now_aware)
+                return next_fire is not None and next_fire <= now_aware
+            except Exception:
+                logger.warning("Invalid cron_expr for schedule {}", schedule.get("id"))
+                return False
 
         stype = schedule.get("schedule_type", "weekly")
         hour = int(schedule.get("hour", 8))

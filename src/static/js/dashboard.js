@@ -408,6 +408,7 @@ function openSchedModal(sched) {
   $('sched-minute').value   = sched ? (sched.minute !== undefined ? sched.minute : 0) : 0;
   $('sched-lookback').value = sched ? (sched.lookback_days || 7) : 7;
   $('sched-max-reports').value = sched ? (sched.max_reports !== undefined ? sched.max_reports : 30) : 30;
+  $('sched-cron-expr').value = sched ? (sched.cron_expr || '') : '';
 
   const fmt = sched ? (sched.format || ['html']) : ['html'];
   $('sched-format').value = fmt.length > 1 ? 'all' : (fmt[0] || 'html');
@@ -464,6 +465,7 @@ async function saveSchedule() {
     email_recipients: recipients,
     enabled: true,
     ...(schedFilters ? { filters: schedFilters } : {}),
+    ...($('sched-cron-expr').value.trim() ? { cron_expr: $('sched-cron-expr').value.trim() } : {}),
   };
 
   const _headers = { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() };
@@ -1615,4 +1617,32 @@ async function runTop10Query(idx) {
     ms.textContent = (_translations['error_generic'] || 'Error: {error}').replace('{error}', e.message);
     bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px;">${_translations['gui_top10_error'] || 'Error querying data.'}</td></tr>`;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Live Plotly dashboard charts (Phase 11)
+// ---------------------------------------------------------------------------
+async function loadDashboardCharts() {
+  const charts = ["traffic_timeline", "policy_decisions", "ven_status", "rule_hits"];
+  for (const id of charts) {
+    try {
+      const resp = await fetch(`/api/dashboard/chart/${id}`,
+                               { headers: { "X-CSRFToken": _csrfToken() } });
+      if (!resp.ok) continue;
+      const fig = await resp.json();
+      const el = document.getElementById(`chart-${id.replace(/_/g, '-')}`);
+      if (el && typeof Plotly !== 'undefined') {
+        Plotly.react(el, fig.data, fig.layout, { responsive: true });
+      }
+    } catch (_) {}
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    loadDashboardCharts();
+    setInterval(loadDashboardCharts, 60000);
+  });
+} else {
+  loadDashboardCharts();
+  setInterval(loadDashboardCharts, 60000);
 }

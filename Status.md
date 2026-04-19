@@ -1,11 +1,40 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-19  
-**Version:** v3.7.0-refactor (Phase 9 Architecture Refactor complete)  
+**Version:** v3.9.0-dashboard (Phase 11 Charts + Dashboard complete)  
 **Branch:** main  
-**Phase:** All 9 phases complete  
+**Phase:** All 11 phases complete  
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
+
+---
+
+## Phase 11 Complete (v3.9.0-dashboard)
+
+Charts, live dashboard, interactive rule editor, cron scheduler. 406 tests passed (baseline 366, +40 new).
+
+- **10 new chart_specs**: mod01/03/04/06/08/09/11/12/13/14 now emit `chart_spec` dicts (all 15 traffic modules now covered).
+- **Live plotly dashboard**: `/api/dashboard/chart/<chart_id>` Flask endpoint returns plotly JSON for traffic_timeline, policy_decisions, ven_status, rule_hits. `dashboard.js` auto-refreshes every 60s via `Plotly.react()`.
+- **CLI `rule edit`**: `illumio-ops rule edit <id>` — interactive questionary prompts + rich.syntax JSON diff. `--no-preview` skips diff.
+- **cron_expr scheduler**: `ReportSchedule.cron_expr: Optional[str]` field; `should_run()` routes to `APScheduler.CronTrigger.from_crontab()` when set; backward-compatible with legacy daily/weekly/monthly.
+- **i18n**: 52 new keys (49 chart labels + 3 cron UI) added to en + zh_TW; audit 0 findings.
+- **+40 new tests**: chart_spec coverage (20), dashboard endpoint (5), rule edit (5), cron schedule (9), i18n (1 i18n_audit clean).
+
+---
+
+## Phase 10 Complete (v3.8.0-ux)
+
+UX quick wins + report parity. 366 tests passed (baseline 317, +49 new).
+
+- **CSV demoted**: `--format` default is now `html`; CSV is opt-in (`--format csv` or `all`). GUI select preselects html. `gui_fmt_*` i18n keys added.
+- **pdf/xlsx parity**: `AuditGenerator`, `VenStatusGenerator`, `PolicyUsageGenerator` now support `pdf`/`xlsx`/`all` dispatch matching `ReportGenerator`. All 4 generators × 5 formats covered by parity tests.
+- **Audit chart_specs**: `audit_mod00` (top event types bar), `audit_mod02` (top users by activity bar), `audit_mod03` (top users by policy changes bar).
+- **VEN chart_specs**: `ven_status_generator._analyze()` emits `status_chart_spec` (online/offline pie) + `os_chart_spec` (VEN by OS bar).
+- **Policy Usage chart_specs**: `pu_mod04` (allow/deny/unused pie), `pu_mod02` (top 10 hit rules bar).
+- **CLI `rule list`**: `illumio-ops rule list [--type X] [--enabled-only]` — rich.Table view of monitoring rules.
+- **CLI `workload list`**: `illumio-ops workload list [--env X] [--limit N] [--enforcement X] [--managed-only]` — rich.Table with spinner during PCE fetch.
+- **rich.progress on async queries**: `_wait_for_async_query` shows elapsed-time spinner in TTY; silent in daemon mode.
+- **+49 new tests**: format parity (20), chart_spec coverage (15), rule list (6), workload list (3), format contract (2), plus 3 from other tasks.
 
 ---
 

@@ -1,6 +1,7 @@
 """Module 6: User & Process Activity Analysis."""
 from __future__ import annotations
 import pandas as pd
+from src.i18n import t, get_language
 
 def user_process_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
     """
@@ -61,5 +62,26 @@ def user_process_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
         .rename(columns={'process_name': 'Process', 'unique_dst': 'Unique Destinations',
                          'total_connections': 'Connections'}))
         result['top_processes'] = top_procs
+
+    # chart_spec: prefer top_processes bar, fall back to top_users bar
+    if proc_available:
+        labels = top_procs['Process'].tolist()[:10]
+        values = top_procs['Connections'].tolist()[:10]
+        chart_label = t('rpt_process', default='Process')
+    elif user_available:
+        labels = result['top_users']['User Name'].tolist()[:10]
+        values = result['top_users']['Connections'].tolist()[:10]
+        chart_label = t('rpt_user', default='User')
+    else:
+        labels, values, chart_label = [], [], ''
+
+    result['chart_spec'] = {
+        'type': 'bar',
+        'title': t('rpt_mod06_chart_title', default='Top Activity by Process/User'),
+        'x_label': chart_label,
+        'y_label': t('rpt_flow_count', default='Connections'),
+        'data': {'labels': labels, 'values': values},
+        'i18n': {'lang': get_language()},
+    }
 
     return result

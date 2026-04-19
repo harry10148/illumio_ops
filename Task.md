@@ -5,6 +5,36 @@
 
 ---
 
+## Phase 11: Charts + Dashboard ✅ DONE (v3.9.0-dashboard, 2026-04-19)
+
+- [x] **T1**: Branch + baseline + `tests/test_phase11_chart_coverage.py` (20 failing tests)
+- [x] **T2**: mod01/03/04 chart_specs (pie, bar by risk level)
+- [x] **T3**: mod06/08/09 chart_specs (bar processes/users, pie managed/unmanaged, bar ports)
+- [x] **T4**: mod11/12/13/14 chart_specs (bar apps, bar maturity dims, bar readiness, bar tiers)
+- [x] **T5**: `/api/dashboard/chart/<chart_id>` Flask endpoint + 5 tests
+- [x] **T6**: `illumio-ops rule edit <id>` interactive CLI + 5 tests
+- [x] **T7**: `ReportSchedule.cron_expr` + `APScheduler.CronTrigger` + 9 cron tests
+- [x] **T8**: i18n audit 0 findings; 406 passed; Status.md + Task.md updated
+- [x] 406 passed, 1 skipped; i18n audit clean
+
+---
+
+## Phase 10: UX Quick Wins ✅ DONE (v3.8.0-ux, 2026-04-19)
+
+- [x] **T1**: Branch + baseline + format contract freeze test (317 baseline)
+- [x] **T2**: CSV demoted — `--format html` is new default; `gui_fmt_*` i18n keys added
+- [x] **T3**: pdf/xlsx/all parity for AuditGenerator, VenStatusGenerator, PolicyUsageGenerator (20 new parity tests)
+- [x] **T4**: Audit chart_specs — audit_mod00 (bar), audit_mod02 (bar), audit_mod03 (bar)
+- [x] **T5**: VEN chart_specs — status_chart_spec (pie), os_chart_spec (bar)
+- [x] **T6**: Policy Usage chart_specs — pu_mod02 (bar), pu_mod04 (pie)
+- [x] **T7**: chart_spec coverage regression test — 15 tests for 5 modules
+- [x] **T8**: CLI `illumio-ops rule list [--type X] [--enabled-only]` — 6 tests
+- [x] **T9**: CLI `illumio-ops workload list [--env X] [--limit N] [--enforcement X]` — 3 tests
+- [x] **T10**: rich.progress spinner on `_wait_for_async_query` — TTY-only, silent in daemon
+- [x] 366 passed, 1 skipped, 1 pre-existing flaky (subprocess timeout)
+
+---
+
 ## Phase 9: Architecture Refactor ✅ DONE (v3.7.0-refactor)
 
 - [x] **A5**: `events/shadow.py` evaluated — retained as active GUI endpoint; 17 tests added

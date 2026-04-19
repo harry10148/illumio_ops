@@ -1,6 +1,7 @@
 """Module 8: Unmanaged Host Analysis."""
 from __future__ import annotations
 import pandas as pd
+from src.i18n import t, get_language
 
 def unmanaged_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
     """
@@ -61,6 +62,7 @@ def unmanaged_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
     # Unmanaged source × port detail (which IPs talking on which ports)
     src_port_detail = _src_port_detail(unmanaged_src, top_n=top_n)
 
+    managed_flow_count = total_flows - unmanaged_flow_count
     return {
         'unmanaged_flow_count': unmanaged_flow_count,
         'unmanaged_pct': unmanaged_pct,
@@ -72,6 +74,18 @@ def unmanaged_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
         'per_dst_app': per_dst_app,
         'per_port_proto': per_port_proto,
         'src_port_detail': src_port_detail,
+        'chart_spec': {
+            'type': 'pie',
+            'title': t('rpt_mod08_chart_title', default='Managed vs Unmanaged Flows'),
+            'data': {
+                'labels': [
+                    t('rpt_managed', default='Managed'),
+                    t('rpt_unmanaged', default='Unmanaged'),
+                ],
+                'values': [managed_flow_count, unmanaged_flow_count],
+            },
+            'i18n': {'lang': get_language()},
+        },
     }
 
 def _per_app_unmanaged(unmanaged_src: pd.DataFrame, top_n: int = 20) -> pd.DataFrame:

@@ -52,6 +52,9 @@ reports/
 brain/
 artifacts/
 
+# Git worktrees
+.worktrees/
+
 # Temporary / backup files
 tmp_*.py
 config-old*.json
