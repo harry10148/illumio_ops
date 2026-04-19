@@ -1,11 +1,24 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-19  
-**Version:** v3.8.0-ux (Phase 10 UX Quick Wins complete)  
+**Version:** v3.9.0-dashboard (Phase 11 Charts + Dashboard complete)  
 **Branch:** main  
-**Phase:** All 10 phases complete  
+**Phase:** All 11 phases complete  
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
+
+---
+
+## Phase 11 Complete (v3.9.0-dashboard)
+
+Charts, live dashboard, interactive rule editor, cron scheduler. 406 tests passed (baseline 366, +40 new).
+
+- **10 new chart_specs**: mod01/03/04/06/08/09/11/12/13/14 now emit `chart_spec` dicts (all 15 traffic modules now covered).
+- **Live plotly dashboard**: `/api/dashboard/chart/<chart_id>` Flask endpoint returns plotly JSON for traffic_timeline, policy_decisions, ven_status, rule_hits. `dashboard.js` auto-refreshes every 60s via `Plotly.react()`.
+- **CLI `rule edit`**: `illumio-ops rule edit <id>` — interactive questionary prompts + rich.syntax JSON diff. `--no-preview` skips diff.
+- **cron_expr scheduler**: `ReportSchedule.cron_expr: Optional[str]` field; `should_run()` routes to `APScheduler.CronTrigger.from_crontab()` when set; backward-compatible with legacy daily/weekly/monthly.
+- **i18n**: 52 new keys (49 chart labels + 3 cron UI) added to en + zh_TW; audit 0 findings.
+- **+40 new tests**: chart_spec coverage (20), dashboard endpoint (5), rule edit (5), cron schedule (9), i18n (1 i18n_audit clean).
 
 ---
 
