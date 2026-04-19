@@ -132,6 +132,22 @@ def audit_user_activity(df: pd.DataFrame) -> dict:
     recent = target_df[recent_cols].rename(columns={"_principal": "user"})
     recent = recent.sort_values("timestamp", ascending=False).head(50)
 
+    chart_spec = None
+    if per_user is not None and not per_user.empty and "User" in per_user.columns:
+        top = per_user.head(10)
+        labels = [str(u)[:25] for u in top["User"].tolist()]
+        count_col = "Total Events" if "Total Events" in top.columns else top.columns[-1]
+        values = top[count_col].tolist()
+        if any(v > 0 for v in values):
+            chart_spec = {
+                "type": "bar",
+                "title": "Top Users by Activity",
+                "x_label": "User",
+                "y_label": "Event Count",
+                "data": {"labels": labels, "values": values},
+                "i18n": {"lang": "en"},
+            }
+
     return {
         "total_user_events": len(target_df),
         "failed_logins": failed_logins,
@@ -140,4 +156,5 @@ def audit_user_activity(df: pd.DataFrame) -> dict:
         "per_user": per_user,
         "failed_login_detail": failed_login_detail,
         "recent": recent,
+        "chart_spec": chart_spec,
     }

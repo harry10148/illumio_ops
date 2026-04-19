@@ -189,6 +189,21 @@ def audit_executive_summary(results: dict, df: pd.DataFrame) -> dict:
     ranked_attack_items = rank_posture_items(attack_items)
     attack_sections = summarize_attack_posture(ranked_attack_items, top_n=5)
 
+    chart_spec = None
+    if not top_events.empty and "Event Type" in top_events.columns and "Count" in top_events.columns:
+        top_slice = top_events.head(10)
+        labels = [str(e)[:30] for e in top_slice["Event Type"].tolist()]
+        values = top_slice["Count"].tolist()
+        if any(v > 0 for v in values):
+            chart_spec = {
+                "type": "bar",
+                "title": "Top Audit Event Types",
+                "x_label": "Event Type",
+                "y_label": "Count",
+                "data": {"labels": labels, "values": values},
+                "i18n": {"lang": "en"},
+            }
+
     return {
         "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "kpis": kpis,
@@ -201,4 +216,5 @@ def audit_executive_summary(results: dict, df: pd.DataFrame) -> dict:
         "blast_radius": attack_sections["blast_radius"],
         "blind_spots": attack_sections["blind_spots"],
         "action_matrix": attack_sections["action_matrix"],
+        "chart_spec": chart_spec,
     }

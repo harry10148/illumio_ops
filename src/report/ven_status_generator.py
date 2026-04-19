@@ -76,6 +76,41 @@ class VenStatusGenerator:
             path = VenHtmlExporter(result.module_results, df=result.dataframe).export(output_dir)
             paths.append(path)
             print(t("rpt_ven_html_saved", path=path))
+        if fmt in ('pdf', 'all'):
+            try:
+                from src.report.exporters.pdf_exporter import export_pdf
+                from src.report.exporters.ven_html_exporter import VenHtmlExporter
+                html_content = VenHtmlExporter(result.module_results, df=result.dataframe)._build()
+                import datetime as _dt
+                ts_str = _dt.datetime.now().strftime('%Y-%m-%d_%H%M')
+                pdf_path = os.path.join(output_dir, f'Illumio_VEN_Report_{ts_str}.pdf')
+                export_pdf(html_content, pdf_path)
+                paths.append(pdf_path)
+                print(t("rpt_pdf_saved", path=pdf_path, default=f"PDF saved: {pdf_path}"))
+            except Exception as exc:
+                logger.warning('PDF export failed: {}', exc)
+
+        if fmt in ('xlsx', 'all'):
+            try:
+                from src.report.exporters.xlsx_exporter import export_xlsx
+                import datetime as _dt
+                ts_str = _dt.datetime.now().strftime('%Y-%m-%d_%H%M')
+                xlsx_path = os.path.join(output_dir, f'Illumio_VEN_Report_{ts_str}.xlsx')
+                xlsx_result = {
+                    'record_count': result.record_count,
+                    'metadata': {'title': 'VEN Status Report'},
+                    'module_results': {
+                        k: {'summary': '', 'table': []}
+                        for k, v in (result.module_results or {}).items()
+                        if isinstance(v, dict)
+                    },
+                }
+                export_xlsx(xlsx_result, xlsx_path)
+                paths.append(xlsx_path)
+                print(t("rpt_xlsx_saved", path=xlsx_path, default=f"XLSX saved: {xlsx_path}"))
+            except Exception as exc:
+                logger.warning('XLSX export failed: {}', exc)
+
         if fmt in ('csv', 'all'):
             path = CsvExporter(result.module_results, report_label='VEN_Status').export(output_dir)
             paths.append(path)
@@ -228,6 +263,38 @@ class VenStatusGenerator:
             {'i18n_key': 'rpt_ven_kpi_lost_48h', 'value': str(len(df_lost_yest))},
         ]
 
+        # Chart 1: VEN status pie (online vs offline)
+        status_chart_spec = None
+        total_for_chart = len(df_online) + len(df_offline)
+        if total_for_chart > 0:
+            status_chart_spec = {
+                "type": "pie",
+                "title": "VEN Agent Status",
+                "data": {
+                    "labels": ["Online", "Offline"],
+                    "values": [len(df_online), len(df_offline)],
+                },
+                "i18n": {"lang": "en"},
+            }
+
+        # Chart 2: VEN count by OS platform (if os column exists)
+        os_chart_spec = None
+        os_col = next((c for c in ("os_id", "os_type", "os", "os_platform") if c in df.columns), None)
+        if os_col and not df.empty:
+            os_counts = df[os_col].fillna("Unknown").astype(str).str.strip().replace("", "Unknown").value_counts()
+            if len(os_counts) > 0:
+                os_chart_spec = {
+                    "type": "bar",
+                    "title": "VEN by OS Platform",
+                    "x_label": "OS",
+                    "y_label": "VEN Count",
+                    "data": {
+                        "labels": os_counts.index.tolist()[:10],
+                        "values": os_counts.values.tolist()[:10],
+                    },
+                    "i18n": {"lang": "en"},
+                }
+
         return {
             'generated_at':   _fmt_tz_str(now),
             'kpis':           kpis,
@@ -235,4 +302,6 @@ class VenStatusGenerator:
             'offline':        _clean(df_offline),
             'lost_today':     _clean(df_lost_today),
             'lost_yesterday': _clean(df_lost_yest),
+            'status_chart_spec': status_chart_spec,
+            'os_chart_spec': os_chart_spec,
         }

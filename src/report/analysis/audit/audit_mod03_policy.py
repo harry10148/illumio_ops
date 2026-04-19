@@ -166,6 +166,22 @@ def audit_policy_changes(df: pd.DataFrame) -> dict:
     recent_cols = _select_cols(target_df, ["timestamp", "event_type", "severity"], extra_cols=("target_name", "resource_name", "action", "src_ip", "change_detail"))
     recent = target_df[recent_cols].sort_values("timestamp", ascending=False).head(50)
 
+    chart_spec = None
+    if per_user is not None and not per_user.empty and "User" in per_user.columns:
+        top = per_user.head(10)
+        labels = [str(u)[:25] for u in top["User"].tolist()]
+        count_col = "Total Changes" if "Total Changes" in top.columns else top.columns[-1]
+        values = top[count_col].tolist()
+        if any(v > 0 for v in values):
+            chart_spec = {
+                "type": "bar",
+                "title": "Top Users by Policy Changes",
+                "x_label": "User",
+                "y_label": "Change Count",
+                "data": {"labels": labels, "values": values},
+                "i18n": {"lang": "en"},
+            }
+
     return {
         "total_policy_events": len(target_df),
         "provision_count": provision_count,
@@ -180,4 +196,5 @@ def audit_policy_changes(df: pd.DataFrame) -> dict:
         "provisions": provisions,
         "draft_events": draft_events,
         "recent": recent,
+        "chart_spec": chart_spec,
     }
