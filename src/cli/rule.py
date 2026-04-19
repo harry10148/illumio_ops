@@ -47,3 +47,52 @@ def list_rules(rule_type: str, enabled_only: bool) -> None:
             str(r.get("threshold", "")) if "threshold" in r else "-",
         )
     console.print(table)
+
+
+@rule_group.command("edit")
+@click.argument("rule_id", type=int)
+@click.option("--no-preview", is_flag=True, help="Skip the diff preview before save")
+def edit_rule(rule_id: int, no_preview: bool) -> None:
+    """Interactively edit a rule by its 1-based index."""
+    import json
+    import questionary
+    from src.config import ConfigManager
+    from rich.syntax import Syntax
+
+    cm = ConfigManager()
+    rules = cm.config.get("rules", [])
+    if rule_id < 1 or rule_id > len(rules):
+        raise click.ClickException(f"rule_id {rule_id} out of range (1..{len(rules)})")
+
+    rule = rules[rule_id - 1]
+    before = json.dumps(rule, indent=2, ensure_ascii=False)
+
+    name = questionary.text("Rule name:", default=rule.get("name", "")).unsafe_ask()
+    enabled = questionary.confirm("Enabled?", default=bool(rule.get("enabled", True))).unsafe_ask()
+    threshold_str = questionary.text(
+        "Threshold (blank to keep):",
+        default=str(rule.get("threshold", "")),
+    ).unsafe_ask()
+
+    rule["name"] = name
+    rule["enabled"] = enabled
+    if threshold_str.strip():
+        try:
+            rule["threshold"] = int(threshold_str)
+        except ValueError:
+            rule["threshold"] = threshold_str
+
+    after = json.dumps(rule, indent=2, ensure_ascii=False)
+
+    if not no_preview:
+        console = Console()
+        console.print("[bold]Before:[/bold]")
+        console.print(Syntax(before, "json", theme="monokai", line_numbers=False))
+        console.print("[bold]After:[/bold]")
+        console.print(Syntax(after, "json", theme="monokai", line_numbers=False))
+        if not questionary.confirm("Save changes?", default=True).unsafe_ask():
+            click.echo("Aborted.")
+            return
+
+    cm.save()
+    click.echo(f"Rule {rule_id} saved.")
