@@ -1551,5 +1551,11 @@
   "rpt_r_staged": "Staged Coverage",
   "gui_rules_count": "Rules",
   "gui_schedules_count": "Schedules",
-  "gui_config_loaded": "Loaded"
+  "gui_config_loaded": "Loaded",
+  "cli_siem_test_ok": "Test event sent successfully to '{dest}'",
+  "cli_siem_test_fail": "Test failed for '{dest}': {error}",
+  "cli_siem_no_dlq": "No DLQ entries for '{dest}'",
+  "cli_siem_replayed": "Requeued {count} entries for '{dest}'",
+  "cli_siem_purged": "Purged {count} DLQ entries for '{dest}'",
+  "cli_siem_dlq_empty": "DLQ is empty for destination '{dest}'"
 }

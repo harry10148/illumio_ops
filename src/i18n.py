@@ -1966,6 +1966,12 @@ _ZH_EXPLICIT.update({
     "gui_rules_count": "規則數",
     "gui_schedules_count": "排程數",
     "gui_config_loaded": "載入時間",
+    "cli_siem_test_ok": "成功發送測試事件至 '{dest}'",
+    "cli_siem_test_fail": "'{dest}' 測試失敗：{error}",
+    "cli_siem_no_dlq": "'{dest}' 無 DLQ 項目",
+    "cli_siem_replayed": "已重新排隊 {count} 個項目至 '{dest}'",
+    "cli_siem_purged": "已清除 '{dest}' 的 {count} 個 DLQ 項目",
+    "cli_siem_dlq_empty": "'{dest}' 的 DLQ 為空",
 })
 
 def _humanize_key_en(key: str) -> str:
