@@ -46,10 +46,10 @@ Plan: [docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md](docs/su
 - [x] **T5**: Events ingestor (sync ≤ 10k, async via `Prefer: respond-async` beyond)
 - [x] **T6**: Traffic filter + deterministic sampler (`hash(src,dst,port)` for idempotent drops)
 - [x] **T7**: Traffic ingestor (async `/traffic_flows/async_queries`, 200k cap, filter+sample applied)
-- [ ] **T8**: Traffic aggregator (daily rollup to `pce_traffic_flows_agg`, idempotent UPSERT)
-- [ ] **T9**: Retention worker (per-table TTL purge)
-- [ ] **T10**: Formatters — CEF + JSON Lines + RFC5424 syslog header wrapper
-- [ ] **T11**: Transports — UDP / TCP / TCP+TLS / Splunk HEC (stdlib `socket`/`ssl` + `requests`)
+- [x] **T8**: Traffic aggregator (daily rollup to `pce_traffic_flows_agg`, idempotent UPSERT)
+- [x] **T9**: Retention worker (per-table TTL purge)
+- [x] **T10**: Formatters — CEF + JSON Lines + RFC5424 syslog header wrapper (3 test files, 9 tests, 499 total pass)
+- [x] **T11**: Transports — UDP / TCP / TCP+TLS / Splunk HEC (stdlib `socket`/`ssl` + `requests`) — 6 tests, 505 total pass
 - [ ] **T12**: Dispatcher + DLQ with exponential backoff (cap 1h) and quarantine after N retries
 - [ ] **T13**: Config models (pydantic v2) + APScheduler job registration behind flags
 - [ ] **T14**: CLI `illumio-ops siem test|status|replay|purge|dlq`

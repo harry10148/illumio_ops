@@ -30,6 +30,12 @@ New feature: push PCE audit events + traffic flows to SIEM, with a shared local 
 
 **Phase 13 T7 Complete (2026-04-20)**: `TrafficIngestor` (`src/pce_cache/ingestor_traffic.py`) — async-only pull via `get_traffic_flows_async`, 200k cap, deduplicates on SHA1 `flow_hash`, filter+sampler applied per flow, watermark advance with 5-min grace window. Also fixed `BigInteger` PK autoincrement on SQLite (changed all id PKs to `Integer` in models.py). `ApiClient` gains `get_traffic_flows_async()` stub. 485 passed, 1 skipped (+3 new tests).
 
+**Phase 13 T9 Complete (2026-04-20)**: `RetentionWorker` (`src/pce_cache/retention.py`) — per-table TTL purge (events/traffic_raw/traffic_agg/dead_letter) with configurable days thresholds (default 90/7/90/30). Each purge runs in its own transaction; `run_once()` returns dict with rowcount per table. 490 passed, 1 skipped (+3 new tests).
+
+**Phase 13 T10 Complete (2026-04-20)**: SIEM formatters (`src/siem/formatters/`) — base ABC, CEF 0.1 (severity map, timestamp→epoch-ms), JSON Lines (orjson), RFC5424 syslog header wrapper. 499 passed, 1 skipped (+9 new tests).
+
+**Phase 13 T11 Complete (2026-04-20)**: SIEM transports (`src/siem/transports/`) — `Transport` ABC, `SyslogUDPTransport` (sendto, MTU warning), `SyslogTCPTransport` (lazy connect, auto-reconnect on broken pipe, thread-safe lock), `SyslogTLSTransport` (ssl.create_default_context, CERT_NONE opt-out, reconnect), `SplunkHECTransport` (requests session, urllib3 Retry 3×, 429/5xx forcelist). 505 passed, 1 skipped (+6 new tests).
+
 - **Phase 13** — PCE cache (SQLite, 6 tables) + SIEM forwarder (CEF/JSON over UDP/TCP/TLS/HEC) + DLQ. Infrastructure PR. Plan: [docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md](docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md). Target tag: `v3.11.0-siem-cache`.
 - **Phase 14** — `AuditGenerator` + `ReportGenerator` read from cache when range in retention, backfill CLI for out-of-range. Plan: [docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md](docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md). Target tag: `v3.12.0-reports-cache`.
 - **Phase 15** — `Analyzer` + `EventPoller` subscribe to cache via `ingested_at`-cursor; enables 30s monitor tick without breaching PCE 500/min. Plan: [docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md](docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md). Target tag: `v3.13.0-alerts-cache`.
