@@ -50,9 +50,9 @@ Plan: [docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md](docs/su
 - [x] **T9**: Retention worker (per-table TTL purge)
 - [x] **T10**: Formatters — CEF + JSON Lines + RFC5424 syslog header wrapper (3 test files, 9 tests, 499 total pass)
 - [x] **T11**: Transports — UDP / TCP / TCP+TLS / Splunk HEC (stdlib `socket`/`ssl` + `requests`) — 6 tests, 505 total pass
-- [ ] **T12**: Dispatcher + DLQ with exponential backoff (cap 1h) and quarantine after N retries
-- [ ] **T13**: Config models (pydantic v2) + APScheduler job registration behind flags
-- [ ] **T14**: CLI `illumio-ops siem test|status|replay|purge|dlq`
+- [x] **T12**: Dispatcher + DLQ with exponential backoff (cap 1h) and quarantine after N retries
+- [x] **T13**: Config models (pydantic v2) + APScheduler job registration behind flags
+- [x] **T14**: CLI `illumio-ops siem test|status|replay|purge|dlq` — `src/cli/siem.py`, registered in root.py + illumio_ops.py, i18n EN+ZH, 4 tests, 518 total pass
 - [ ] **T15**: Flask blueprint `/api/siem/` — destinations CRUD + DLQ admin + UDP warning banner
 - [ ] **T16**: Docs — `docs/PCE_Cache.md`, `docs/SIEM_Forwarder.md`, update `docs/SIEM_Integration.md`
 - [ ] **T17**: E2E test + i18n audit + Status/Task updates + PR + tag
