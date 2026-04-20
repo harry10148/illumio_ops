@@ -245,6 +245,10 @@ class ApiClient:
         """Async bulk events pull via Prefer: respond-async (stub for Phase 13)."""
         return []
 
+    def get_traffic_flows_async(self, max_results=200000, rate_limit: bool = False, since=None, **kwargs):
+        """Async traffic flows pull (stub for Phase 13; Phase 14 will flesh this out)."""
+        return []
+
     # ═══════════════════════════════════════════════════════════════════════
     # LabelResolver delegation wrappers
     # ═══════════════════════════════════════════════════════════════════════

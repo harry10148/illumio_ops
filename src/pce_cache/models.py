@@ -33,7 +33,7 @@ class PceEvent(Base):
 class PceTrafficFlowRaw(Base):
     __tablename__ = "pce_traffic_flows_raw"
 
-    id:             Mapped[int]      = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id:             Mapped[int]      = mapped_column(Integer, primary_key=True, autoincrement=True)
     flow_hash:      Mapped[str]      = mapped_column(String(64), unique=True, index=True)
     first_detected: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     last_detected:  Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
@@ -54,7 +54,7 @@ class PceTrafficFlowRaw(Base):
 class PceTrafficFlowAgg(Base):
     __tablename__ = "pce_traffic_flows_agg"
 
-    id:             Mapped[int]      = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id:             Mapped[int]      = mapped_column(Integer, primary_key=True, autoincrement=True)
     bucket_day:     Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     src_workload:   Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     dst_workload:   Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
@@ -87,7 +87,7 @@ class IngestionWatermark(Base):
 class SiemDispatch(Base):
     __tablename__ = "siem_dispatch"
 
-    id:              Mapped[int]      = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id:              Mapped[int]      = mapped_column(Integer, primary_key=True, autoincrement=True)
     source_table:    Mapped[str]      = mapped_column(String(32), index=True)
     source_id:       Mapped[int]      = mapped_column(BigInteger)
     destination:     Mapped[str]      = mapped_column(String(64), index=True)
@@ -106,7 +106,7 @@ class SiemDispatch(Base):
 class DeadLetter(Base):
     __tablename__ = "dead_letter"
 
-    id:              Mapped[int]      = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id:              Mapped[int]      = mapped_column(Integer, primary_key=True, autoincrement=True)
     source_table:    Mapped[str]      = mapped_column(String(32))
     source_id:       Mapped[int]      = mapped_column(BigInteger)
     destination:     Mapped[str]      = mapped_column(String(64), index=True)
