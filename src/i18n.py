@@ -1972,6 +1972,20 @@ _ZH_EXPLICIT.update({
     "cli_siem_replayed": "已重新排隊 {count} 個項目至 '{dest}'",
     "cli_siem_purged": "已清除 '{dest}' 的 {count} 個 DLQ 項目",
     "cli_siem_dlq_empty": "'{dest}' 的 DLQ 為空",
+    "gui_siem_destinations": "SIEM 目的地",
+    "gui_siem_add_destination": "新增目的地",
+    "gui_siem_edit_destination": "編輯目的地",
+    "gui_siem_delete_destination": "刪除目的地",
+    "gui_siem_test_connection": "測試連線",
+    "gui_siem_dlq_title": "無法送達佇列",
+    "gui_siem_replay": "重播",
+    "gui_siem_purge": "清除",
+    "gui_siem_no_destinations": "尚未設定 SIEM 目的地。",
+    "gui_siem_udp_warning": "UDP 傳輸無法保證送達或訊息順序，正式環境建議使用 TCP 或 TLS。",
+    "gui_siem_status": "SIEM 狀態",
+    "gui_siem_pending": "待送",
+    "gui_siem_sent": "已送出",
+    "gui_siem_failed": "失敗",
 })
 
 def _humanize_key_en(key: str) -> str:
