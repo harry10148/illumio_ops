@@ -234,6 +234,17 @@ class ApiClient:
             print(f"{Colors.FAIL}{t('api_fetch_events_error', error=str(e))}{Colors.ENDC}")
             return []
 
+    def get_events(self, max_results=500, since=None, rate_limit: bool = False, **kwargs):
+        """Sync events pull used by EventsIngestor."""
+        return self.fetch_events(
+            start_time_str=since or "",
+            max_results=max_results,
+        )
+
+    def get_events_async(self, since=None, rate_limit: bool = False, **kwargs):
+        """Async bulk events pull via Prefer: respond-async (stub for Phase 13)."""
+        return []
+
     # ═══════════════════════════════════════════════════════════════════════
     # LabelResolver delegation wrappers
     # ═══════════════════════════════════════════════════════════════════════
