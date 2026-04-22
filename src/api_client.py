@@ -135,12 +135,24 @@ class ApiClient:
         encoded = base64.b64encode(credentials.encode('utf-8')).decode('ascii')
         return f"Basic {encoded}"
 
-    def _request(self, url, method="GET", data=None, headers=None, timeout=15, stream=False):
+    def _request(self, url, method="GET", data=None, headers=None, timeout=15, stream=False, rate_limit: bool = False):
         """Core HTTP helper using requests.Session + urllib3 Retry.
 
         Returns (status_code, response_body_bytes | response_object).
         For stream=True, returns (status_code, raw requests.Response).
         """
+        if rate_limit:
+            from src.pce_cache.rate_limiter import get_rate_limiter
+            rpm = 400
+            try:
+                from src.config import ConfigManager
+                cm = ConfigManager()
+                rpm = cm.models.pce_cache.rate_limit_per_minute
+            except Exception:
+                pass
+            if not get_rate_limiter(rate_per_minute=rpm).acquire(timeout=30.0):
+                from src.exceptions import APIError
+                raise APIError("Global rate limiter timeout — PCE 500/min budget exhausted")
         req_headers = {}
         if headers:
             req_headers.update(headers)
@@ -221,6 +233,21 @@ class ApiClient:
             logger.error(f"Fetch Events Error: {e}")
             print(f"{Colors.FAIL}{t('api_fetch_events_error', error=str(e))}{Colors.ENDC}")
             return []
+
+    def get_events(self, max_results=500, since=None, rate_limit: bool = False, **kwargs):
+        """Sync events pull used by EventsIngestor."""
+        return self.fetch_events(
+            start_time_str=since or "",
+            max_results=max_results,
+        )
+
+    def get_events_async(self, since=None, rate_limit: bool = False, **kwargs):
+        """Async bulk events pull via Prefer: respond-async (stub for Phase 13)."""
+        return []
+
+    def get_traffic_flows_async(self, max_results=200000, rate_limit: bool = False, since=None, **kwargs):
+        """Async traffic flows pull (stub for Phase 13; Phase 14 will flesh this out)."""
+        return []
 
     # ═══════════════════════════════════════════════════════════════════════
     # LabelResolver delegation wrappers

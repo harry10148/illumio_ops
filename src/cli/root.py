@@ -8,6 +8,7 @@ from src.cli.monitor import monitor_cmd
 from src.cli.gui_cmd import gui_cmd
 from src.cli.report import report_group
 from src.cli.rule import rule_group
+from src.cli.siem import siem_group
 from src.cli.status import status_cmd
 from src.cli.workload import workload_group
 
@@ -41,5 +42,6 @@ cli.add_command(monitor_cmd)
 cli.add_command(gui_cmd)
 cli.add_command(report_group)
 cli.add_command(rule_group)
+cli.add_command(siem_group)
 cli.add_command(status_cmd)
 cli.add_command(workload_group)

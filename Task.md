@@ -1,6 +1,6 @@
 # Active Tasks — illumio_ops
 
-**As of:** 2026-04-19  
+**As of:** 2026-04-20  
 **Source:** Code Review (full project analysis) + Upgrade Roadmap
 
 ---
@@ -27,29 +27,35 @@
 - [x] Fixed single-IP mismatch for IPv4-mapped IPv6 remotes and loopback equivalence in [src/gui.py](/mnt/d/OneDrive/RD/illumio_ops/src/gui.py).
 - [x] Added regression coverage for exact-IP allowlist, mapped IPv6 remotes, and allowlist normalization in [tests/test_gui_security.py](/mnt/d/OneDrive/RD/illumio_ops/tests/test_gui_security.py).
 
+## Repository Cleanup (2026-04-20)
+
+- [x] Removed all remaining `upgrade/*` local branches.
+- [x] Removed the remaining `upgrade/*` remote branch (`origin/upgrade/phase-11-charts-dashboard`).
+- [x] Removed all `upgrade/*` worktrees and pruned stale worktree metadata; only the main worktree remains.
+
 ---
 
-## Phase 13: PCE Cache + SIEM Forwarder 📋 PLANNED (2026-04-19)
+## Phase 13: PCE Cache + SIEM Forwarder ✅ DONE (v3.11.0-siem-cache, 2026-04-20)
 
 Plan: [docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md](docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md) • Target tag: `v3.11.0-siem-cache` • Branch: `feature/phase-13-siem-cache`
 
-- [ ] **T1**: Branch + baseline (422 passed)
-- [ ] **T2**: SQLAlchemy models + WAL schema (6 tables: events / traffic_raw / traffic_agg / watermarks / dispatch / dead_letter)
-- [ ] **T3**: Global rate limiter (token bucket, 400/min default) + `ApiClient._request(rate_limit=...)` feature flag
-- [ ] **T4**: Watermark store (per-source cursor with error recording)
-- [ ] **T5**: Events ingestor (sync ≤ 10k, async via `Prefer: respond-async` beyond)
-- [ ] **T6**: Traffic filter + deterministic sampler (`hash(src,dst,port)` for idempotent drops)
-- [ ] **T7**: Traffic ingestor (async `/traffic_flows/async_queries`, 200k cap, filter+sample applied)
-- [ ] **T8**: Traffic aggregator (daily rollup to `pce_traffic_flows_agg`, idempotent UPSERT)
-- [ ] **T9**: Retention worker (per-table TTL purge)
-- [ ] **T10**: Formatters — CEF + JSON Lines + RFC5424 syslog header wrapper
-- [ ] **T11**: Transports — UDP / TCP / TCP+TLS / Splunk HEC (stdlib `socket`/`ssl` + `requests`)
-- [ ] **T12**: Dispatcher + DLQ with exponential backoff (cap 1h) and quarantine after N retries
-- [ ] **T13**: Config models (pydantic v2) + APScheduler job registration behind flags
-- [ ] **T14**: CLI `illumio-ops siem test|status|replay|purge|dlq`
-- [ ] **T15**: Flask blueprint `/api/siem/` — destinations CRUD + DLQ admin + UDP warning banner
-- [ ] **T16**: Docs — `docs/PCE_Cache.md`, `docs/SIEM_Forwarder.md`, update `docs/SIEM_Integration.md`
-- [ ] **T17**: E2E test + i18n audit + Status/Task updates + PR + tag
+- [x] **T1**: Branch + baseline (465 passed, branch `feature/phase-13-siem-cache` created, package skeleton scaffolded)
+- [x] **T2**: SQLAlchemy models + WAL schema (6 tables: events / traffic_raw / traffic_agg / watermarks / dispatch / dead_letter)
+- [x] **T3**: Global rate limiter (token bucket, 400/min default) + `ApiClient._request(rate_limit=...)` feature flag
+- [x] **T4**: Watermark store (per-source cursor with error recording)
+- [x] **T5**: Events ingestor (sync ≤ 10k, async via `Prefer: respond-async` beyond)
+- [x] **T6**: Traffic filter + deterministic sampler (`hash(src,dst,port)` for idempotent drops)
+- [x] **T7**: Traffic ingestor (async `/traffic_flows/async_queries`, 200k cap, filter+sample applied)
+- [x] **T8**: Traffic aggregator (daily rollup to `pce_traffic_flows_agg`, idempotent UPSERT)
+- [x] **T9**: Retention worker (per-table TTL purge)
+- [x] **T10**: Formatters — CEF + JSON Lines + RFC5424 syslog header wrapper (3 test files, 9 tests, 499 total pass)
+- [x] **T11**: Transports — UDP / TCP / TCP+TLS / Splunk HEC (stdlib `socket`/`ssl` + `requests`) — 6 tests, 505 total pass
+- [x] **T12**: Dispatcher + DLQ with exponential backoff (cap 1h) and quarantine after N retries
+- [x] **T13**: Config models (pydantic v2) + APScheduler job registration behind flags
+- [x] **T14**: CLI `illumio-ops siem test|status|replay|purge|dlq` — `src/cli/siem.py`, registered in root.py + illumio_ops.py, i18n EN+ZH, 4 tests, 518 total pass
+- [x] **T15**: Flask blueprint `/api/siem/` — destinations CRUD + DLQ admin + UDP warning banner
+- [x] **T16**: Docs — `docs/PCE_Cache.md`, `docs/SIEM_Forwarder.md`, update `docs/SIEM_Integration.md`
+- [x] **T17**: E2E test (523 passed) + i18n audit (0 findings) + Status/Task updates + PR + tag
 
 ---
 
@@ -79,6 +85,24 @@ Plan: [docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md](docs/super
 - [ ] **T6**: 30s monitor tick when `pce_cache.enabled` (drops from `interval_minutes`)
 - [ ] **T7**: Cache lag monitor — warns on stalled ingestor
 - [ ] **T8**: Docs (architecture diagram update) + E2E + PR + tag
+
+---
+
+## Phase 16: Offline Bundle 📋 PLANNED (2026-04-20) — FINAL PHASE
+
+Plan: [docs/superpowers/plans/2026-04-20-phase-16-offline-bundle.md](docs/superpowers/plans/2026-04-20-phase-16-offline-bundle.md) • Target tag: `v3.14.0-offline-bundle` • Branch: `feature/phase-16-offline-bundle`
+
+**Goal:** Any developer can `git clone` → run `bash scripts/build_offline_bundle.sh` → hand the tarball to an operator → operator installs on air-gapped RHEL 8 or 9 via `sudo ./install.sh`. No internet required on the target host.
+
+**Decisions locked:** single artifact (EL8 + EL9), drop PDF from offline build, PBS CPython 3.12, manylinux_2_17_x86_64 wheels, no RPM required.
+
+- [ ] **T1**: `requirements-offline.txt` + `PDF_AVAILABLE` flag in `pdf_exporter.py` + 2 new tests
+- [ ] **T2**: CLI guard — `_check_pdf_available()` in `src/cli/report.py` applied to all 4 report commands + 4 new tests
+- [ ] **T3**: `verify_deps.py --offline-bundle` mode + 1 new test (total tests: 523 → 530)
+- [ ] **T4**: `scripts/build_offline_bundle.sh` (Linux+Windows) + `scripts/preflight.sh` + `scripts/preflight.ps1` (pre-install host checks) + `scripts/setup.sh` (git-clone Linux) + `scripts/install.sh` (offline Linux) + `scripts/install.ps1` (offline Windows) + `deploy/illumio-ops.service` + `deploy/install_service.ps1` (PBS priority) — all scripts support install **and** uninstall
+- [ ] **T5**: `docs/User_Manual.md` — §1.2 Offline Bundle install steps + troubleshooting row
+- [ ] **T6**: Fix `requirements.txt` header comment + final `pytest` baseline (≥530) + i18n audit
+- [ ] **T7**: Manual E2E smoke test on Rocky 8 + Rocky 9 (same tarball), tag `v3.14.0-offline-bundle`
 
 ---
 
