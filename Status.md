@@ -3,7 +3,7 @@
 **As of:** 2026-04-20  
 **Version:** v3.11.0-siem-cache (Phase 13 Complete)  
 **Branch:** feature/phase-13-siem-cache (PR open, pending merge)
-**Phase:** 13 phases shipped; Phase 14–15 planned  
+**Phase:** 13 phases shipped; Phase 14–16 planned (16 = final)  
 **Code Review Date:** 2026-04-13  
 **i18n Overhaul:** 2026-04-18 — see Task.md i18n-P1..P7 (all done)
 **CLI Audit Note:** 2026-04-19 — legacy `Rules > Manage` menu command parser fixed: prompt now documents `m`/`d` syntax, `h/?` help now works, invalid formats return actionable guidance, rule edit no longer deletes the original rule before confirmation, and regression tests cover help/delete/modify/error paths.
@@ -29,13 +29,16 @@
 
 ---
 
-## Phase 14–15 — PLANNED
+## Phase 14–16 — PLANNED
 
 - **Phase 14** — `AuditGenerator` + `ReportGenerator` read from cache when range in retention, backfill CLI for out-of-range. Plan: [docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md](docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md). Target tag: `v3.12.0-reports-cache`.
 - **Phase 15** — `Analyzer` + `EventPoller` subscribe to cache via `ingested_at`-cursor; enables 30s monitor tick without breaching PCE 500/min. Plan: [docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md](docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md). Target tag: `v3.13.0-alerts-cache`.
+- **Phase 16** — **Offline bundle (final phase)** — one `bash scripts/build_offline_bundle.sh` on Linux/WSL produces two artifacts: `illumio_ops-<ver>-offline-linux-x86_64.tar.gz` (RHEL 8+9, `sudo ./install.sh`) and `illumio_ops-<ver>-offline-windows-x86_64.zip` (Windows 10/11/Server, `.\install.ps1`). PBS CPython 3.12, weasyprint excluded, `--format pdf` degrades gracefully. `install.sh`/`install.ps1` preserve `config.json` + `rule_schedules.json` on upgrade. Plan: [docs/superpowers/plans/2026-04-20-phase-16-offline-bundle.md](docs/superpowers/plans/2026-04-20-phase-16-offline-bundle.md). Target tag: `v3.14.0-offline-bundle`.
 - **Roadmap** — [docs/superpowers/plans/2026-04-19-phase-13-14-15-roadmap.md](docs/superpowers/plans/2026-04-19-phase-13-14-15-roadmap.md) with 15 confirmed design decisions.
 
 Phase 14 and 15 are independent once 13 merges. All three default OFF — no behaviour change until operator enables `pce_cache.enabled` / `siem.enabled` in config.
+
+Phase 16 is independent of 14/15 — it requires no feature code, only packaging infrastructure. Intended workflow: `git clone` → `bash scripts/build_offline_bundle.sh` → transfer tarball → `sudo ./install.sh` on air-gapped RHEL host. Full operator steps documented in `docs/User_Manual.md §1.2 Offline Bundle`.
 
 ---
 
