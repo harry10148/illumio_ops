@@ -41,7 +41,7 @@
       else apply();
     })();
   </script>
-  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <a href="#main-content" class="skip-link" data-i18n="gui_skip_main">Skip to main content</a>
 
   <!-- SVG Icons definition for reuse -->
   <svg style="display:none">
@@ -122,14 +122,14 @@
       </svg>
       Illumio PCE Ops
     </h1>
-    <div id="hdr-meta" class="pce-badge" title="Connected PCE: {{ pce_url }}">
+    <div id="hdr-meta" class="pce-badge" title="{{ t('gui_connected_pce', url=(pce_url or '—')) }}">
       <svg class="icon" style="width:14px;height:14px;flex-shrink:0;color:var(--accent2);" aria-hidden="true">
         <use href="#icon-shield"></use>
       </svg>
       <span id="hdr-meta-url">{{ pce_url or '—' }}</span>
     </div>
     <div id="hdr-stats" style="display:flex;gap:12px;align-items:center;font-size:0.75rem;color:var(--dim);"
-         title="Config loaded {{ config_loaded_at | human_time_ago }}">
+         title="{{ t('gui_config_loaded_title', when=(config_loaded_at | human_time_ago)) }}">
       <span><span data-i18n="gui_rules_count">Rules</span>: <strong>{{ rules_count | human_number }}</strong></span>
       <span><span data-i18n="gui_schedules_count">Schedules</span>: <strong>{{ schedules_count | human_number }}</strong></span>
       <span title="{{ config_loaded_at }}"><span data-i18n="gui_config_loaded">Loaded</span>: {{ config_loaded_at | human_time_ago }}</span>
@@ -151,7 +151,7 @@
         </select>
       </div>
       <button class="btn btn-sm" onclick="mlOpen()" data-i18n="gui_ml_logs_btn" style="padding:3px 10px;">Logs</button>
-      <button class="btn btn-secondary btn-sm" onclick="stopGui()" title="Stop Web GUI" data-i18n="gui_stop">
+      <button class="btn btn-secondary btn-sm" onclick="stopGui()" title="{{ t('gui_stop_web_gui') }}" data-i18n="gui_stop">
         <svg class="icon" aria-hidden="true" focusable="false">
           <use href="#icon-stop"></use>
         </svg> Stop
@@ -523,9 +523,9 @@
   <!-- Floating Bulk Quarantine Action Bar -->
   <div class="floating-action-bar" id="bulk-bar">
     <div style="color:var(--fg); font-size:1rem;">
-      Selected <span class="sel-count" id="bulk-sel-count">0</span> workloads
+      <span data-i18n="gui_selected">Selected</span> <span class="sel-count" id="bulk-sel-count">0</span> <span data-i18n="gui_workloads">workloads</span>
     </div>
-    <button class="btn btn-danger" onclick="openQuarantineModal(null, true)">
+    <button class="btn btn-danger" onclick="openQuarantineModal(null, true)" data-i18n="gui_q_apply">
       <svg class="icon">
         <use href="#icon-alert"></use>
       </svg> Apply Quarantine
@@ -1399,7 +1399,7 @@
       </fieldset>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal('modal-qt-filters')" data-i18n="gui_cancel">Cancel</button>
-        <button class="btn btn-success" onclick="applyQtFilters()">Apply & Query</button>
+        <button class="btn btn-success" onclick="applyQtFilters()" data-i18n="gui_apply_query">Apply & Query</button>
       </div>
     </div>
   </div>
@@ -1604,7 +1604,7 @@
           <div class="form-group"><label data-i18n="gui_cooldown">Cooldown (min)</label><input id="tr-cd" type="number"
               value="10"></div>
         </div>
-        <div class="form-group"><label>Throttle</label><input id="tr-throttle" placeholder="e.g. 2/10m or 5/1h"></div>
+        <div class="form-group"><label data-i18n="gui_ev_throttle">Throttle</label><input id="tr-throttle" data-i18n-placeholder="gui_ev_throttle_placeholder" placeholder="e.g. 2/10m or 5/1h"></div>
       </fieldset>
       <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-traffic')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveTraffic()"
@@ -1670,7 +1670,7 @@
               value="30"></div>
         </div>
         <div id="bw-val-help" style="color:var(--dim);font-size:.82rem;margin-top:4px;" data-i18n="gui_bw_help_bandwidth">Use Mbps for peak bandwidth threshold.</div>
-        <div class="form-group"><label>Throttle</label><input id="bw-throttle" placeholder="e.g. 2/10m or 5/1h"></div>
+        <div class="form-group"><label data-i18n="gui_ev_throttle">Throttle</label><input id="bw-throttle" data-i18n-placeholder="gui_ev_throttle_placeholder" placeholder="e.g. 2/10m or 5/1h"></div>
       </fieldset>
       <div class="modal-actions"><button class="btn btn-secondary" onclick="closeModal('m-bw')"
           data-i18n="gui_cancel">Cancel</button><button class="btn btn-success" onclick="saveBW()"
@@ -1683,14 +1683,14 @@
     <div class="modal" style="max-width:440px;">
       <h2 id="m-gen-title"><svg class="icon" aria-hidden="true"><use href="#icon-play"></use></svg> <span data-i18n="gui_gen_traffic_title">Generate Report</span></h2>
       <div id="m-gen-source-row" style="margin-bottom:12px; display:none;">
-        <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--dim);">Data Source</label>
+        <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--dim);" data-i18n="gui_gen_data_source">Data Source</label>
         <div class="radio-group">
-          <label><input type="radio" name="traffic-source" value="api" checked onchange="toggleTrafficSource()"> API (Fetch from PCE)</label>
-          <label><input type="radio" name="traffic-source" value="csv" onchange="toggleTrafficSource()"> CSV Upload</label>
+          <label><input type="radio" name="traffic-source" value="api" checked onchange="toggleTrafficSource()"> <span data-i18n="gui_gen_source_api">API (Fetch from PCE)</span></label>
+          <label><input type="radio" name="traffic-source" value="csv" onchange="toggleTrafficSource()"> <span data-i18n="gui_gen_source_csv">CSV Upload</span></label>
         </div>
       </div>
       <div id="m-gen-csv-upload" style="display:none; margin-bottom:12px;">
-        <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--dim);">Select CSV File</label>
+        <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:var(--dim);" data-i18n="gui_gen_select_csv_file">Select CSV File</label>
         <input type="file" id="m-gen-csv-file" accept=".csv" style="width:100%; padding:8px; border:1px solid var(--border); border-radius:4px; background:var(--bg2); color:var(--fg);">
       </div>
       <div id="m-gen-dates">

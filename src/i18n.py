@@ -8,6 +8,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent
 _EN_MESSAGES_PATH = _ROOT / "i18n_en.json"
+_ZH_MESSAGES_PATH = _ROOT / "i18n_zh_TW.json"
 
 
 class _I18nState:
@@ -50,12 +51,40 @@ def _load_en_messages() -> dict[str, str]:
     except Exception:
         return {}
 
+
+def _load_zh_messages() -> dict[str, str]:
+    try:
+        return json.loads(_ZH_MESSAGES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
 EN_MESSAGES = _load_en_messages()
+ZH_MESSAGES = _load_zh_messages()
 _PLACEHOLDER_VALUE_RE = re.compile(r"^(?:Rpt|GUI|Gui|Sched)\b")
+_STRICT_PREFIXES = (
+    "gui_", "sched_", "rs_", "wgs_", "login_", "cli_", "main_",
+    "settings_", "rpt_", "menu_", "ven_", "pu_", "report_",
+    "error_", "alert_", "daemon_", "line_", "mail_", "webhook_",
+    "event_", "confirm_", "select_", "step_", "metric_", "pd_",
+    "filter_", "ex_", "rule_", "trigger_", "pill_",
+)
+
+
+def _is_strict_surface_key(key: str) -> bool:
+    # Event catalog labels/categories are generated from vendor event ids and
+    # rely on humanized fallback when explicit dictionary keys are absent.
+    if key.startswith("event_label_") or key.startswith("cat_"):
+        return False
+    return key.startswith(_STRICT_PREFIXES)
+
+
+def _missing_marker(key: str) -> str:
+    return f"[MISSING:{key}]"
 
 _ZH_EXPLICIT: dict[str, str] = {
     "gui_tab_dashboard": "總覽",
     "gui_tab_traffic_workload": "流量與 Workload",
+    "gui_workloads": "Workloads",
     "gui_lang_en": "English",
     "gui_lang_zh": "繁體中文",
     "gui_ml_mod_monitor": "監控分析",
@@ -2028,6 +2057,19 @@ def _normalized_en_messages() -> dict[str, str]:
         normalized[key] = value
     return normalized
 
+
+@lru_cache(maxsize=1)
+def _normalized_zh_messages() -> dict[str, str]:
+    normalized: dict[str, str] = {}
+    for key, value in dict(ZH_MESSAGES).items():
+        if not isinstance(value, str):
+            continue
+        stripped = value.strip()
+        if not stripped:
+            continue
+        normalized[key] = value
+    return normalized
+
 def _needs_space(prev: str, curr: str) -> bool:
     return (
         (prev.isascii() and (prev.isalnum() or prev in "/+%")) and
@@ -2141,7 +2183,7 @@ def _translate_text(text: str) -> str:
 @lru_cache(maxsize=1)
 def _discover_keys() -> set[str]:
     patterns = [
-        re.compile(r"""t\(\s*['"]([^'"]+)['"]"""),
+        re.compile(r"""_?t\(\s*['"]([^'"]+)['"]"""),
         re.compile(r"""data-i18n=["']([A-Za-z0-9_&]+)["']"""),
         re.compile(r"""_translations\[['"]([A-Za-z0-9_&]+)['"]\]"""),
     ]
@@ -2164,11 +2206,24 @@ def _build_messages(lang: str) -> dict[str, str]:
     if lang == "en":
         base = dict(en_messages)
         for key in all_keys:
-            base.setdefault(key, _humanize_key_en(key))
+            if key in base and isinstance(base[key], str) and base[key].strip():
+                continue
+            if _is_strict_surface_key(key):
+                base[key] = _missing_marker(key)
+            else:
+                base[key] = _humanize_key_en(key)
         return base
 
+    zh_messages = _normalized_zh_messages()
     base: dict[str, str] = {}
     for key in all_keys:
+        zh_text = zh_messages.get(key)
+        if isinstance(zh_text, str) and zh_text.strip():
+            base[key] = zh_text
+            continue
+        if _is_strict_surface_key(key):
+            base[key] = _missing_marker(key)
+            continue
         if key in _ZH_EXPLICIT:
             base[key] = _ZH_EXPLICIT[key]
             continue
@@ -2193,6 +2248,8 @@ def t(key: str, **kwargs) -> str:
     text = get_messages(_lang).get(key)
     if text is None:
         text = _normalized_en_messages().get(key)
+    if text is None and _is_strict_surface_key(key):
+        text = _missing_marker(key)
     if text is None:
         if default_val is not None:
             text = default_val

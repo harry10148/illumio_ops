@@ -10,6 +10,15 @@ function _dashboardSetCard(id, value, tone = '') {
   _dashboardCardTone(el, tone);
 }
 
+function _pickValue(row, keys, fallback = '') {
+  if (!row) return fallback;
+  for (const key of keys) {
+    const val = row[key];
+    if (val !== undefined && val !== null && val !== '') return val;
+  }
+  return fallback;
+}
+
 function _buildAuditSummaryFieldset() {
   const fieldset = document.createElement('fieldset');
   fieldset.id = 'audit-fieldset';
@@ -92,18 +101,18 @@ function ensureDashboardLayout() {
   const cards = dashboard.querySelectorAll('.cards .card');
   if (cards[0]) {
     const label = cards[0].querySelector('.label');
-    if (label) label.textContent = _translations['gui_dashboard_rules'] || 'Rules';
+    if (label) label.textContent = _t('gui_dashboard_rules');
   }
   if (cards[1]) {
     const label = cards[1].querySelector('.label');
     const value = cards[1].querySelector('.value');
-    if (label) label.textContent = _translations['gui_dashboard_cooldown'] || 'Cooldown';
+    if (label) label.textContent = _t('gui_dashboard_cooldown');
     if (value) value.id = 'd-cooldown';
   }
   if (cards[2]) {
     const label = cards[2].querySelector('.label');
     const value = cards[2].querySelector('.value');
-    if (label) label.textContent = _translations['gui_dashboard_pce_health'] || 'PCE Health';
+    if (label) label.textContent = _t('gui_dashboard_pce_health');
     if (value) value.id = 'd-pce-health';
   }
   cards.forEach((card, idx) => {
@@ -146,7 +155,7 @@ async function loadDashboard() {
         ? d.cooldowns.filter((item) => (parseInt(item.remaining_mins, 10) || 0) > 0).length
         : 0;
 
-      let healthText = d.health_check ? 'ON' : 'OFF';
+      let healthText = d.health_check ? _t('gui_state_on') : _t('gui_state_off');
       let healthTone = d.health_check ? '' : 'warn';
       const healthStatus = String(pceStats.health_status || '').toLowerCase();
       if (d.health_check) {
@@ -217,7 +226,7 @@ async function loadDashboardSnapshot() {
             <td style="color:var(--dim);font-style:italic;">${escapeHtml(f.action || '')}</td>
           </tr>`;
         }).join('')
-        : `<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">${_translations['gui_snap_no_findings'] || 'No findings.'}</td></tr>`;
+        : `<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_snap_no_findings')}</td></tr>`;
     }
 
     const policyBody = $('snap-policy-body');
@@ -239,13 +248,15 @@ async function loadDashboardSnapshot() {
     if (portsBody) {
       const rows = s.top_ports || [];
       portsBody.innerHTML = rows.length
-        ? rows.map((row) => `<tr><td>${escapeHtml(String(row['Port'] ?? ''))}</td><td>${escapeHtml(String(row['Flow Count'] ?? ''))}</td></tr>`).join('')
+        ? rows.map((row) =>
+          `<tr><td>${escapeHtml(String(_pickValue(row, ['Port', 'port', 'port_proto'], '-')))}</td><td>${escapeHtml(String(_pickValue(row, ['Flow Count', 'flow_count', 'Count', 'count'], '')))}</td></tr>`
+        ).join('')
         : '<tr><td colspan="2" style="text-align:center;color:var(--dim);">-</td></tr>';
     }
 
     const uncoveredBody = $('snap-uncovered-body');
     const uncoveredPct = $('snap-uncovered-pct');
-    if (uncoveredPct && s.uncovered_pct != null) uncoveredPct.textContent = `(${(+s.uncovered_pct).toFixed(1)}% uncovered)`;
+    if (uncoveredPct && s.uncovered_pct != null) uncoveredPct.textContent = `(${_t('gui_snap_uncovered_pct').replace('{pct}', (+s.uncovered_pct).toFixed(1))})`;
     if (uncoveredBody) {
       const rows = s.top_uncovered || [];
       uncoveredBody.innerHTML = rows.length
@@ -259,7 +270,7 @@ async function loadDashboardSnapshot() {
             <td style="color:var(--dim);font-size:0.78rem;">${escapeHtml(row['recommendation'] || row['Recommendation'] || '')}</td>
           </tr>`;
         }).join('')
-        : `<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:12px;">${_translations['gui_snap_no_uncovered'] || 'No uncovered flows.'}</td></tr>`;
+        : `<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_snap_no_uncovered')}</td></tr>`;
     }
 
     const bwWrap = $('snap-bw-wrap');
@@ -269,13 +280,13 @@ async function loadDashboardSnapshot() {
       const rows = s.top_by_bytes || [];
       bwBody.innerHTML = rows.length
         ? rows.map((row) => {
-          const bytes = row['Bytes Total'] ?? row['bytes_total'] ?? 0;
-          const dec = String(row['Decision'] || row['policy_decision'] || '');
+          const bytes = _pickValue(row, ['Bytes Total', 'bytes_total', 'Bytes', 'bytes'], 0);
+          const dec = String(_pickValue(row, ['Decision', 'policy_decision'], ''));
           let color = dec === 'allowed' ? 'var(--success)' : dec === 'blocked' ? 'var(--danger)' : 'var(--warn)';
           return `<tr>
-            <td>${escapeHtml(row['Src IP'] || '')}</td>
-            <td>${escapeHtml(row['Dst IP'] || '')}</td>
-            <td>${escapeHtml(String(row['Port'] ?? ''))}</td>
+            <td>${escapeHtml(String(_pickValue(row, ['Src IP', 'Source IP', 'src_ip', 'source_ip'], '')))}</td>
+            <td>${escapeHtml(String(_pickValue(row, ['Dst IP', 'Destination IP', 'dst_ip', 'destination_ip'], '')))}</td>
+            <td>${escapeHtml(String(_pickValue(row, ['Port', 'port', 'port_proto'], '')))}</td>
             <td>${escapeHtml(formatBytes(bytes))}</td>
             <td><span style="color:${color};font-weight:600;">${escapeHtml(dec)}</span></td>
           </tr>`;
@@ -332,7 +343,7 @@ async function loadDashboardAuditSummary() {
             <td>${escapeHtml(item.summary || '')}</td>
           </tr>`;
         }).join('')
-        : '<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>';
+        : `<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_no_data')}</td></tr>`;
     }
 
     const topEventsBody = $('audit-top-events-body');
@@ -340,7 +351,7 @@ async function loadDashboardAuditSummary() {
       const rows = s.top_events || [];
       topEventsBody.innerHTML = rows.length
         ? rows.map((row) => `<tr><td>${escapeHtml(row['Event Type'] || '')}</td><td>${escapeHtml(String(row['Count'] ?? ''))}</td></tr>`).join('')
-        : '<tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>';
+        : `<tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_no_data')}</td></tr>`;
     }
   } catch (e) {
     console.warn('[loadDashboardAuditSummary] failed:', e);

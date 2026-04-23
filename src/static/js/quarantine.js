@@ -35,8 +35,8 @@ function updateBulkBar() {
   }
 }
 
-function _qText(key, fallback) {
-  return (_translations && _translations[key]) || fallback;
+function _qText(key) {
+  return _t(key);
 }
 
 function _buildQuarantineState(href, isBulk = false, altHref = null) {
@@ -128,7 +128,7 @@ document.addEventListener('change', function (e) {
 function openQuarantineModal(href, isBulk = false, altHref = null) {
   const state = _buildQuarantineState(href, isBulk, altHref);
   if ((state.pairs || []).length === 0 && (state.standalone || []).length === 0) {
-    toast(_qText('gui_q_no_targets', 'No quarantine-eligible workloads were selected.'));
+    toast(_qText('gui_q_no_targets'));
     return;
   }
 
@@ -151,13 +151,13 @@ async function applyQuarantine() {
   let hrefs = [];
   try { hrefs = JSON.parse(rawHrefs); } catch (e) { }
   if (hrefs.length === 0) {
-    toast(_qText('gui_q_no_targets', 'No quarantine-eligible workloads were selected.'));
+    toast(_qText('gui_q_no_targets'));
     return;
   }
 
   const btn = document.getElementById('btn-apply-q');
   btn.disabled = true;
-  btn.innerHTML = `<svg class="icon"><use href="#icon-settings"></use></svg> ${_qText('gui_q_applying', 'Applying...')}`;
+  btn.innerHTML = `<svg class="icon"><use href="#icon-settings"></use></svg> ${_qText('gui_q_applying')}`;
 
   try {
     let r;
@@ -168,7 +168,7 @@ async function applyQuarantine() {
     }
 
     if (r.ok || r.success) {
-      toast(_qText('gui_q_applied', 'Applied quarantine to {count} workload(s).').replace('{count}', hrefs.length).replace('{level}', sev));
+      toast(_qText('gui_q_applied').replace('{count}', hrefs.length).replace('{level}', sev));
       closeModal('m-quarantine');
       // Uncheck all
       document.querySelectorAll('.qt-chk, .qw-chk, #qt-chkall, #qw-chkall').forEach(c => c.checked = false);
@@ -178,13 +178,13 @@ async function applyQuarantine() {
         runWorkloadSearch();
       }
     } else {
-      throw new Error(r.error || "Failed to apply quarantine");
+      throw new Error(r.error || _t('gui_q_apply_error'));
     }
   } catch (err) {
-    alert("Quarantine Apply Error: " + err.message);
+    alert(_t('gui_q_apply_error') + ': ' + err.message);
   } finally {
     btn.disabled = false;
-    btn.innerHTML = _qText('gui_q_apply', 'Apply Quarantine');
+    btn.innerHTML = _qText('gui_q_apply');
   }
 }
 
@@ -213,8 +213,8 @@ function setTrafficQueryLoading(isLoading) {
   if (isLoading) {
     btn.disabled = true;
     btn.dataset.prevHtml = btn.innerHTML;
-    btn.innerHTML = `<span class="btn-loading-dot"></span><span data-i18n="gui_querying">${_translations['gui_querying'] || 'Querying'}</span>`;
-    showSpinner('q-panel-traffic', _translations['gui_ta_loading_hint'] || 'Loading traffic data...');
+    btn.innerHTML = `<span class="btn-loading-dot"></span><span data-i18n="gui_querying">${_t('gui_querying')}</span>`;
+    showSpinner('q-panel-traffic', _t('gui_ta_loading_hint'));
   } else {
     btn.disabled = false;
     if (btn.dataset.prevHtml) btn.innerHTML = btn.dataset.prevHtml;
@@ -281,7 +281,7 @@ async function runTrafficAnalyzer() {
 
     const r = await post('/api/quarantine/search', payload);
 
-    if (!r.ok || r.error) throw new Error(r.error || 'Server error');
+    if (!r.ok || r.error) throw new Error(r.error || _t('gui_server_error'));
 
     // --- Pagination Logic ---
     _qt_data = r.data || [];
@@ -289,7 +289,7 @@ async function runTrafficAnalyzer() {
     renderQtPage();
 
   } catch (err) {
-    bd.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--danger);">Error: ${escapeHtml(err.message)}</td></tr>`;
+    bd.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--danger);">${_t('gui_rs_error_prefix')}: ${escapeHtml(err.message)}</td></tr>`;
   } finally {
     setTrafficQueryLoading(false);
   }
@@ -312,11 +312,11 @@ function renderQtPage() {
 
   if (total > 0) {
     pagBar.style.display = 'flex';
-    totalLabel.textContent = (_translations['gui_total_found'] || 'Total {count} records').replace('{count}', total);
+    totalLabel.textContent = (_t('gui_total_found')).replace('{count}', total);
     pageNumDisplay.textContent = _qt_page;
   } else {
     pagBar.style.display = 'none';
-    bd.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--dim);">${_translations['gui_no_traffic'] || 'No anomalous traffic found matching criteria.'}</td></tr>`;
+    bd.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--dim);">${_t('gui_no_traffic')}</td></tr>`;
     return;
   }
 
@@ -327,7 +327,7 @@ function renderQtPage() {
     let hasWorkloadTarget = !!(shref || dhref);
     let chkBox = hasWorkloadTarget
       ? `<input type="checkbox" class="qt-chk" data-src-href="${escapeHtml(shref || '')}" data-dst-href="${escapeHtml(dhref || '')}" value="${escapeHtml(shref || dhref || '')}">`
-      : `<span style="color:var(--dim);font-size:10px;">${_translations['gui_q_workload_only'] || 'Workload only'}</span>`;
+      : `<span style="color:var(--dim);font-size:10px;">${_t('gui_q_workload_only')}</span>`;
 
     const formatActor = (actor) => {
       let procStr = '';
@@ -343,12 +343,12 @@ function renderQtPage() {
     let val_str = "";
     if (sort === "bandwidth") val_str = item.formatted_bandwidth;
     else if (sort === "volume") val_str = item.formatted_volume;
-    else val_str = item.formatted_connections + " " + (_translations['gui_flows'] || "flows");
+    else val_str = item.formatted_connections + " " + (_t('gui_flows'));
 
     let svc_str = "";
     let name_part = item.service.name ? item.service.name + " " : "";
     if (item.service.port !== "All") svc_str = `${name_part}${item.service.proto}/${item.service.port}`;
-    else svc_str = name_part ? `${name_part}${_translations['gui_all_services'] || "All Services"}` : (_translations['gui_all_services'] || "All Services");
+    else svc_str = name_part ? `${name_part}${_t('gui_all_services')}` : (_t('gui_all_services'));
 
     if (svc_str.length > 25) {
       let arr = svc_str.split(',').map(s => s.trim());
@@ -368,9 +368,9 @@ function renderQtPage() {
 
     const rawPd = item.policy_decision || '';
     const rawDraftPd = item.draft_policy_decision || '';
-    const pd_blocked = _translations['gui_pd_blocked'] || 'Blocked';
-    const pd_potential = _translations['gui_pd_potential'] || 'Potentially Blocked';
-    const pd_allowed = _translations['gui_pd_allowed'] || 'Allowed';
+    const pd_blocked = _t('gui_pd_blocked');
+    const pd_potential = _t('gui_pd_potential');
+    const pd_allowed = _t('gui_pd_allowed');
 
     const makePdBadge = (pd, isReported) => {
       const prefix = isReported ? '' : '<span style="font-size:9px;opacity:0.8;">Draft </span>';
@@ -388,8 +388,8 @@ function renderQtPage() {
     let draftBadge = rawDraftPd ? `<div style="margin-top:3px;">${makePdBadge(rawDraftPd, false)}</div>` : '';
 
     let isoBtn = '';
-    if (shref && dhref) isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${shref}', false, '${dhref}')"><span data-i18n="gui_btn_isolate">${_translations['gui_btn_isolate'] || 'Isolate'}</span></button>`;
-    else if (shref || dhref) isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${shref || dhref}')"><span data-i18n="gui_btn_isolate">${_translations['gui_btn_isolate'] || 'Isolate'}</span></button>`;
+    if (shref && dhref) isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${shref}', false, '${dhref}')"><span data-i18n="gui_btn_isolate">${_t('gui_btn_isolate')}</span></button>`;
+    else if (shref || dhref) isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${shref || dhref}')"><span data-i18n="gui_btn_isolate">${_t('gui_btn_isolate')}</span></button>`;
 
     let f_seen = item.timestamp_range ? item.timestamp_range.first_detected || "" : "";
     let l_seen = item.timestamp_range ? item.timestamp_range.last_detected || "" : "";
@@ -456,7 +456,7 @@ async function runWorkloadSearch() {
     renderQwPage();
 
   } catch (err) {
-    bd.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--danger);">Error: ${escapeHtml(err.message)}</td></tr>`;
+    bd.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--danger);">${_t('gui_rs_error_prefix')}: ${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -477,11 +477,11 @@ function renderQwPage() {
 
   if (total > 0) {
     pagBar.style.display = 'flex';
-    totalLabel.textContent = (_translations['gui_total_found_ws'] || 'Total {count} workloads').replace('{count}', total);
+    totalLabel.textContent = (_t('gui_total_found_ws')).replace('{count}', total);
     pageNumDisplay.textContent = _qw_page;
   } else {
     pagBar.style.display = 'none';
-    bd.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--dim);" data-i18n="gui_ws_empty">${_translations['gui_ws_empty'] || 'Search by IP or Name to find workloads in the PCE.'}</td></tr>`;
+    bd.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--dim);" data-i18n="gui_ws_empty">${_t('gui_ws_empty')}</td></tr>`;
     return;
   }
 
@@ -489,7 +489,7 @@ function renderQwPage() {
   pageData.forEach((w) => {
     const href = w.href;
     const isOnline = w.online === true;
-    const statusText = isOnline ? (_translations['gui_status_online'] || 'Online') : (_translations['gui_status_offline'] || 'Offline');
+    const statusText = isOnline ? (_t('gui_status_online')) : (_t('gui_status_offline'));
     const statusDot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${isOnline ? 'var(--success)' : 'var(--warn)'};margin-right:6px;" title="${statusText}"></span>`;
 
     let hasQuarantine = false;
@@ -511,7 +511,7 @@ function renderQwPage() {
       }
     }
 
-    const mgmtText = w.managed ? (_translations['gui_management_managed'] || 'managed') : (_translations['gui_management_unmanaged'] || 'unmanaged');
+    const mgmtText = w.managed ? (_t('gui_management_managed')) : (_t('gui_management_unmanaged'));
 
     html += `<tr>
           <td style="text-align:center;"><input type="checkbox" class="qw-chk" value="${href}"></td>
@@ -523,10 +523,10 @@ function renderQwPage() {
           </td>
           <td><span style="font-size:11px; color:${w.managed ? 'var(--success)' : 'var(--dim)'}; font-weight:600;">${mgmtText}</span></td>
           <td>${ipStr}</td>
-          <td style="font-size:11px;">${labelsHtml || '<span style="color:var(--dim);font-size:10px;">No Labels</span>'}</td>
+          <td style="font-size:11px;">${labelsHtml || `<span style="color:var(--dim);font-size:10px;">${_t('gui_no_labels')}</span>`}</td>
           <td>
-            <button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${href}')"><span data-i18n="gui_btn_isolate">${_translations['gui_btn_isolate'] || 'Isolate'}</span></button>
-            ${hasQuarantine ? `<span style="font-size:10px;color:var(--danger);font-weight:bold;margin-left:8px;">${_translations['gui_isolated'] || 'Isolated'}</span>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${href}')"><span data-i18n="gui_btn_isolate">${_t('gui_btn_isolate')}</span></button>
+            ${hasQuarantine ? `<span style="font-size:10px;color:var(--danger);font-weight:bold;margin-left:8px;">${_t('gui_isolated')}</span>` : ''}
           </td>
         </tr>`;
   });

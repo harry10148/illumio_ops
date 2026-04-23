@@ -13,6 +13,8 @@ Run `python scripts/audit_i18n_usage.py` to regenerate.
 | E | Glossary violations (whitelist terms translated to Chinese in zh_TW) | 0 |
 | F | Placeholder English values in i18n_en.json | 0 |
 | G | Keys referenced in code but missing from i18n_en.json | 0 |
+| H | JS/HTML fallback literals (`_translations[key] || 'English text'`) | 0 |
+| I | Tracked EN keys missing/empty in i18n_zh_TW.json | 0 |
 
 ## [A] EN placeholder leaks (key resolved to humanize fallback at lang=en)
 
@@ -39,5 +41,13 @@ _No findings._
 _No findings._
 
 ## [G] Keys referenced in code but missing from i18n_en.json
+
+_No findings._
+
+## [H] JS/HTML fallback literals (`_translations[key] || 'English text'`)
+
+_No findings._
+
+## [I] Tracked EN keys missing/empty in i18n_zh_TW.json
 
 _No findings._

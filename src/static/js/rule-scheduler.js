@@ -111,7 +111,7 @@ function rsSearchRulesets(q) {
 
 async function rsFetchRulesBySearch(q, scope) {
   const tbody = $('rs-rulesets-body');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_searching || 'Searching rules...') + '</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + _t('gui_rs_searching') + '</td></tr>';
   $('rs-pagination').innerHTML = '';
   try {
     const ctrl = new AbortController();
@@ -121,7 +121,7 @@ async function rsFetchRulesBySearch(q, scope) {
     const data = await res.json();
     tbody.innerHTML = '';
     if (!data.items.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_no_results || 'No results found.') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + _t('gui_rs_no_results') + '</td></tr>';
       return;
     }
     data.items.forEach(item => {
@@ -143,13 +143,13 @@ async function rsFetchRulesBySearch(q, scope) {
         '<td></td>' +
         '<td>' + stBadge + '</td>' +
         '<td>' + rsName + '</td>' +
-        '<td>' + ruleTypeBadge + ' ' + escapeHtml(item.description || '(' + (_translations.gui_rs_no_desc || 'no desc') + ')') + '</td>';
+        '<td>' + ruleTypeBadge + ' ' + escapeHtml(item.description || '(' + _t('gui_rs_no_desc') + ')') + '</td>';
       tbody.appendChild(tr);
     });
-    $('rs-pagination').innerHTML = '<span class="rs-pg-info">' + data.items.length + ' ' + (_translations.gui_rs_rule_results || 'rule(s) found') + '</span>';
+    $('rs-pagination').innerHTML = '<span class="rs-pg-info">' + data.items.length + ' ' + _t('gui_rs_rule_results') + '</span>';
     initTableResizers();
   } catch (e) {
-    const msg = e.name === 'AbortError' ? 'Request timed out' : e.message;
+    const msg = e.name === 'AbortError' ? _t('gui_rs_request_timed_out') : e.message;
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
   }
 }
@@ -157,7 +157,7 @@ async function rsFetchRulesBySearch(q, scope) {
 async function rsFetchRulesets() {
   const params = new URLSearchParams({ q: rsSearchQuery, page: rsCurrentPage, size: 50 });
   const tbody = $('rs-rulesets-body');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_rulesets || 'Loading rulesets...') + '</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">' + _t('gui_rs_loading_rulesets') + '</td></tr>';
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 30000);
@@ -167,13 +167,13 @@ async function rsFetchRulesets() {
     const tbody = $('rs-rulesets-body');
     tbody.innerHTML = '';
     if (data.error) {
-      toast('Warning: ' + data.error, true);
+      toast(_t('gui_rs_warn_prefix') + ': ' + data.error, true);
     }
     data.items.forEach(rs => {
       const schMark = rs.schedule_type === 1
-        ? '<span class="rs-mark-rs" title="' + (_translations.gui_rs_sch_badge_sched || 'Scheduled') + '">★</span>'
+        ? '<span class="rs-mark-rs" title="' + _t('gui_rs_sch_badge_sched') + '">★</span>'
         : rs.schedule_type === 2
-          ? '<span class="rs-mark-child" title="' + (_translations.gui_rs_sch_badge_child || 'Child Schedule') + '">●</span>'
+          ? '<span class="rs-mark-child" title="' + _t('gui_rs_sch_badge_child') + '">●</span>'
           : '';
       const provBadge = rs.provision_state === 'DRAFT'
         ? '<span class="rs-badge rs-badge-draft">DRAFT</span>'
@@ -197,14 +197,17 @@ async function rsFetchRulesets() {
     // Pagination
     const pg = $('rs-pagination');
     const totalPages = Math.ceil(data.total / data.size) || 1;
-    pg.innerHTML = '<span class="rs-pg-info">Page ' + data.page + ' / ' + totalPages + ' (' + data.total + ' total)</span>';
-    if (data.page > 1) pg.innerHTML += '<button class="btn btn-sm" onclick="rsCurrentPage--;rsFetchRulesets()">Prev</button>';
-    if (data.page < totalPages) pg.innerHTML += '<button class="btn btn-sm" onclick="rsCurrentPage++;rsFetchRulesets()">Next</button>';
+    pg.innerHTML = '<span class="rs-pg-info">' + _t('gui_rs_pagination')
+      .replace('{page}', data.page)
+      .replace('{totalPages}', totalPages)
+      .replace('{total}', data.total) + '</span>';
+    if (data.page > 1) pg.innerHTML += '<button class="btn btn-sm" onclick="rsCurrentPage--;rsFetchRulesets()">' + _t('gui_rs_prev') + '</button>';
+    if (data.page < totalPages) pg.innerHTML += '<button class="btn btn-sm" onclick="rsCurrentPage++;rsFetchRulesets()">' + _t('gui_rs_next') + '</button>';
     initTableResizers();
   } catch (e) {
-    const msg = e.name === 'AbortError' ? 'Request timed out (PCE may be unreachable)' : e.message;
+    const msg = e.name === 'AbortError' ? _t('gui_rs_request_timed_out_unreachable') : e.message;
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
-    toast('Failed to load rulesets: ' + msg, true);
+    toast(_t('gui_rs_error_loading_rulesets').replace('{error}', msg), true);
   }
 }
 
@@ -218,9 +221,9 @@ async function rsViewRuleset(rsId) {
 
   $('rs-right-placeholder').style.display = 'none';
   $('rs-detail').style.display = '';
-  $('rs-detail-title').textContent = _translations.gui_rs_loading || 'Loading...';
+  $('rs-detail-title').textContent = _t('gui_rs_loading');
   $('rs-detail-meta').innerHTML = '';
-  $('rs-rules-body').innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_rules || 'Loading rules...') + '</td></tr>';
+  $('rs-rules-body').innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--dim);padding:24px;">' + _t('gui_rs_loading_rules') + '</td></tr>';
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 30000);
@@ -236,9 +239,9 @@ async function rsViewRuleset(rsId) {
     const statusBadge = rsRow.enabled
       ? '<span class="rs-badge rs-badge-on">ON</span>'
       : '<span class="rs-badge rs-badge-off">OFF</span>';
-    const schRsBadge = rsRow.is_scheduled ? ' &nbsp; <span class="rs-mark-rs" title="' + (_translations.gui_rs_sch_badge_sched || 'Scheduled') + '">★ ' + (_translations.gui_rs_sch_badge_sched || 'Scheduled') + '</span>' : '';
+    const schRsBadge = rsRow.is_scheduled ? ' &nbsp; <span class="rs-mark-rs" title="' + _t('gui_rs_sch_badge_sched') + '">★ ' + _t('gui_rs_sch_badge_sched') + '</span>' : '';
     $('rs-detail-meta').innerHTML = 'ID: ' + rsRow.id + ' &nbsp; ' + provBadge + ' &nbsp; ' + statusBadge + schRsBadge +
-      ' &nbsp; <button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(rsRow.href) + '\',\'' + jsStr(rsRow.name) + '\',true,\'' + jsStr(rsRow.name) + '\')">' + (_translations.gui_rs_schedule_rs_btn || 'Schedule Ruleset') + '</button>';
+      ' &nbsp; <button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(rsRow.href) + '\',\'' + jsStr(rsRow.name) + '\',true,\'' + jsStr(rsRow.name) + '\')">' + _t('gui_rs_schedule_rs_btn') + '</button>';
 
     const tbody = $('rs-rules-body');
     tbody.innerHTML = '';
@@ -251,25 +254,25 @@ async function rsViewRuleset(rsId) {
       const st = r.enabled
         ? '<span class="rs-badge rs-badge-on">ON</span>'
         : '<span class="rs-badge rs-badge-off">OFF</span>';
-      const schIcon = r.is_scheduled ? '<span class="rs-mark-child" title="' + (_translations.gui_rs_sch_badge_child || 'Child Schedule') + '">●</span>' : '';
-      const descLabel = _translations.gui_rs_col_desc || 'Description';
-      const noDesc = _translations.gui_rs_no_desc || '(no desc)';
+      const schIcon = r.is_scheduled ? '<span class="rs-mark-child" title="' + _t('gui_rs_sch_badge_child') + '">●</span>' : '';
+      const descLabel = _t('gui_rs_col_desc');
+      const noDesc = _t('gui_rs_no_desc');
       const descHtml = r.description
         ? '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(descLabel) + '\',\'' + jsStr(r.description) + '\')">' + rsTruncate(r.description, 30) + '</td>'
         : '<td><span style="color:var(--dim)">' + noDesc + '</span></td>';
 
-      const srcLabel = _translations.gui_rs_col_source || 'Source';
-      const dstLabel = _translations.gui_rs_col_dest || 'Destination';
-      const svcLabel = _translations.gui_rs_col_service || 'Service';
+      const srcLabel = _t('gui_rs_col_source');
+      const dstLabel = _t('gui_rs_col_dest');
+      const svcLabel = _t('gui_rs_col_service');
       const srcHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(srcLabel) + '\',\'' + jsStr(r.source) + '\')">' + rsTruncate(r.source, 25) + '</td>';
       const dstHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(dstLabel) + '\',\'' + jsStr(r.dest) + '\')">' + rsTruncate(r.dest, 25) + '</td>';
       const svcHtml = '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(svcLabel) + '\',\'' + jsStr(r.service) + '\')">' + rsTruncate(r.service, 25) + '</td>';
 
       const ruleTypeBadge = r.rule_type === 'override_deny'
-        ? '<span class="rs-badge rs-badge-block">' + (_translations.gui_rs_rule_type_override_deny || 'Override Deny') + '</span>'
+        ? '<span class="rs-badge rs-badge-block">' + _t('gui_rs_rule_type_override_deny') + '</span>'
         : r.rule_type === 'deny'
-          ? '<span class="rs-badge rs-badge-off">' + (_translations.gui_rs_rule_type_deny || 'Deny') + '</span>'
-          : '<span class="rs-badge rs-badge-on">' + (_translations.gui_rs_rule_type_allow || 'Allow') + '</span>';
+          ? '<span class="rs-badge rs-badge-off">' + _t('gui_rs_rule_type_deny') + '</span>'
+          : '<span class="rs-badge rs-badge-on">' + _t('gui_rs_rule_type_allow') + '</span>';
       tr.innerHTML =
         '<td>' + schIcon + '</td>' +
         '<td style="color:var(--dim);font-size:.8rem;">' + (r.no || '') + '</td>' +
@@ -278,22 +281,22 @@ async function rsViewRuleset(rsId) {
         '<td>' + st + '</td>' +
         '<td>' + ruleTypeBadge + '</td>' +
         descHtml + srcHtml + dstHtml + svcHtml +
-        '<td><button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(r.href) + '\',\'' + jsStr(r.description || 'Rule ' + r.id) + '\',false,\'' + jsStr(rsRow.name) + '\',\'' + jsStr(r.source) + '\',\'' + jsStr(r.dest) + '\',\'' + jsStr(r.service) + '\')">' + (_translations.gui_rs_schedule_btn || 'Schedule') + '</button></td>';
+        '<td><button class="btn btn-sm btn-primary" onclick="rsOpenScheduleModal(\'' + jsStr(r.href) + '\',\'' + jsStr(r.description || (_t('gui_rs_type_rule') + ' ' + r.id)) + '\',false,\'' + jsStr(rsRow.name) + '\',\'' + jsStr(r.source) + '\',\'' + jsStr(r.dest) + '\',\'' + jsStr(r.service) + '\')">' + _t('gui_rs_schedule_btn') + '</button></td>';
       tbody.appendChild(tr);
     });
     initTableResizers();
 
   } catch (e) {
-    const msg = e.name === 'AbortError' ? 'Request timed out' : e.message;
-    $('rs-detail-title').textContent = 'Error';
+    const msg = e.name === 'AbortError' ? _t('gui_rs_request_timed_out') : e.message;
+    $('rs-detail-title').textContent = _t('gui_rs_error_prefix');
     $('rs-rules-body').innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
-    toast('Failed to load ruleset detail: ' + msg, true);
+    toast(_t('gui_rs_error_loading_ruleset_detail').replace('{error}', msg), true);
   }
 }
 
 /* ── Truncate helper ── */
 function rsTruncate(s, max) {
-  if (!s) return '<span style="color:var(--dim)">All</span>';
+  if (!s) return '<span style="color:var(--dim)">' + _t('gui_rs_all') + '</span>';
   const t = escapeHtml(s);
   return t.length > max ? t.substring(0, max) + '...' : t;
 }
@@ -334,12 +337,12 @@ function rsOpenScheduleModal(href, name, isRs, detailRs, src, dst, svc) {
   $('rs-sch-name').value = name;
   $('rs-sch-is-rs').value = isRs ? '1' : '0';
   $('rs-sch-detail-rs').value = detailRs || '';
-  $('rs-sch-detail-src').value = src || 'All';
-  $('rs-sch-detail-dst').value = dst || 'All';
-  $('rs-sch-detail-svc').value = svc || 'All';
+  $('rs-sch-detail-src').value = src || _t('gui_rs_all');
+  $('rs-sch-detail-dst').value = dst || _t('gui_rs_all');
+  $('rs-sch-detail-svc').value = svc || _t('gui_rs_all');
   $('rs-sch-edit-id').value = '';
   // Show target label
-  $('rs-sch-target-label').textContent = (isRs ? '[' + (_translations.gui_rs_type_ruleset || 'RuleSet') + '] ' : '[' + (_translations.gui_rs_type_rule || 'Rule') + '] ') + name;
+  $('rs-sch-target-label').textContent = (isRs ? '[' + _t('gui_rs_type_ruleset') + '] ' : '[' + _t('gui_rs_type_rule') + '] ') + name;
   // Reset form
   document.querySelector('input[name="rs-sch-type"][value="recurring"]').checked = true;
   document.querySelector('input[name="rs-sch-action"][value="allow"]').checked = true;
@@ -378,11 +381,11 @@ async function rsSaveSchedule() {
     body.end = $('rs-sch-end').value;
     body.timezone = $('rs-sch-timezone').value || 'local';
     if (!body.start || !body.end || body.days.length === 0) {
-      return toast(_translations.gui_rs_fill_days_time || 'Please fill in days, start and end time.', true);
+      return toast(_t('gui_rs_fill_days_time'), true);
     }
   } else {
     const expVal = $('rs-sch-expire').value;
-    if (!expVal) return toast(_translations.gui_rs_set_expire || 'Please set expiration time.', true);
+    if (!expVal) return toast(_t('gui_rs_set_expire'), true);
     body.expire_at = expVal.replace('T', ' ');
     body.timezone = $('rs-sch-timezone-ot').value || 'local';
   }
@@ -396,21 +399,21 @@ async function rsSaveSchedule() {
     const data = await res.json();
     if (data.ok) {
       closeModal('m-rs-schedule');
-      toast((_translations.gui_rs_saved || 'Schedule saved') + ' (ID: ' + data.id + ')');
+      toast(_t('gui_rs_saved') + ' (ID: ' + data.id + ')');
       rsFetchRulesets();
       rsLoadSchedules();
     } else {
-      toast('Error: ' + (data.error || 'Unknown'), true);
+      toast(_t('gui_rs_error_prefix') + ': ' + (data.error || _t('gui_rs_unknown')), true);
     }
   } catch (e) {
-    toast('Save failed: ' + e.message, true);
+    toast(_t('gui_rs_error_save_failed').replace('{error}', e.message), true);
   }
 }
 
 /* ── Schedules list ── */
 async function rsLoadSchedules() {
   const tbody = $('rs-schedules-body');
-  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--dim);padding:24px;">' + (_translations.gui_rs_loading_schedules || 'Loading schedules...') + '</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--dim);padding:24px;">' + _t('gui_rs_loading_schedules') + '</td></tr>';
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 30000);
@@ -422,11 +425,10 @@ async function rsLoadSchedules() {
     list.forEach(s => {
       const tr = document.createElement('tr');
       // Type
-      const T = _translations;
-      const typeStr = s.is_ruleset ? (T.gui_rs_type_ruleset || 'RuleSet') : (T.gui_rs_type_rule || 'Rule');
+      const typeStr = s.is_ruleset ? _t('gui_rs_type_ruleset') : _t('gui_rs_type_rule');
       // Live status badge
       const liveBadge = s.pce_status === 'deleted'
-        ? '<span class="rs-badge rs-badge-deleted">' + (_translations.gui_rs_status_deleted || 'Deleted') + '</span>'
+        ? '<span class="rs-badge rs-badge-deleted">' + _t('gui_rs_status_deleted') + '</span>'
         : s.live_enabled === true
           ? '<span class="rs-badge rs-badge-on">ON</span>'
           : s.live_enabled === false
@@ -436,37 +438,37 @@ async function rsLoadSchedules() {
       let actionBadge = '';
       if (s.type === 'recurring') {
         actionBadge = s.action === 'allow'
-          ? '<span class="rs-badge rs-badge-allow">' + (T.gui_rs_enable_label || 'Enable') + '</span>'
-          : '<span class="rs-badge rs-badge-block">' + (T.gui_rs_disable_label || 'Disable') + '</span>';
+          ? '<span class="rs-badge rs-badge-allow">' + _t('gui_rs_enable_label') + '</span>'
+          : '<span class="rs-badge rs-badge-block">' + _t('gui_rs_disable_label') + '</span>';
       } else {
-        actionBadge = '<span class="rs-badge rs-badge-expire">Expire</span>';
+        actionBadge = '<span class="rs-badge rs-badge-expire">' + _t('gui_rs_expire') + '</span>';
       }
       // Timing - map day names for i18n
-      const dayMap = {'Monday': T.gui_rs_mon||'Mon','Tuesday': T.gui_rs_tue||'Tue','Wednesday': T.gui_rs_wed||'Wed','Thursday': T.gui_rs_thu||'Thu','Friday': T.gui_rs_fri||'Fri','Saturday': T.gui_rs_sat||'Sat','Sunday': T.gui_rs_sun||'Sun'};
+      const dayMap = {'Monday': _t('gui_rs_mon'),'Tuesday': _t('gui_rs_tue'),'Wednesday': _t('gui_rs_wed'),'Thursday': _t('gui_rs_thu'),'Friday': _t('gui_rs_fri'),'Saturday': _t('gui_rs_sat'),'Sunday': _t('gui_rs_sun')};
       let timing = '';
-      const tzLabel = s.timezone && s.timezone !== 'local' ? s.timezone : (T.gui_rs_local_tz || 'Local');
+      const tzLabel = s.timezone && s.timezone !== 'local' ? s.timezone : _t('gui_rs_local_tz');
       if (s.type === 'recurring') {
-        const days = (s.days || []).length === 7 ? (T.gui_rs_everyday || 'Everyday') : (s.days || []).map(d => dayMap[d] || d.substring(0, 3)).join(', ');
+        const days = (s.days || []).length === 7 ? _t('gui_rs_everyday') : (s.days || []).map(d => dayMap[d] || d.substring(0, 3)).join(', ');
         timing = days + ' ' + (s.start || '') + ' - ' + (s.end || '') + ' <span style="color:var(--accent2);font-size:.75rem;">(' + escapeHtml(tzLabel) + ')</span>';
       } else {
-        timing = (T.gui_rs_until || 'Until') + ' ' + (s.expire_at || '').replace('T', ' ') + ' <span style="color:var(--accent2);font-size:.75rem;">(' + escapeHtml(tzLabel) + ')</span>';
+        timing = _t('gui_rs_until') + ' ' + (s.expire_at || '').replace('T', ' ') + ' <span style="color:var(--accent2);font-size:.75rem;">(' + escapeHtml(tzLabel) + ')</span>';
       }
       // Description (rule desc or RS name)
       const descText = escapeHtml(s.detail_name || s.name || '');
       const rsName = escapeHtml(s.detail_rs || '');
-      const srcText = escapeHtml(s.detail_src || 'All');
-      const dstText = escapeHtml(s.detail_dst || 'All');
-      const svcText = escapeHtml(s.detail_svc || 'All');
+      const srcText = escapeHtml(s.detail_src || _t('gui_rs_all'));
+      const dstText = escapeHtml(s.detail_dst || _t('gui_rs_all'));
+      const svcText = escapeHtml(s.detail_svc || _t('gui_rs_all'));
 
-      const descLabel = T.gui_rs_col_desc || 'Description';
-      const srcLabel = T.gui_rs_col_source || 'Source';
-      const dstLabel = T.gui_rs_col_dest || 'Destination';
-      const svcLabel = T.gui_rs_col_service || 'Service';
+      const descLabel = _t('gui_rs_col_desc');
+      const srcLabel = _t('gui_rs_col_source');
+      const dstLabel = _t('gui_rs_col_dest');
+      const svcLabel = _t('gui_rs_col_service');
       tr.innerHTML =
         '<td><input type="checkbox" class="rs-sch-cb" value="' + escapeHtml(s.href) + '"></td>' +
         '<td>' + typeStr + '</td>' +
         '<td>' + liveBadge + '</td>' +
-        '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(T.gui_rs_col_name || 'RS Name') + '\',\'' + jsStr(rsName) + '\')">' + rsTruncate(s.detail_rs, 20) + '</td>' +
+        '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(_t('gui_rs_col_name')) + '\',\'' + jsStr(rsName) + '\')">' + rsTruncate(s.detail_rs, 20) + '</td>' +
         '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(descLabel) + '\',\'' + jsStr(descText) + '\')">' + rsTruncate(s.detail_name || s.name, 20) + '</td>' +
         '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(srcLabel) + '\',\'' + jsStr(srcText) + '\')">' + rsTruncate(s.detail_src, 20) + '</td>' +
         '<td class="rs-clickable" onclick="rsShowPopup(event,\'' + jsStr(dstLabel) + '\',\'' + jsStr(dstText) + '\')">' + rsTruncate(s.detail_dst, 20) + '</td>' +
@@ -474,14 +476,14 @@ async function rsLoadSchedules() {
         '<td>' + actionBadge + '</td>' +
         '<td style="font-size:.8rem;">' + timing + '</td>' +
         '<td>' + s.id + '</td>' +
-        '<td><button class="rs-edit-btn" onclick="rsEditSchedule(' + s.id + ')">' + (T.gui_rs_col_edit || 'Edit') + '</button></td>';
+        '<td><button class="rs-edit-btn" onclick="rsEditSchedule(' + s.id + ')">' + _t('gui_rs_col_edit') + '</button></td>';
       tbody.appendChild(tr);
     });
     initTableResizers();
   } catch (e) {
-    const msg = e.name === 'AbortError' ? 'Request timed out (PCE may be unreachable)' : e.message;
+    const msg = e.name === 'AbortError' ? _t('gui_rs_request_timed_out_unreachable') : e.message;
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:var(--danger);padding:24px;">' + escapeHtml(msg) + '</td></tr>';
-    toast('Failed to load schedules: ' + msg, true);
+    toast(_t('gui_rs_error_loading_schedules').replace('{error}', msg), true);
   }
 }
 
@@ -496,11 +498,11 @@ async function rsEditSchedule(id) {
     $('rs-sch-name').value = s.detail_name || s.name || '';
     $('rs-sch-is-rs').value = s.is_ruleset ? '1' : '0';
     $('rs-sch-detail-rs').value = s.detail_rs || '';
-    $('rs-sch-detail-src').value = s.detail_src || 'All';
-    $('rs-sch-detail-dst').value = s.detail_dst || 'All';
-    $('rs-sch-detail-svc').value = s.detail_svc || 'All';
+    $('rs-sch-detail-src').value = s.detail_src || _t('gui_rs_all');
+    $('rs-sch-detail-dst').value = s.detail_dst || _t('gui_rs_all');
+    $('rs-sch-detail-svc').value = s.detail_svc || _t('gui_rs_all');
     $('rs-sch-edit-id').value = s.id;
-    $('rs-sch-target-label').textContent = (s.is_ruleset ? '[' + (_translations.gui_rs_type_ruleset || 'RuleSet') + '] ' : '[' + (_translations.gui_rs_type_rule || 'Rule') + '] ') + (s.detail_name || s.name || '');
+    $('rs-sch-target-label').textContent = (s.is_ruleset ? '[' + _t('gui_rs_type_ruleset') + '] ' : '[' + _t('gui_rs_type_rule') + '] ') + (s.detail_name || s.name || '');
     // Set type
     const typeRadio = document.querySelector('input[name="rs-sch-type"][value="' + (s.type || 'recurring') + '"]');
     if (typeRadio) typeRadio.checked = true;
@@ -519,7 +521,7 @@ async function rsEditSchedule(id) {
     }
     openModal('m-rs-schedule');
   } catch (e) {
-    toast('Failed to load schedule for editing: ' + e.message, true);
+    toast(_t('gui_rs_error_loading_schedule_for_editing').replace('{error}', e.message), true);
   }
 }
 
@@ -529,19 +531,19 @@ function rsToggleAll(master) {
 
 async function rsDeleteSelected() {
   const hrefs = [...document.querySelectorAll('.rs-sch-cb:checked')].map(cb => cb.value);
-  if (hrefs.length === 0) return toast(_translations.gui_rs_no_selection || 'No schedules selected.', true);
-  if (!confirm((_translations.gui_rs_confirm_delete || 'Delete {count} schedule(s)?').replace('{count}', hrefs.length))) return;
+  if (hrefs.length === 0) return toast(_t('gui_rs_no_selection'), true);
+  if (!confirm(_t('gui_rs_confirm_delete').replace('{count}', hrefs.length))) return;
   try {
     const res = await fetch('/api/rule_scheduler/schedules/delete', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() }, body: JSON.stringify({ hrefs })
     });
     const data = await res.json();
     if (data.ok) {
-      toast((_translations.gui_rs_deleted || 'Deleted {count} schedule(s)').replace('{count}', data.deleted.length));
+      toast(_t('gui_rs_deleted').replace('{count}', data.deleted.length));
       rsLoadSchedules();
     }
   } catch (e) {
-    toast('Delete failed: ' + e.message, true);
+    toast(_t('gui_rs_error_delete_failed').replace('{error}', e.message), true);
   }
 }
 
@@ -553,7 +555,7 @@ async function rsLoadLogHistory() {
     const data = await res.json();
     const history = data.history || [];
     if (!history.length) {
-      log.textContent = 'No execution history yet.';
+      log.textContent = _t('gui_rs_execution_history_empty');
       return;
     }
     // Show newest first
@@ -566,26 +568,24 @@ async function rsLoadLogHistory() {
     }
     log.textContent = lines.join('\n');
   } catch (e) {
-    log.textContent = 'Error loading history: ' + e.message;
+    log.textContent = _t('gui_rs_error_loading_history').replace('{error}', e.message);
   }
 }
 
 async function rsRunCheck() {
   const log = $('rs-log-output');
-  log.textContent = 'Running check...\n';
+  log.textContent = _t('gui_rs_running_check') + '\n';
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 60000);
     const res = await fetch('/api/rule_scheduler/check', { method: 'POST', signal: ctrl.signal, headers: { 'X-CSRF-Token': _csrfToken() } });
     clearTimeout(timer);
     const data = await res.json();
-    log.textContent = (data.logs || []).join('\n') || 'No output.';
+    log.textContent = (data.logs || []).join('\n') || _t('gui_rs_no_output');
     // Refresh full history view after manual check
     await rsLoadLogHistory();
   } catch (e) {
-    const msg = e.name === 'AbortError' ? 'Check timed out (PCE may be unreachable)' : e.message;
-    log.textContent = 'Error: ' + msg;
+    const msg = e.name === 'AbortError' ? _t('gui_rs_check_timed_out_unreachable') : e.message;
+    log.textContent = _t('gui_rs_error_prefix') + ': ' + msg;
   }
 }
-
-

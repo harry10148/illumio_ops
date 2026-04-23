@@ -1,6 +1,6 @@
 """Comprehensive i18n audit (Phase 1).
 
-Runs seven categories of checks across the whole codebase and emits:
+Runs nine categories of checks across the whole codebase and emits:
 
   - a compact summary on stdout
   - a detailed Markdown report at ``scripts/audit_i18n_report.md``
@@ -14,6 +14,8 @@ Categories:
   E  Glossary violations — whitelisted English terms translated to Chinese in zh_TW
   F  Placeholder English values in i18n_en.json — EN starts with Rpt/GUI/Sched prefix
   G  Keys referenced in code but missing from i18n_en.json
+  H  JS translation fallback literals — `_translations[key] || 'English text'`
+  I  EN/zh_TW parity — tracked keys in i18n_en.json missing from i18n_zh_TW.json
 
 Usage:
     python scripts/audit_i18n_usage.py           # all categories
@@ -38,6 +40,7 @@ if str(ROOT) not in sys.path:
 from src import i18n as _i18n
 from src.i18n import (
     EN_MESSAGES,
+    ZH_MESSAGES,
     _ZH_EXPLICIT,
     _humanize_key_en,
     _humanize_key_zh,
@@ -54,6 +57,7 @@ REPORT_PATH = Path(__file__).resolve().parent / "audit_i18n_report.md"
 I18N_SOURCE_FILES = {
     SRC / "i18n.py",
     SRC / "i18n_en.json",
+    SRC / "i18n_zh_TW.json",
     SRC / "report" / "exporters" / "report_i18n.py",
 }
 
@@ -178,9 +182,9 @@ CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 GUI_KEY_PATTERNS = [
     re.compile(r'data-i18n=["\']([A-Za-z0-9_&]+)["\']'),
     re.compile(r"""_translations\[['"]([A-Za-z0-9_&]+)['"]\]"""),
-    # Require a non-identifier character before the t(, otherwise .get("x"),
+    # Require a non-identifier character before _?t(, otherwise .get("x"),
     # set("x"), assert("x") would all falsely match the "t(" suffix.
-    re.compile(r"""(?<![A-Za-z0-9_])t\(\s*["\']([A-Za-z0-9_&]+)["\']"""),
+    re.compile(r"""(?<![A-Za-z0-9_])_?t\(\s*["\']([A-Za-z0-9_&]+)["\']"""),
 ]
 
 PLACEHOLDER_PREFIX_RE = re.compile(r"^(?:Rpt|GUI|Gui|Sched)\b")
@@ -302,6 +306,8 @@ def audit_placeholder_leaks(refs: dict[str, list[tuple[str, int]]]) -> tuple[lis
         zh_explicit = _ZH_EXPLICIT.get(key)
         is_leak = False
         if not zh_value:
+            is_leak = True
+        elif zh_value.startswith("[MISSING:"):
             is_leak = True
         elif PLACEHOLDER_PREFIX_RE.match(zh_value):
             is_leak = True
@@ -533,6 +539,12 @@ def audit_glossary_violations() -> list[Finding]:
 
     # Check all i18n.py-derived zh values
     for key in sorted(set(en_messages) | set(zh_messages)):
+        # rpt_* keys resolved by report_i18n.STRINGS should use STRINGS as
+        # canonical source for glossary checks.
+        if key.startswith("rpt_") and key in REPORT_STRINGS:
+            entry = REPORT_STRINGS[key]
+            if isinstance(entry, dict) and entry.get("en") and entry.get("zh_TW"):
+                continue
         en_val = en_messages.get(key, "")
         zh_val = zh_messages.get(key, "")
         check(key, en_val, zh_val, "src/i18n.py")
@@ -598,6 +610,60 @@ def audit_missing_en_keys(refs: dict[str, list[tuple[str, int]]]) -> list[Findin
 
 
 # ---------------------------------------------------------------------------
+# Category H — JS fallback literals
+
+def audit_js_translation_fallback_literals() -> list[Finding]:
+    """Find `_translations[...] || 'English text'` patterns in UI JS/HTML.
+
+    These literals hide missing translations in production and let CI pass
+    while users still see mixed-language UI.
+    """
+    findings: list[Finding] = []
+    pattern = re.compile(
+        r"_translations\[[^\]]+\]\s*\|\|\s*(['\"])(?P<text>[^'\"]*[A-Za-z][^'\"]*)\1"
+    )
+    for path in _iter_files((".js", ".html")):
+        if path in I18N_SOURCE_FILES:
+            continue
+        rel = _rel(path)
+        text = _read(path)
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            m = pattern.search(line)
+            if not m:
+                continue
+            findings.append(Finding(
+                category="H",
+                file=rel,
+                line=line_no,
+                key="—",
+                detail=f"fallback literal: {m.group('text')}",
+            ))
+    return findings
+
+
+# ---------------------------------------------------------------------------
+# Category I — EN/zh_TW parity
+
+def audit_zh_parity_against_en() -> list[Finding]:
+    """Tracked keys in EN json must exist with non-empty zh_TW entries."""
+    findings: list[Finding] = []
+    for key in sorted(EN_MESSAGES):
+        if not key.startswith(TRACKED_PREFIXES):
+            continue
+        zh_val = ZH_MESSAGES.get(key)
+        if isinstance(zh_val, str) and zh_val.strip():
+            continue
+        findings.append(Finding(
+            category="I",
+            file="src/i18n_zh_TW.json",
+            line=None,
+            key=key,
+            detail="missing or empty zh_TW value",
+        ))
+    return findings
+
+
+# ---------------------------------------------------------------------------
 # Reporting
 
 CATEGORY_TITLES = {
@@ -608,6 +674,8 @@ CATEGORY_TITLES = {
     "E": "Glossary violations (whitelist terms translated to Chinese in zh_TW)",
     "F": "Placeholder English values in i18n_en.json",
     "G": "Keys referenced in code but missing from i18n_en.json",
+    "H": "JS/HTML fallback literals (`_translations[key] || 'English text'`)",
+    "I": "Tracked EN keys missing/empty in i18n_zh_TW.json",
 }
 
 
@@ -621,11 +689,11 @@ def write_markdown_report(groups: dict[str, list[Finding]]) -> None:
     lines.append("")
     lines.append("| Category | Description | Count |")
     lines.append("|---|---|---|")
-    for cat in "ABCDEFG":
+    for cat in "ABCDEFGHI":
         lines.append(f"| {cat} | {CATEGORY_TITLES[cat]} | {len(groups.get(cat, []))} |")
     lines.append("")
 
-    for cat in "ABCDEFG":
+    for cat in "ABCDEFGHI":
         findings = groups.get(cat, [])
         lines.append(f"## [{cat}] {CATEGORY_TITLES[cat]}")
         lines.append("")
@@ -653,7 +721,7 @@ def print_summary(groups: dict[str, list[Finding]]) -> None:
     print("=" * 70)
     print("i18n audit summary")
     print("=" * 70)
-    for cat in "ABCDEFG":
+    for cat in "ABCDEFGHI":
         count = len(groups.get(cat, []))
         marker = "FAIL" if count else " ok "
         print(f"  [{cat}] {marker} {count:4d}  {CATEGORY_TITLES[cat]}")
@@ -667,13 +735,13 @@ def print_summary(groups: dict[str, list[Finding]]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Comprehensive i18n audit")
-    parser.add_argument("--only", choices=list("ABCDEFG"), help="Only run one category")
+    parser.add_argument("--only", choices=list("ABCDEFGHI"), help="Only run one category")
     args = parser.parse_args()
 
     refs = collect_referenced_keys()
     groups: dict[str, list[Finding]] = {}
 
-    wanted = args.only or "ABCDEFG"
+    wanted = args.only or "ABCDEFGHI"
 
     if "A" in wanted or "B" in wanted:
         a, b = audit_placeholder_leaks(refs)
@@ -691,6 +759,10 @@ def main() -> int:
         groups["F"] = audit_en_json_placeholders()
     if "G" in wanted:
         groups["G"] = audit_missing_en_keys(refs)
+    if "H" in wanted:
+        groups["H"] = audit_js_translation_fallback_literals()
+    if "I" in wanted:
+        groups["I"] = audit_zh_parity_against_en()
 
     write_markdown_report(groups)
     print_summary(groups)

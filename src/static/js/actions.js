@@ -11,20 +11,22 @@ function _renderAlertChannelStatus(channels) {
   const target = $('a-test-alert-status');
   if (!target) return;
   if (!channels || !channels.length) {
-    target.textContent = 'No alert plugins available.';
+    target.textContent = _t('gui_action_no_plugins');
     return;
   }
 
   target.innerHTML = channels.map(channel => {
     const issues = [];
-    if (!channel.enabled) issues.push('disabled');
+    if (!channel.enabled) issues.push(_t('gui_action_plugin_disabled'));
     if (!channel.configured && channel.missing_required && channel.missing_required.length) {
-      issues.push(`missing ${channel.missing_required.join(', ')}`);
+      issues.push(`${_t('gui_action_plugin_missing_prefix')} ${channel.missing_required.join(', ')}`);
     }
-    if (channel.last_status) issues.push(`last=${channel.last_status}`);
+    if (channel.last_status) issues.push(`${_t('gui_action_plugin_last_prefix')}=${channel.last_status}`);
     if (channel.last_error) issues.push(channel.last_error);
-    const detail = issues.length ? issues.join(' | ') : 'ready';
-    const when = channel.last_timestamp ? ` at ${formatDateZ(channel.last_timestamp) || channel.last_timestamp}` : '';
+    const detail = issues.length ? issues.join(' | ') : _t('gui_action_plugin_ready');
+    const when = channel.last_timestamp
+      ? ` ${_t('gui_action_plugin_at')} ${formatDateZ(channel.last_timestamp) || channel.last_timestamp}`
+      : '';
     const targetText = channel.last_target ? ` -> ${channel.last_target}` : '';
     return `<div style="margin-bottom:6px;color:${_alertChannelTone(channel)};"><strong>${escapeHtml(channel.display_name || channel.name)}</strong>: ${escapeHtml(detail)}${escapeHtml(targetText)}${escapeHtml(when)}</div>`;
   }).join('');
@@ -38,25 +40,25 @@ async function loadAlertTestActions() {
   try {
     const status = await api('/api/status');
     const channels = status.alert_channels || [];
-    container.innerHTML = `<button class="btn btn-primary" onclick="runAction('test-alert')">Send All</button>` +
+    container.innerHTML = `<button class="btn btn-primary" onclick="runAction('test-alert')">${_t('gui_action_send_all')}</button>` +
       channels.map(channel => `
         <button
           class="btn btn-secondary"
           style="${(!channel.enabled || !channel.configured) ? 'opacity:0.72;' : ''}"
           onclick="runPluginTestAlert('${escapeHtml(channel.name)}')"
           title="${escapeHtml(channel.description || '')}"
-        >Test ${escapeHtml(channel.display_name || channel.name)}</button>
+        >${_t('gui_action_test_prefix')} ${escapeHtml(channel.display_name || channel.name)}</button>
       `).join('');
     _renderAlertChannelStatus(channels);
   } catch (e) {
-    statusBox.textContent = 'Failed to load alert plugin status.';
+    statusBox.textContent = _t('gui_action_failed_load_plugin_status');
   }
 }
 
 async function runAction(name, body = {}) {
-  $('a-log').textContent = '[' + new Date().toLocaleTimeString() + '] Running ' + name + '...';
+  $('a-log').textContent = '[' + new Date().toLocaleTimeString() + '] ' + _t('gui_action_running').replace('{name}', name);
   const r = await post('/api/actions/' + name, body);
-  alog(r.output || 'Done.');
+  alog(r.output || _t('gui_action_done'));
   if (r.results && r.results.length) {
     r.results.forEach(result => {
       alog(`${result.channel}: ${result.status}${result.target ? ' -> ' + result.target : ''}${result.error ? ' | ' + result.error : ''}`);
@@ -64,13 +66,13 @@ async function runAction(name, body = {}) {
   }
   if (name === 'best-practices') { loadRules(); loadDashboard(); }
   if (name === 'test-alert') { await loadDashboard(); await loadAlertTestActions(); }
-  toast('??' + name + ' completed');
+  toast(_t('gui_action_completed').replace('{name}', name));
 }
 
 async function runPluginTestAlert(channel) {
-  $('a-log').textContent = '[' + new Date().toLocaleTimeString() + `] Sending test alert via ${channel}...`;
+  $('a-log').textContent = '[' + new Date().toLocaleTimeString() + '] ' + _t('gui_action_send_test_alert_via').replace('{channel}', channel);
   const r = await post('/api/actions/test-alert', { channel });
-  alog(r.output || 'Done.');
+  alog(r.output || _t('gui_action_done'));
   if (r.results && r.results.length) {
     r.results.forEach(result => {
       alog(`${result.channel}: ${result.status}${result.target ? ' -> ' + result.target : ''}${result.error ? ' | ' + result.error : ''}`);
@@ -78,18 +80,22 @@ async function runPluginTestAlert(channel) {
   }
   await loadDashboard();
   await loadAlertTestActions();
-  toast(`Test alert completed: ${channel}`);
+  toast(_t('gui_action_test_alert_completed').replace('{channel}', channel));
 }
 
 async function runDebug() {
-  $('a-log').textContent = '[' + new Date().toLocaleTimeString() + '] Running debug mode...';
+  $('a-log').textContent = '[' + new Date().toLocaleTimeString() + '] ' + _t('gui_action_debug_running');
   const r = await post('/api/actions/debug', { mins: $('a-debug-mins').value, pd_sel: $('a-debug-pd').value });
-  alog(r.output || 'Done.');
-  toast('??Debug completed');
+  alog(r.output || _t('gui_action_done'));
+  toast(_t('gui_action_debug_completed'));
 }
 
 async function stopGui() {
-  if (!confirm('Stop the Web GUI server? The browser page will close.')) return;
+  if (!confirm(_t('gui_action_stop_gui_confirm'))) return;
   try { await post('/api/shutdown', {}); } catch (e) { }
-  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px"><h1 style="color:var(--accent2)">Web GUI Stopped</h1><p style="color:var(--dim)">You may close this tab. Restart from CLI or use --gui.</p></div>';
+  document.body.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px">' +
+    `<h1 style="color:var(--accent2)">${_t('gui_action_gui_stopped_title')}</h1>` +
+    `<p style="color:var(--dim)">${_t('gui_action_gui_stopped_body')}</p>` +
+    '</div>';
 }

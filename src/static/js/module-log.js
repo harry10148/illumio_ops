@@ -39,7 +39,7 @@ async function mlLoadModules() {
       const opt = document.createElement('option');
       opt.value = m.name;
       const key = m.i18n_key || '';
-      const label = (key && _translations[key]) || m.label || m.name;
+      const label = (key && _t(key)) || m.label || m.name;
       const count = m.count ? ' (' + m.count + ')' : '';
       opt.textContent = label + count;
       if (key) opt.setAttribute('data-i18n', key);
@@ -55,13 +55,13 @@ async function mlLoadLogs() {
   if (!sel || !out) return;
   const mod = sel.value;
   _mlCurrentModule = mod;
-  out.textContent = 'Loading...';
+  out.textContent = _t('gui_ml_loading');
   try {
     const res = await fetch(`/api/logs/${mod}?n=200`);
     const data = await res.json();
     const entries = data.entries || [];
     if (!entries.length) {
-      out.textContent = 'No log entries yet.';
+      out.textContent = _t('gui_ml_empty');
       return;
     }
     const lines = [];
@@ -71,6 +71,6 @@ async function mlLoadLogs() {
     }
     out.textContent = lines.join('\n');
   } catch (e) {
-    out.textContent = 'Error: ' + e.message;
+    out.textContent = _t('gui_ml_error_prefix') + ': ' + e.message;
   }
 }

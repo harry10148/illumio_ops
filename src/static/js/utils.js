@@ -24,6 +24,12 @@ let _dashboardQueries = [];
 let _translations = {};
 let _timezone = 'local';
 
+function _t(key) {
+  const value = _translations ? _translations[key] : undefined;
+  if (typeof value === 'string' && value.trim() !== '') return value;
+  return `[MISSING:${key}]`;
+}
+
 function _tzOffsetHours() {
   const tz = _timezone || 'local';
   if (!tz || tz === 'UTC') return 0;

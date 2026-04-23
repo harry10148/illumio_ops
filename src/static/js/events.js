@@ -4,8 +4,8 @@ let _eventViewerOffset = 0;
 let _eventViewerHasMore = false;
 let _eventViewerCatalog = null;
 
-function _evText(key, fallback) {
-  return _translations[key] || fallback;
+function _evText(key) {
+  return _t(key);
 }
 
 function _eventViewerGroupOf(eventType) {
@@ -14,7 +14,7 @@ function _eventViewerGroupOf(eventType) {
 }
 
 function _humanizeEventViewerGroup(groupId) {
-  if (!groupId || groupId === '*') return _evText('gui_ev_all_groups', 'All Groups');
+  if (!groupId || groupId === '*') return _evText('gui_ev_all_groups');
   const pretty = String(groupId)
     .split('_')
     .filter(Boolean)
@@ -25,7 +25,7 @@ function _humanizeEventViewerGroup(groupId) {
 
 function _eventViewerTypeOptionLabel(item) {
   if (!item) return '';
-  if (item.id === '*') return item.label || _evText('gui_ev_all_event_types', 'All Event Types');
+  if (item.id === '*') return item.label || _evText('gui_ev_all_event_types');
   if (item.label && item.label !== item.id) return `${item.label} · ${item.id}`;
   return item.id;
 }
@@ -46,7 +46,7 @@ function _populateEventViewerCategoryOptions() {
   if (!select || !_eventViewerCatalog) return;
   const previous = select.value || '';
   const options = [
-    `<option value="">${escapeHtml(_evText('gui_ev_all_categories', 'All Categories'))}</option>`,
+    `<option value="">${escapeHtml(_evText('gui_ev_all_categories'))}</option>`,
     ...(_eventViewerCatalog.categories || []).map((category) =>
       `<option value="${escapeHtml(category.id)}"${category.id === previous ? ' selected' : ''}>${escapeHtml(category.label)}</option>`
     ),
@@ -68,7 +68,7 @@ function _populateEventViewerGroupOptions() {
   });
   const sorted = [...groups.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   select.innerHTML = [
-    `<option value="">${escapeHtml(_evText('gui_ev_all_groups', 'All Groups'))}</option>`,
+    `<option value="">${escapeHtml(_evText('gui_ev_all_groups'))}</option>`,
     ...sorted.map(([groupId, label]) => `<option value="${escapeHtml(groupId)}"${groupId === previous ? ' selected' : ''}>${escapeHtml(label)}</option>`),
   ].join('');
   if (![...select.options].some((option) => option.value === previous)) select.value = '';
@@ -80,7 +80,7 @@ function _populateEventViewerTypeOptions() {
   const previous = select.value || '';
   const filtered = _eventViewerFilteredCatalogItems().sort((a, b) => a.label.localeCompare(b.label));
   select.innerHTML = [
-    `<option value="">${escapeHtml(_evText('gui_ev_all_event_types', 'All Event Types'))}</option>`,
+    `<option value="">${escapeHtml(_evText('gui_ev_all_event_types'))}</option>`,
     ...filtered.map((item) =>
       `<option value="${escapeHtml(item.id)}"${item.id === previous ? ' selected' : ''}>${escapeHtml(_eventViewerTypeOptionLabel(item))}</option>`
     ),
@@ -159,8 +159,8 @@ function _renderEventViewerDetails(item) {
   const rawEl = $('ev-raw');
   if (!normalizedEl || !rawEl) return;
   if (!item) {
-    normalizedEl.textContent = _evText('gui_ev_select_parsed', 'Select an event row to inspect parsed event data.');
-    rawEl.textContent = _evText('gui_ev_select_raw', 'Select an event row to inspect raw PCE JSON.');
+    normalizedEl.textContent = _evText('gui_ev_select_parsed');
+    rawEl.textContent = _evText('gui_ev_select_raw');
     return;
   }
   normalizedEl.textContent = JSON.stringify(item.normalized || {}, null, 2);
@@ -181,7 +181,7 @@ function _renderEventViewerRows(items, append = false) {
   if (!tbody) return;
 
   if (!items.length && !append) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--dim);">${escapeHtml(_evText('gui_ev_no_match', 'No events matched this filter.'))}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--dim);">${escapeHtml(_evText('gui_ev_no_match'))}</td></tr>`;
     _renderEventViewerDetails(null);
     return;
   }
@@ -218,8 +218,8 @@ function _renderEventViewerRows(items, append = false) {
 function _setEventViewerMeta(summary) {
   const metaEl = $('ev-meta');
   if (!metaEl) return;
-  const rangeText = `${_evText('gui_window', 'Window')} ${formatDateZ(summary.query_since || '')} -> ${formatDateZ(summary.query_until || '')}`;
-  const resultText = `${_evText('gui_ev_matched', 'matched')} ${summary.matched_count ?? 0}, ${_evText('gui_ev_showing', 'showing')} ${(_eventViewerOffset + (summary.returned_count ?? 0))}/${summary.matched_count ?? 0}`;
+  const rangeText = `${_evText('gui_window')} ${formatDateZ(summary.query_since || '')} -> ${formatDateZ(summary.query_until || '')}`;
+  const resultText = `${_evText('gui_ev_matched')} ${summary.matched_count ?? 0}, ${_evText('gui_ev_showing')} ${(_eventViewerOffset + (summary.returned_count ?? 0))}/${summary.matched_count ?? 0}`;
   metaEl.textContent = `${rangeText} | ${resultText}`;
 }
 
@@ -253,11 +253,11 @@ async function loadEventViewer(reset = false) {
       _eventViewerItems = [];
     }
 
-    $('ev-meta').textContent = _evText('gui_ev_loading', 'Loading events from PCE...');
+    $('ev-meta').textContent = _evText('gui_ev_loading');
 
     const response = await api(`/api/events/viewer?${_eventViewerParams().toString()}`);
     if (!response || response.ok === false) {
-      throw new Error(response?.error || 'Unknown error');
+      throw new Error(response?.error || _evText('gui_ev_unknown_error'));
     }
 
     const items = response.items || [];
@@ -271,9 +271,9 @@ async function loadEventViewer(reset = false) {
     _setEventViewerMeta(response.summary || {});
     _setEventViewerLoadMore((response.summary || {}).has_more);
   } catch (error) {
-    $('ev-meta').textContent = `${_evText('gui_ev_load_failed', 'Load failed')}: ${error.message}`;
+    $('ev-meta').textContent = `${_evText('gui_ev_load_failed')}: ${error.message}`;
     if (reset) {
-      $('ev-body').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--danger);">${escapeHtml(_evText('gui_ev_failed_to_load', 'Failed to load events'))}: ${escapeHtml(error.message)}</td></tr>`;
+      $('ev-body').innerHTML = `<tr><td colspan="6" style="text-align:center;padding:36px;color:var(--danger);">${escapeHtml(_evText('gui_ev_failed_to_load'))}: ${escapeHtml(error.message)}</td></tr>`;
       _renderEventViewerDetails(null);
     }
     _setEventViewerLoadMore(false);

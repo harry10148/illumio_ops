@@ -14,7 +14,9 @@ Policy:
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +25,13 @@ from src import i18n
 
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 PLACEHOLDER_PREFIX_RE = re.compile(r"^(?:Rpt|GUI|Gui|Sched)\b")
+STRICT_PREFIXES = (
+    "gui_", "sched_", "rs_", "wgs_", "login_", "cli_", "main_",
+    "settings_", "rpt_", "menu_", "ven_", "pu_", "report_",
+    "error_", "alert_", "daemon_", "line_", "mail_", "webhook_",
+    "event_", "confirm_", "select_", "step_", "metric_", "pd_",
+    "filter_", "ex_", "rule_", "trigger_", "pill_",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -131,11 +140,17 @@ def test_glossary_terms_stay_english_in_zh_tw():
     value must also contain that term (not a Chinese translation)."""
     en_messages = i18n.get_messages("en")
     zh_messages = i18n.get_messages("zh_TW")
+    from src.report.exporters.report_i18n import STRINGS
 
     offenders: list[tuple[str, str, str, str]] = []
     for key, en in en_messages.items():
         if not isinstance(en, str):
             continue
+        # rpt_* keys are canonically sourced from report_i18n.STRINGS.
+        if key.startswith("rpt_") and key in STRINGS:
+            entry = STRINGS[key]
+            if isinstance(entry, dict) and entry.get("en") and entry.get("zh_TW"):
+                continue
         zh = zh_messages.get(key, "")
         if not isinstance(zh, str):
             continue
@@ -186,3 +201,42 @@ def test_language_native_labels_are_stable():
             assert i18n.t("gui_lang_zh") == "繁體中文"
     finally:
         i18n.set_language(prev)
+
+
+def test_zh_tw_json_has_tracked_key_parity_with_en_json():
+    root = Path(__file__).resolve().parents[1]
+    en_path = root / "src" / "i18n_en.json"
+    zh_path = root / "src" / "i18n_zh_TW.json"
+    en = json.loads(en_path.read_text(encoding="utf-8"))
+    zh = json.loads(zh_path.read_text(encoding="utf-8"))
+
+    missing = [
+        key for key in en
+        if key.startswith(STRICT_PREFIXES)
+        and (key not in zh or not str(zh.get(key, "")).strip())
+    ]
+    assert not missing, (
+        "i18n_zh_TW.json is missing tracked keys from i18n_en.json:\n"
+        + "\n".join(f"  {k}" for k in missing[:50])
+    )
+
+
+def test_tracked_keys_do_not_render_missing_markers():
+    en = i18n.get_messages("en")
+    zh = i18n.get_messages("zh_TW")
+    offenders: list[tuple[str, str, str]] = []
+
+    for key in sorted(i18n.EN_MESSAGES):
+        if not key.startswith(STRICT_PREFIXES):
+            continue
+        en_text = en.get(key, "")
+        zh_text = zh.get(key, "")
+        if isinstance(en_text, str) and en_text.startswith("[MISSING:"):
+            offenders.append(("en", key, en_text))
+        if isinstance(zh_text, str) and zh_text.startswith("[MISSING:"):
+            offenders.append(("zh_TW", key, zh_text))
+
+    assert not offenders, (
+        "Tracked i18n keys rendered missing markers:\n"
+        + "\n".join(f"  [{lang}] {key}: {text}" for lang, key, text in offenders[:50])
+    )

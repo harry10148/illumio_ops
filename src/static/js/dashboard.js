@@ -3,14 +3,14 @@ function humanTimeAgo(isoStr) {
   if (!isoStr) return '';
   const d = new Date(isoStr), now = new Date();
   const sec = Math.round((now - d) / 1000);
-  if (sec < 5) return 'just now';
-  if (sec < 60) return sec + 's ago';
+  if (sec < 5) return _t('gui_time_just_now');
+  if (sec < 60) return _t('gui_time_seconds_ago').replace('{count}', sec);
   const min = Math.round(sec / 60);
-  if (min < 60) return min + 'm ago';
+  if (min < 60) return _t('gui_time_minutes_ago').replace('{count}', min);
   const hr = Math.round(min / 60);
-  if (hr < 24) return hr + 'h ago';
+  if (hr < 24) return _t('gui_time_hours_ago').replace('{count}', hr);
   const day = Math.round(hr / 24);
-  return day + 'd ago';
+  return _t('gui_time_days_ago').replace('{count}', day);
 }
 
 /* ─── Dashboard ───────────────────────────────────────────────────── */
@@ -24,6 +24,15 @@ function _dashboardSetCard(id, value, tone = '') {
   if (!el) return;
   el.textContent = value;
   _dashboardCardTone(el, tone);
+}
+
+function _pickValue(row, keys, fallback = '') {
+  if (!row) return fallback;
+  for (const key of keys) {
+    const val = row[key];
+    if (val !== undefined && val !== null && val !== '') return val;
+  }
+  return fallback;
 }
 
 function _buildAuditSummaryFieldset() {
@@ -82,50 +91,50 @@ function _buildPolicyUsageSummaryFieldset() {
   fieldset.id = 'policy-usage-fieldset';
   fieldset.style.marginBottom = '18px';
   fieldset.innerHTML = `
-    <legend style="font-size:1.05rem;">Latest Policy Usage Summary</legend>
-    <div id="policy-usage-placeholder" style="text-align:center;padding:24px;color:var(--dim);font-size:0.9rem;">
+    <legend style="font-size:1.05rem;" data-i18n="gui_dashboard_policy_usage_summary">Latest Policy Usage Summary</legend>
+    <div id="policy-usage-placeholder" style="text-align:center;padding:24px;color:var(--dim);font-size:0.9rem;" data-i18n="gui_dashboard_no_policy_usage_summary">
       No policy usage report summary found. Generate a Policy Usage Report to populate this section.
     </div>
     <div id="policy-usage-content" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <span style="color:var(--dim);font-size:0.82rem;"><span>Generated:</span> <span id="policy-usage-generated-at">-</span></span>
-        <span style="color:var(--dim);font-size:0.82rem;"><span>Date Range:</span> <span id="policy-usage-date-range">-</span></span>
+        <span style="color:var(--dim);font-size:0.82rem;"><span data-i18n="gui_snap_generated">Generated:</span> <span id="policy-usage-generated-at">-</span></span>
+        <span style="color:var(--dim);font-size:0.82rem;"><span data-i18n="gui_snap_date_range">Date Range:</span> <span id="policy-usage-date-range">-</span></span>
       </div>
       <div id="policy-usage-kpi-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px;"></div>
       <div style="margin-bottom:16px;">
-        <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);">Top Hit Ports</div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_pu_top_hit_ports">Top Hit Ports</div>
         <table class="rule-table" style="font-size:0.8rem;">
-          <thead><tr><th>Port / Proto</th><th>Flows</th></tr></thead>
+          <thead><tr><th data-i18n="gui_pu_col_port_proto">Port / Proto</th><th data-i18n="gui_pu_col_flows">Flows</th></tr></thead>
           <tbody id="policy-usage-top-ports-body">
-            <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>
+            <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;" data-i18n="gui_no_data">No data</td></tr>
           </tbody>
         </table>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
         <div>
-          <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);">Pending Rules</div>
+          <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_pu_pending_rules">Pending Rules</div>
           <table class="rule-table" style="font-size:0.8rem;">
-            <thead><tr><th>Rule</th><th>Ruleset</th></tr></thead>
+            <thead><tr><th data-i18n="gui_rs_type_rule">Rule</th><th data-i18n="gui_rs_type_ruleset">Ruleset</th></tr></thead>
             <tbody id="policy-usage-pending-body">
-              <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>
+              <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;" data-i18n="gui_no_data">No data</td></tr>
             </tbody>
           </table>
         </div>
         <div>
-          <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);">Failed Rules</div>
+          <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_pu_failed_rules">Failed Rules</div>
           <table class="rule-table" style="font-size:0.8rem;">
-            <thead><tr><th>Rule</th><th>Ruleset</th></tr></thead>
+            <thead><tr><th data-i18n="gui_rs_type_rule">Rule</th><th data-i18n="gui_rs_type_ruleset">Ruleset</th></tr></thead>
             <tbody id="policy-usage-failed-body">
-              <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>
+              <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;" data-i18n="gui_no_data">No data</td></tr>
             </tbody>
           </table>
         </div>
         <div>
-          <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);">Reused Rules</div>
+          <div style="font-weight:700;font-size:0.9rem;margin-bottom:6px;color:var(--accent2);" data-i18n="gui_pu_reused_rules">Reused Rules</div>
           <table class="rule-table" style="font-size:0.8rem;">
-            <thead><tr><th>Rule</th><th>Ruleset</th></tr></thead>
+            <thead><tr><th data-i18n="gui_rs_type_rule">Rule</th><th data-i18n="gui_rs_type_ruleset">Ruleset</th></tr></thead>
             <tbody id="policy-usage-reused-body">
-              <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>
+              <tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;" data-i18n="gui_no_data">No data</td></tr>
             </tbody>
           </table>
         </div>
@@ -166,18 +175,18 @@ function ensureDashboardLayout() {
   const cards = dashboard.querySelectorAll('.cards .card');
   if (cards[0]) {
     const label = cards[0].querySelector('.label');
-    if (label) label.textContent = _translations['gui_dashboard_rules'] || 'Rules';
+    if (label) label.textContent = _t('gui_dashboard_rules');
   }
   if (cards[1]) {
     const label = cards[1].querySelector('.label');
     const value = cards[1].querySelector('.value');
-    if (label) label.textContent = _translations['gui_dashboard_cooldown'] || 'Cooldown';
+    if (label) label.textContent = _t('gui_dashboard_cooldown');
     if (value) value.id = 'd-cooldown';
   }
   if (cards[2]) {
     const label = cards[2].querySelector('.label');
     const value = cards[2].querySelector('.value');
-    if (label) label.textContent = _translations['gui_dashboard_pce_health'] || 'PCE Health';
+    if (label) label.textContent = _t('gui_dashboard_pce_health');
     if (value) value.id = 'd-pce-health';
   }
   cards.forEach((card, idx) => {
@@ -235,7 +244,7 @@ async function loadReports() {
   const tbody = $('rt-body');
   tbody.innerHTML = '';
   if(r.reports.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><svg aria-hidden="true"><use href="#icon-play"></use></svg><h3>${_translations['gui_reports_empty_title'] || 'No Reports'}</h3><p>${_translations['gui_reports_empty'] || 'Generate your first report using the buttons above.'}</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><svg aria-hidden="true"><use href="#icon-play"></use></svg><h3>${_t('gui_reports_empty_title')}</h3><p>${_t('gui_reports_empty')}</p></div></td></tr>`;
     return;
   }
   r.reports.forEach(rp => {
@@ -247,9 +256,9 @@ async function loadReports() {
       : (rp.summary
           ? `<div style="font-size:0.76rem;color:var(--dim);margin-top:4px;">${escapeHtml(rp.summary)}</div>${attackMeta}`
           : attackMeta);
-    const viewLabel = _translations['gui_btn_view'] || 'View';
-    const downloadLabel = _translations['gui_btn_download'] || 'Download';
-    const deleteLabel = _translations['gui_btn_delete'] || 'Delete';
+    const viewLabel = _t('gui_btn_view');
+    const downloadLabel = _t('gui_btn_download');
+    const deleteLabel = _t('gui_btn_delete');
     let actionBtn = '';
     const fnAttr = `data-fn="${escapeHtml(rp.filename)}"`;
     if(rp.filename.endsWith('.html')) {
@@ -285,7 +294,7 @@ function onReportCheckChange() {
     btn.style.display = checked.length > 0 ? '' : 'none';
     const span = btn.querySelector('span');
     if (span) {
-      const t = _translations['gui_delete_selected'] || 'Delete Selected';
+      const t = _t('gui_delete_selected');
       span.textContent = `${t} (${checked.length})`;
     }
   }
@@ -296,22 +305,22 @@ async function deleteSelectedReports() {
   const filenames = [...checked].map(cb => cb.value);
   if (filenames.length === 0) return;
 
-  const confirmMsg = (_translations['gui_delete_selected_confirm'] || 'Delete {count} reports?').replace('{count}', filenames.length);
+  const confirmMsg = (_t('gui_delete_selected_confirm')).replace('{count}', filenames.length);
   if (!confirm(confirmMsg)) return;
 
   try {
     const r = await post('/api/reports/bulk-delete', { filenames });
     if (r.ok || r.success) {
-      toast((_translations['gui_deleted_count'] || 'Deleted {count} items').replace('{count}', (r.deleted || []).length));
+      toast((_t('gui_deleted_count')).replace('{count}', (r.deleted || []).length));
       if (r.errors && r.errors.length > 0) {
-        toast((_translations['gui_delete_partial'] || 'Some items failed to delete'), 'warn');
+        toast((_t('gui_delete_partial')), 'warn');
       }
       await loadReports();
     } else {
-      toast(r.error || 'Bulk delete failed', 'err');
+      toast(r.error || _t('gui_bulk_delete_failed'), 'err');
     }
   } catch (err) {
-    toast('Bulk delete error: ' + err.message, 'err');
+    toast(_t('gui_bulk_delete_error').replace('{error}', err.message), 'err');
   }
 }
 
@@ -323,7 +332,7 @@ async function blobDownloadReport(filename) {
       credentials: 'same-origin'
     });
     if (resp.redirected && resp.url.includes('/login')) {
-      toast((_translations['gui_err_unauthorized'] || 'Session expired — please log in again.'), true);
+      toast((_t('gui_err_unauthorized')), true);
       return;
     }
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -337,20 +346,20 @@ async function blobDownloadReport(filename) {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   } catch(e) {
-    toast((_translations['gui_download_failed'] || 'Download failed: {error}').replace('{error}', e.message), true);
+    toast((_t('gui_download_failed')).replace('{error}', e.message), true);
   }
 }
 
 async function deleteReport(filename) {
-  const confirmMsg = (_translations['gui_delete_confirm'] || 'Delete "{filename}"?').replace('{filename}', filename);
+  const confirmMsg = (_t('gui_delete_confirm')).replace('{filename}', filename);
   if (!confirm(confirmMsg)) return;
   const r = await window.fetch(`/api/reports/${encodeURIComponent(filename)}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrfToken() } });
   const j = await r.json().catch(() => ({}));
   if (j.ok) {
-    toast((_translations['gui_deleted_ok'] || 'Deleted: {filename}').replace('{filename}', filename));
+    toast((_t('gui_deleted_ok')).replace('{filename}', filename));
     loadReports();
   } else {
-    toast((_translations['gui_delete_failed'] || 'Delete failed: {error}').replace('{error}', j.error || '?'), true);
+    toast((_t('gui_delete_failed')).replace('{error}', j.error || '?'), true);
   }
 }
 
@@ -368,42 +377,42 @@ async function loadSchedules() {
 function renderSchedules() {
   const tbody = $('sched-body');
   if (_schedules.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--dim)">${_translations['gui_sched_empty'] || 'No report schedules.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--dim)">${_t('gui_sched_empty')}</td></tr>`;
     return;
   }
   const typeLabels = {
-    traffic: _translations['gui_sched_rt_traffic'] || 'Traffic',
-    audit: _translations['gui_sched_rt_audit'] || 'Audit',
-    ven_status: _translations['gui_sched_rt_ven'] || 'VEN Status',
-    policy_usage: _translations['gui_sched_rt_pu'] || 'Policy Usage',
+    traffic: _t('gui_sched_rt_traffic'),
+    audit: _t('gui_sched_rt_audit'),
+    ven_status: _t('gui_sched_rt_ven'),
+    policy_usage: _t('gui_sched_rt_pu'),
   };
   tbody.innerHTML = _schedules.map(s => {
     const typeLabel = typeLabels[s.report_type] || s.report_type;
     const freqBaseMap = {
-      daily: _translations['gui_sched_freq_daily'] || 'Daily',
-      weekly: _translations['gui_sched_freq_weekly'] || 'Weekly',
-      monthly: _translations['gui_sched_freq_monthly'] || 'Monthly',
+      daily: _t('gui_sched_freq_daily'),
+      weekly: _t('gui_sched_freq_weekly'),
+      monthly: _t('gui_sched_freq_monthly'),
     };
     let freq = freqBaseMap[s.schedule_type] || s.schedule_type;
     if (s.schedule_type === 'weekly') freq += ` (${s.day_of_week || ''})`;
-    else if (s.schedule_type === 'monthly') freq += ` (${_translations['gui_sched_day_of_month'] || 'Day of month'} ${s.day_of_month || 1})`;
+    else if (s.schedule_type === 'monthly') freq += ` (${_t('gui_sched_day_of_month')} ${s.day_of_month || 1})`;
     const tzLabel = s.timezone && s.timezone !== 'local' ? s.timezone : _tzDisplayLabel();
     freq += ` ${String(s.hour||0).padStart(2,'0')}:${String(s.minute||0).padStart(2,'0')} (${tzLabel})`;
 
     const lastRunRaw = s.last_run ? s.last_run.slice(0,16).replace('T',' ') : '';
     const lastRun = s.last_run
       ? `<span title="${escapeHtml(lastRunRaw)}">${escapeHtml(humanTimeAgo(s.last_run))}</span>`
-      : escapeHtml(_translations['gui_sched_status_never'] || 'Never run');
+      : escapeHtml(_t('gui_sched_status_never'));
     let statusBadge = '';
-    if (s.last_status === 'success') statusBadge = `<span style="color:var(--green);font-weight:700;">${_translations['gui_sched_status_success']||'Success'}</span>`;
-    else if (s.last_status === 'failed') statusBadge = `<span style="color:var(--red);font-weight:700;" title="${escapeHtml(s.last_error||'')}">${_translations['gui_sched_status_failed']||'Failed'}</span>`;
-    else statusBadge = `<span style="color:var(--dim);">${_translations['gui_sched_status_never']||'Never run'}</span>`;
+    if (s.last_status === 'success') statusBadge = `<span style="color:var(--green);font-weight:700;">${_t('gui_sched_status_success')}</span>`;
+    else if (s.last_status === 'failed') statusBadge = `<span style="color:var(--red);font-weight:700;" title="${escapeHtml(s.last_error||'')}">${_t('gui_sched_status_failed')}</span>`;
+    else statusBadge = `<span style="color:var(--dim);">${_t('gui_sched_status_never')}</span>`;
 
     const enabledBadge = s.enabled
-      ? `<span style="color:var(--green);font-weight:700;">${_translations['sched_enabled_short'] || 'Enabled'}</span>`
-      : `<span style="color:var(--dim);">${_translations['sched_disabled_short'] || 'Disabled'}</span>`;
+      ? `<span style="color:var(--green);font-weight:700;">${_t('sched_enabled_short')}</span>`
+      : `<span style="color:var(--dim);">${_t('sched_disabled_short')}</span>`;
 
-    const toggleLabel = s.enabled ? (_translations['gui_sched_disable']||'Disable') : (_translations['gui_sched_enable']||'Enable');
+    const toggleLabel = s.enabled ? (_t('gui_sched_disable')) : (_t('gui_sched_enable'));
     return `<tr>
       <td style="font-weight:600;">${escapeHtml(s.name||'')}</td>
       <td>${escapeHtml(typeLabel)}</td>
@@ -413,8 +422,8 @@ function renderSchedules() {
       <td>${enabledBadge}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
-          <button class="btn btn-sm btn-primary" onclick="runScheduleNow(${s.id})" style="padding:3px 7px;font-size:0.8rem;" title="${_translations['gui_sched_run']||'Run'}">${_translations['gui_sched_run']||'Run'}</button>
-          <button class="btn btn-sm btn-secondary" onclick="editSchedule(${s.id})" style="padding:3px 7px;font-size:0.8rem;">${_translations['gui_sched_edit']||'Edit'}</button>
+          <button class="btn btn-sm btn-primary" onclick="runScheduleNow(${s.id})" style="padding:3px 7px;font-size:0.8rem;" title="${_t('gui_sched_run')}">${_t('gui_sched_run')}</button>
+          <button class="btn btn-sm btn-secondary" onclick="editSchedule(${s.id})" style="padding:3px 7px;font-size:0.8rem;">${_t('gui_sched_edit')}</button>
           <button class="btn btn-sm" onclick="toggleSchedule(${s.id})" style="padding:3px 7px;font-size:0.8rem;background:var(--accent2);color:var(--bg);">${escapeHtml(toggleLabel)}</button>
           <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${s.id},'${escapeHtml(s.name||'')}')" style="padding:3px 7px;font-size:0.8rem;">&times;</button>
         </div>
@@ -441,8 +450,8 @@ function onSchedEmailChange() {
 function openSchedModal(sched) {
   _editSchedId = sched ? sched.id : null;
   $('sched-modal-title').textContent = sched
-    ? (_translations['gui_sched_modal_edit'] || 'Edit Report Schedule')
-    : (_translations['gui_sched_modal_add'] || 'Add Report Schedule');
+    ? (_t('gui_sched_modal_edit'))
+    : (_t('gui_sched_modal_add'));
   $('sched-id').value       = sched ? sched.id : '';
   $('sched-name').value     = sched ? (sched.name || '') : '';
   $('sched-report-type').value = sched ? (sched.report_type || 'traffic') : 'traffic';
@@ -487,7 +496,7 @@ function editSchedule(id) {
 
 async function saveSchedule() {
   const name = $('sched-name').value.trim();
-  if (!name) { toast(_translations['gui_msg_name_required'] || 'Name is required.', true); return; }
+  if (!name) { toast(_t('gui_msg_name_required'), true); return; }
 
   const fmt_val = $('sched-format').value;
   const fmt = fmt_val === 'all' ? ['html', 'csv', 'pdf', 'xlsx'] : [fmt_val];
@@ -523,32 +532,32 @@ async function saveSchedule() {
       r = await api('/api/report-schedules', { method: 'POST', headers: _headers, body: JSON.stringify(payload) });
     }
   } catch (err) {
-    toast('Network error: ' + err.message, true);
+    toast(_t('gui_network_error').replace('{error}', err.message), true);
     return;
   }
   if (r && r.ok) {
     closeModal('m-sched');
-    toast(_translations['gui_sched_saved'] || 'Schedule saved.');
+    toast(_t('gui_sched_saved'));
     loadSchedules();
   } else {
-    toast((r && r.error) || 'Failed to save schedule.', true);
+    toast((r && r.error) || _t('gui_sched_save_failed'), true);
   }
 }
 
 async function toggleSchedule(id) {
   const r = await api(`/api/report-schedules/${id}/toggle`, { method: 'POST', headers: { 'X-CSRF-Token': _csrfToken() } });
   if (r && r.ok) {
-    toast(_translations['gui_sched_toggled'] || 'Schedule updated.');
+    toast(_t('gui_sched_toggled'));
     loadSchedules();
   }
 }
 
 async function deleteSchedule(id, name) {
-  const msg = (_translations['gui_sched_confirm_delete'] || 'Delete schedule "{name}"?').replace('{name}', name);
+  const msg = (_t('gui_sched_confirm_delete')).replace('{name}', name);
   if (!confirm(msg)) return;
   const r = await api(`/api/report-schedules/${id}`, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrfToken() } });
   if (r && r.ok) {
-    toast(_translations['gui_sched_deleted'] || 'Schedule deleted.');
+    toast(_t('gui_sched_deleted'));
     loadSchedules();
   }
 }
@@ -556,10 +565,10 @@ async function deleteSchedule(id, name) {
 async function runScheduleNow(id) {
   const r = await api(`/api/report-schedules/${id}/run`, { method: 'POST', headers: { 'X-CSRF-Token': _csrfToken() } });
   if (r && r.ok) {
-    toast(_translations['gui_sched_run_ok'] || 'Schedule started.');
+    toast(_t('gui_sched_run_ok'));
     setTimeout(loadSchedules, 3000);
   } else {
-    toast((_translations['gui_sched_run_failed'] || 'Schedule failed: {error}').replace('{error}', (r && r.error) || '?'), true);
+    toast((_t('gui_sched_run_failed')).replace('{error}', (r && r.error) || '?'), true);
   }
 }
 
@@ -668,7 +677,7 @@ function _buildAttackSummaryMeta(counts) {
   ]
     .map(t => `<span style="display:inline-block;padding:2px 6px;border-radius:999px;background:#1a2c32;color:#d6d7d7;font-size:0.7rem;">${escapeHtml(t)}</span>`)
     .join('');
-  const title = _translations['gui_attack_summary_title'] || 'Attack Summary';
+  const title = _t('gui_attack_summary_title');
   return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;" title="${title}">${badges}</div>`;
 }
 
@@ -693,14 +702,14 @@ let _genReportType = null;
 function openReportGenModal(type) {
   _genReportType = type;
   const meta = {
-    traffic:      { titleKey: 'gui_gen_traffic_title', title: 'Generate Traffic Report',      icon: '#icon-play',   dates: true  },
-    audit:        { titleKey: 'gui_gen_audit_title',   title: 'Generate Audit Report',        icon: '#icon-shield', dates: true  },
-    ven:          { titleKey: 'gui_gen_ven_title',     title: 'Generate VEN Status Report',   icon: '#icon-cpu',    dates: false },
-    policy_usage: { titleKey: 'gui_gen_pu_title',      title: 'Generate Policy Usage Report', icon: '#icon-shield', dates: true  },
+    traffic:      { titleKey: 'gui_gen_traffic_title', icon: '#icon-play',   dates: true  },
+    audit:        { titleKey: 'gui_gen_audit_title',   icon: '#icon-shield', dates: true  },
+    ven:          { titleKey: 'gui_gen_ven_title',     icon: '#icon-cpu',    dates: false },
+    policy_usage: { titleKey: 'gui_gen_pu_title',      icon: '#icon-shield', dates: true  },
   };
   const m = meta[type] || meta.traffic;
   $('m-gen-title').innerHTML =
-    `<svg class="icon" aria-hidden="true"><use href="${m.icon}"></use></svg> ${_translations[m.titleKey] || m.title}`;
+    `<svg class="icon" aria-hidden="true"><use href="${m.icon}"></use></svg> ${_t(m.titleKey)}`;
   
   if (type === 'traffic') {
     $('m-gen-source-row').style.display = '';
@@ -746,12 +755,12 @@ function toggleTrafficSource() {
 
 async function confirmReportGen() {
   const typeLabels = {
-    traffic:      _translations['gui_gen_traffic_title'] || 'Generate Traffic Report',
-    audit:        _translations['gui_gen_audit_title']   || 'Generate Audit Report',
-    ven:          _translations['gui_gen_ven_title']     || 'Generate VEN Status Report',
-    policy_usage: _translations['gui_gen_pu_title']      || 'Generate Policy Usage Report',
+    traffic:      _t('gui_gen_traffic_title'),
+    audit:        _t('gui_gen_audit_title'),
+    ven:          _t('gui_gen_ven_title'),
+    policy_usage: _t('gui_gen_pu_title'),
   };
-  _showGenProgress(typeLabels[_genReportType] || _translations['gui_gen_fallback_title'] || 'Generate report');
+  _showGenProgress(typeLabels[_genReportType] || _t('gui_gen_fallback_title'));
   closeModal('m-gen-report');
   if      (_genReportType === 'traffic')      await _doGenerateTraffic();
   else if (_genReportType === 'audit')        await _doGenerateAudit();
@@ -915,19 +924,19 @@ async function _doGenerateTraffic() {
     if (src === 'csv') {
       const fileInput = $('m-gen-csv-file');
       if (!fileInput.files || fileInput.files.length === 0) {
-        const msg = _translations['gui_csv_required'] || 'CSV file required';
+        const msg = _t('gui_csv_required');
         _hideGenProgress(false, msg);
-        toast(_translations['gui_err_no_csv'] || 'No CSV file uploaded.', 'err');
+        toast(_t('gui_err_no_csv'), 'err');
         return;
       }
-      _updateGenStep(_translations['gui_gen_step_parsing'] || 'Parsing CSV file…');
+      _updateGenStep(_t('gui_gen_step_parsing'));
       const formData = new FormData();
       formData.append('source', 'csv');
       const fmtEl = document.getElementById('m-gen-format');
       formData.append('format', fmtEl ? fmtEl.value : 'all');
       formData.append('file', fileInput.files[0]);
 
-      _updateGenStep(_translations['gui_gen_step_analysing'] || 'Running analysis modules…');
+      _updateGenStep(_t('gui_gen_step_analysing'));
       const r = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'X-CSRF-Token': _csrfToken() },
@@ -937,17 +946,17 @@ async function _doGenerateTraffic() {
       if (r.ok) {
         const msg = `${r.record_count} flows`;
         _hideGenProgress(true, msg);
-        toast((_translations['gui_toast_traffic_done'] || 'Traffic report generated: {msg}').replace('{msg}', msg));
+        toast((_t('gui_toast_traffic_done')).replace('{msg}', msg));
         loadReports();
       } else {
-        const fail = _translations['gui_toast_traffic_fail'] || 'Traffic report generation failed';
+        const fail = _t('gui_toast_traffic_fail');
         _hideGenProgress(false, r.error || fail);
         toast(r.error || fail, 'err');
       }
     } else {
       const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
       if (!startVal || !endVal || startVal > endVal) {
-        const msg = _translations['gui_invalid_date_range'] || 'Invalid date range.';
+        const msg = _t('gui_invalid_date_range');
         _hideGenProgress(false, msg);
         toast(msg, 'err');
         return;
@@ -955,9 +964,9 @@ async function _doGenerateTraffic() {
       const startDate = new Date(startVal + 'T00:00:00Z').toISOString();
       const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
 
-      _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching traffic from PCE…');
+      _updateGenStep(_t('gui_gen_step_fetching'));
       // Simulate step progression for long-running API calls
-      const _stepTimer = setTimeout(() => _updateGenStep(_translations['gui_gen_step_analysing'] || 'Running analysis modules…'), 5000);
+      const _stepTimer = setTimeout(() => _updateGenStep(_t('gui_gen_step_analysing')), 5000);
 
       const reportFilters = _collectReportFilters();
       const fmtEl2 = document.getElementById('m-gen-format');
@@ -970,24 +979,24 @@ async function _doGenerateTraffic() {
       if (r.ok) {
         const msg = `${r.record_count} flows`;
         _hideGenProgress(true, msg);
-        toast((_translations['gui_toast_traffic_done'] || 'Traffic report generated: {msg}').replace('{msg}', msg));
+        toast((_t('gui_toast_traffic_done')).replace('{msg}', msg));
         loadReports();
       } else {
-        const fail = _translations['gui_toast_traffic_fail'] || 'Traffic report generation failed';
+        const fail = _t('gui_toast_traffic_fail');
         _hideGenProgress(false, r.error || fail);
         toast(r.error || fail, 'err');
       }
     }
   } catch(e) {
     _hideGenProgress(false, e.message);
-    toast((_translations['gui_toast_traffic_error'] || 'Error generating traffic report: {error}').replace('{error}', e.message), 'err');
+    toast((_t('gui_toast_traffic_error')).replace('{error}', e.message), 'err');
   }
 }
 
 async function _doGenerateAudit() {
   const startVal = $('m-gen-start').value, endVal = $('m-gen-end').value;
   if (!startVal || !endVal || startVal > endVal) {
-    const msg = _translations['gui_invalid_date_range'] || 'Invalid date range.';
+    const msg = _t('gui_invalid_date_range');
     _hideGenProgress(false, msg);
     toast(msg, 'err');
     return;
@@ -996,78 +1005,78 @@ async function _doGenerateAudit() {
   const endDate   = new Date(endVal   + 'T23:59:59Z').toISOString();
   const fmtEl = document.getElementById('m-gen-format');
   const fmt = fmtEl ? fmtEl.value : 'html';
-  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching audit events from PCE…');
+  _updateGenStep(_t('gui_gen_step_fetching'));
   try {
-    const _stepTimer = setTimeout(() => _updateGenStep(_translations['gui_gen_step_analysing'] || 'Running analysis modules…'), 3000);
+    const _stepTimer = setTimeout(() => _updateGenStep(_t('gui_gen_step_analysing')), 3000);
     const r = await post('/api/audit_report/generate', {start_date:startDate, end_date:endDate, format:fmt});
     clearTimeout(_stepTimer);
     if (r.ok) {
       const msg = `${r.record_count} events`;
       _hideGenProgress(true, msg);
-      toast((_translations['gui_toast_audit_done'] || 'Audit report generated: {msg}').replace('{msg}', msg));
+      toast((_t('gui_toast_audit_done')).replace('{msg}', msg));
       loadReports();
     } else {
-      const fail = _translations['gui_toast_audit_fail'] || 'Audit report generation failed';
+      const fail = _t('gui_toast_audit_fail');
       _hideGenProgress(false, r.error || fail);
       toast(r.error || fail, 'err');
     }
   } catch(e) {
     _hideGenProgress(false, e.message);
-    toast((_translations['gui_toast_audit_error'] || 'Error generating audit report: {error}').replace('{error}', e.message), 'err');
+    toast((_t('gui_toast_audit_error')).replace('{error}', e.message), 'err');
   }
 }
 
 async function _doGenerateVen() {
   const fmtEl = document.getElementById('m-gen-format');
   const fmt = fmtEl ? fmtEl.value : 'html';
-  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching VEN status from PCE…');
+  _updateGenStep(_t('gui_gen_step_fetching'));
   try {
     const r = await post('/api/ven_status_report/generate', {format:fmt});
     if (r.ok) {
       const kpiText = (r.kpis || []).map(k => `${k.label}: ${k.value}`).join(' | ');
-      _hideGenProgress(true, kpiText || (_translations['gui_gen_done'] || 'Done'));
+      _hideGenProgress(true, kpiText || (_t('gui_gen_done')));
       const doneMsg = kpiText
-        ? (_translations['gui_toast_ven_done_kpi'] || 'VEN status report generated: {kpi}').replace('{kpi}', kpiText)
-        : (_translations['gui_toast_ven_done'] || 'VEN status report generated');
+        ? (_t('gui_toast_ven_done_kpi')).replace('{kpi}', kpiText)
+        : (_t('gui_toast_ven_done'));
       toast(doneMsg);
       loadReports();
     } else {
-      const fail = _translations['gui_toast_ven_fail'] || 'VEN status report generation failed';
+      const fail = _t('gui_toast_ven_fail');
       _hideGenProgress(false, r.error || fail);
       toast(r.error || fail, 'err');
     }
   } catch(e) {
     _hideGenProgress(false, e.message);
-    toast((_translations['gui_toast_ven_error'] || 'Error generating VEN status report: {error}').replace('{error}', e.message), 'err');
+    toast((_t('gui_toast_ven_error')).replace('{error}', e.message), 'err');
   }
 }
 
 async function _doGeneratePolicyUsage() {
-  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching policy data from PCE…');
+  _updateGenStep(_t('gui_gen_step_fetching'));
   try {
     const start = $('m-gen-start') ? $('m-gen-start').value : null;
     const end   = $('m-gen-end')   ? $('m-gen-end').value   : null;
     const r = await post('/api/policy_usage_report/generate', { start_date: start, end_date: end });
     if (r.ok) {
       const kpiText = (r.kpis || []).map(k => `${k.label}: ${k.value}`).join(' | ');
-      _hideGenProgress(true, kpiText || (_translations['gui_gen_done'] || 'Done'));
-      toast((_translations['gui_toast_pu_done'] || 'Policy Usage report generated: {count} records').replace('{count}', r.record_count));
+      _hideGenProgress(true, kpiText || (_t('gui_gen_done')));
+      toast((_t('gui_toast_pu_done')).replace('{count}', r.record_count));
       loadReports();
     } else {
-      const fail = _translations['gui_toast_pu_fail'] || 'Policy Usage report generation failed';
+      const fail = _t('gui_toast_pu_fail');
       _hideGenProgress(false, r.error || fail);
       toast(r.error || fail, 'err');
     }
   } catch(e) {
     _hideGenProgress(false, e.message);
-    toast((_translations['gui_toast_pu_error'] || 'Error generating Policy Usage report: {error}').replace('{error}', e.message), 'err');
+    toast((_t('gui_toast_pu_error')).replace('{error}', e.message), 'err');
   }
 }
 
 async function _doGeneratePolicyUsageClean() {
   const fmtEl = document.getElementById('m-gen-format');
   const fmt = fmtEl ? fmtEl.value : 'html';
-  _updateGenStep(_translations['gui_gen_step_fetching'] || 'Fetching policy data from PCE…');
+  _updateGenStep(_t('gui_gen_step_fetching'));
   try {
     const start = $('m-gen-start') ? $('m-gen-start').value : null;
     const end   = $('m-gen-end')   ? $('m-gen-end').value   : null;
@@ -1081,23 +1090,23 @@ async function _doGeneratePolicyUsageClean() {
         failed_rule_details: r.failed_rule_details || [],
       }, 3);
       const summaryText = [kpiText, execText, detailText].filter(Boolean).join(' | ');
-      _hideGenProgress(true, summaryText || (_translations['gui_gen_done'] || 'Done'));
+      _hideGenProgress(true, summaryText || (_t('gui_gen_done')));
       const doneMsg = summaryText
-        ? (_translations['gui_toast_pu_done_detail'] || 'Policy Usage report generated: {count} records ({detail})')
+        ? (_t('gui_toast_pu_done_detail'))
             .replace('{count}', r.record_count)
             .replace('{detail}', summaryText)
-        : (_translations['gui_toast_pu_done'] || 'Policy Usage report generated: {count} records')
+        : (_t('gui_toast_pu_done'))
             .replace('{count}', r.record_count);
       toast(doneMsg);
       loadReports();
     } else {
-      const fail = _translations['gui_toast_pu_fail'] || 'Policy Usage report generation failed';
+      const fail = _t('gui_toast_pu_fail');
       _hideGenProgress(false, r.error || fail);
       toast(r.error || fail, 'err');
     }
   } catch (e) {
     _hideGenProgress(false, e.message);
-    toast((_translations['gui_toast_pu_error'] || 'Error generating Policy Usage report: {error}').replace('{error}', e.message), 'err');
+    toast((_t('gui_toast_pu_error')).replace('{error}', e.message), 'err');
   }
 }
 
@@ -1131,9 +1140,9 @@ async function loadDashboard() {
       const eventPollStatus = String(pceStats.event_poll_status || 'unknown').toUpperCase();
       const dispatchStatus = latestDispatch
         ? `${String(latestDispatch.channel || 'dispatch').toUpperCase()} ${String(latestDispatch.status || 'unknown').toUpperCase()}`
-        : 'NONE';
+        : _t('gui_state_none');
       setCard('d-rules', String(d.rules_count ?? 0));
-      setCard('d-health', d.health_check ? 'ON' : 'OFF', d.health_check ? 'ok' : 'warn');
+      setCard('d-health', d.health_check ? _t('gui_state_on') : _t('gui_state_off'), d.health_check ? 'ok' : 'warn');
       setCard('d-event-poll', eventPollStatus, (pceStats.event_poll_status || '').toLowerCase() === 'ok' ? 'ok' : '');
       setCard('d-dispatch', dispatchStatus, latestDispatch && latestDispatch.status === 'success' ? 'ok' : '');
       setCard('d-unknown', String(unknownTotal), unknownTotal > 0 ? 'warn' : 'ok');
@@ -1144,7 +1153,7 @@ async function loadDashboard() {
       if (d.cooldowns && d.cooldowns.length > 0) {
         const activeCds = d.cooldowns.filter(c => c.remaining_mins > 0).length;
         if (activeCds > 0) {
-          const title = _translations['gui_cooldown_title'] || 'Rules in Cooldown';
+          const title = _t('gui_cooldown_title');
           $('cd-field').style.display = 'block';
           $('cd-list').innerHTML = `<div class="card" style="border-color:var(--warn);"><div class="label" style="color:var(--warn);"><span style="margin-right:4px;">⏳</span>${title}</div><div class="value" style="color:var(--warn);">${activeCds}</div></div>`;
         } else {
@@ -1223,7 +1232,7 @@ async function loadDashboardSnapshot() {
         </tr>`;
       }).join('');
     } else {
-      fb.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">${_translations['gui_snap_no_findings'] || 'No findings.'}</td></tr>`;
+      fb.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_snap_no_findings')}</td></tr>`;
     }
 
     // Policy Breakdown
@@ -1247,7 +1256,7 @@ async function loadDashboardSnapshot() {
     const ports = s.top_ports || [];
     if (ports.length) {
       portsB.innerHTML = ports.map(row =>
-        `<tr><td>${escapeHtml(String(row['Port'] ?? ''))}</td><td>${escapeHtml(String(row['Flow Count'] ?? ''))}</td></tr>`
+        `<tr><td>${escapeHtml(String(_pickValue(row, ['Port', 'port', 'port_proto'], '-')))}</td><td>${escapeHtml(String(_pickValue(row, ['Flow Count', 'flow_count', 'Count', 'count'], '')))}</td></tr>`
       ).join('');
     } else {
       portsB.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--dim);">—</td></tr>';
@@ -1257,7 +1266,7 @@ async function loadDashboardSnapshot() {
     const uncovB = $('snap-uncovered-body');
     const uncovered = s.top_uncovered || [];
     if (s.uncovered_pct != null) {
-      $('snap-uncovered-pct').textContent = `(${(+s.uncovered_pct).toFixed(1)}% uncovered)`;
+      $('snap-uncovered-pct').textContent = `(${_t('gui_snap_uncovered_pct').replace('{pct}', (+s.uncovered_pct).toFixed(1))})`;
     }
     if (uncovered.length) {
       uncovB.innerHTML = uncovered.map(row => {
@@ -1271,7 +1280,7 @@ async function loadDashboardSnapshot() {
         </tr>`;
       }).join('');
     } else {
-      uncovB.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:12px;">${_translations['gui_snap_no_uncovered'] || 'No uncovered flows.'}</td></tr>`;
+      uncovB.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_snap_no_uncovered')}</td></tr>`;
     }
 
     // Top Bandwidth / Bytes
@@ -1281,14 +1290,14 @@ async function loadDashboardSnapshot() {
       const bwRows = s.top_by_bytes || [];
       if (bwRows.length) {
         bwB.innerHTML = bwRows.map(row => {
-          const bytes = row['Bytes Total'] ?? row['bytes_total'] ?? 0;
+          const bytes = _pickValue(row, ['Bytes Total', 'bytes_total', 'Bytes', 'bytes'], 0);
           const bytesStr = formatBytes(bytes);
-          const dec = row['Decision'] || row['policy_decision'] || '';
+          const dec = _pickValue(row, ['Decision', 'policy_decision'], '');
           let dColor = dec === 'allowed' ? 'var(--success)' : dec === 'blocked' ? 'var(--danger)' : 'var(--warn)';
           return `<tr>
-            <td>${escapeHtml(row['Src IP'] || '')}</td>
-            <td>${escapeHtml(row['Dst IP'] || '')}</td>
-            <td>${escapeHtml(String(row['Port'] ?? ''))}</td>
+            <td>${escapeHtml(String(_pickValue(row, ['Src IP', 'Source IP', 'src_ip', 'source_ip'], '')))}</td>
+            <td>${escapeHtml(String(_pickValue(row, ['Dst IP', 'Destination IP', 'dst_ip', 'destination_ip'], '')))}</td>
+            <td>${escapeHtml(String(_pickValue(row, ['Port', 'port', 'port_proto'], '')))}</td>
             <td>${escapeHtml(bytesStr)}</td>
             <td><span style="color:${dColor};font-weight:600;">${escapeHtml(dec)}</span></td>
           </tr>`;
@@ -1319,12 +1328,12 @@ async function loadDashboardPolicyUsageSummary() {
 
     const stats = s.execution_stats || {};
     const cards = [
-      ['Hit Rules', stats.hit_rules || 0],
-      ['Unused Rules', stats.unused_rules || 0],
-      ['Cached Reuse', stats.cached_rules || 0],
-      ['New Queries', stats.submitted_rules || 0],
-      ['Pending Jobs', stats.pending_jobs || 0],
-      ['Failed Jobs', stats.failed_jobs || 0],
+      [_t('gui_pu_stat_hit_rules'), stats.hit_rules || 0],
+      [_t('gui_pu_stat_unused_rules'), stats.unused_rules || 0],
+      [_t('gui_pu_stat_cached_reuse'), stats.cached_rules || 0],
+      [_t('gui_pu_stat_new_queries'), stats.submitted_rules || 0],
+      [_t('gui_pu_stat_pending_jobs'), stats.pending_jobs || 0],
+      [_t('gui_pu_stat_failed_jobs'), stats.failed_jobs || 0],
     ];
     const grid = $('policy-usage-kpi-grid');
     if (grid) {
@@ -1340,7 +1349,7 @@ async function loadDashboardPolicyUsageSummary() {
       const body = $(bodyId);
       if (!body) return;
       if (!rows || !rows.length) {
-        body.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>';
+        body.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_no_data')}</td></tr>`;
         return;
       }
       body.innerHTML = rows.map(row => {
@@ -1354,11 +1363,11 @@ async function loadDashboardPolicyUsageSummary() {
     if (topPortsBody) {
       const topPorts = s.top_hit_ports || [];
       if (!topPorts.length) {
-        topPortsBody.innerHTML = '<tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">No data</td></tr>';
+        topPortsBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--dim);padding:12px;">${_t('gui_no_data')}</td></tr>`;
       } else {
         topPortsBody.innerHTML = topPorts.map(item => {
-          const label = item.port_proto || '-';
-          const count = item.flow_count || 0;
+          const label = _pickValue(item, ['port_proto', 'Port / Proto', 'port', 'Port'], '-');
+          const count = _pickValue(item, ['flow_count', 'Flow Count', 'count', 'Count'], 0);
           return `<tr><td>${escapeHtml(String(label))}</td><td>${escapeHtml(String(count))}</td></tr>`;
         }).join('');
       }
@@ -1373,15 +1382,15 @@ async function loadDashboardPolicyUsageSummary() {
 }
 
 async function testConn() {
-  slog(_translations['gui_test_conn_running'] || 'Testing PCE connection...');
+  slog(_t('gui_test_conn_running'));
   const r = await post('/api/actions/test-connection', {});
   if (r.ok) {
-    const okText = _translations['status_ok'] || 'Connected';
+    const okText = _t('status_ok');
     $('d-api').textContent = okText;
     $('d-api').className = 'value ok';
     slog(okText + ' (HTTP ' + r.status + ')');
   } else {
-    $('d-api').textContent = _translations['status_error'] || 'Error';
+    $('d-api').textContent = _t('status_error');
     $('d-api').className = 'value err';
     slog(r.error || r.body);
   }
@@ -1399,7 +1408,7 @@ function renderDashboardQueries() {
   const container = $('d-queries-container');
   let html = '';
   if (_dashboardQueries.length === 0) {
-    html = `<div style="text-align:center;padding:20px;color:var(--dim);font-size:0.9rem;">${_translations['gui_top10_empty'] || 'No data.'}</div>`;
+    html = `<div style="text-align:center;padding:20px;color:var(--dim);font-size:0.9rem;">${_t('gui_top10_empty')}</div>`;
   } else {
     _dashboardQueries.forEach((q, i) => {
       let badgeColor = "var(--primary)";
@@ -1407,32 +1416,32 @@ function renderDashboardQueries() {
       else if (q.pd === 1) badgeColor = "var(--warn)";
       else if (q.pd === 0) badgeColor = "var(--success)";
 
-      let rankLabel = q.rank_by === 'bandwidth' ? (_translations['gui_rank_bw'] || 'Max Bandwidth (Mbps)') : (q.rank_by === 'volume' ? (_translations['gui_rank_vol'] || 'Total Volume') : (_translations['gui_rank_conn'] || 'Connection Count'));
+      let rankLabel = q.rank_by === 'bandwidth' ? (_t('gui_rank_bw')) : (q.rank_by === 'volume' ? (_t('gui_rank_vol')) : (_t('gui_rank_conn')));
       html += `
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;">
          <div style="display:flex;align-items:center;min-height:30px;">
             <strong style="margin-right:12px;font-size:0.95rem;color:var(--accent2);">${escapeHtml(q.name)}</strong>
-            <span style="font-size:10px;background:${badgeColor};color:#fff;padding:2px 6px;border-radius:4px;margin-right:8px;">PD: ${q.pd === 3 ? (_translations['gui_pd_all'] || 'All') : (q.pd === 2 ? (_translations['gui_pd_blocked'] || 'Blocked') : (q.pd === 1 ? (_translations['gui_pd_potential'] || 'Potential') : (_translations['gui_pd_allowed'] || 'Allowed')))}</span>
+            <span style="font-size:10px;background:${badgeColor};color:#fff;padding:2px 6px;border-radius:4px;margin-right:8px;">${_t('gui_pd_short')}: ${q.pd === 3 ? (_t('gui_pd_all')) : (q.pd === 2 ? (_t('gui_pd_blocked')) : (q.pd === 1 ? (_t('gui_pd_potential')) : (_t('gui_pd_allowed'))))}</span>
             <span style="font-size:10px;background:var(--dim);color:#fff;padding:2px 6px;border-radius:4px;margin-right:8px;">${rankLabel}</span>
             <span style="flex:1"></span>
             <span id="d-qstate-${i}" style="color:var(--dim);font-size:0.8rem;margin-right:12px;"></span>
-            <button class="btn btn-sm" style="background:var(--bg);border:1px solid var(--border);margin-right:6px;" onclick="openQueryModal(${i})" aria-label="Edit Query Widget" title="Edit Query Widget">✏️</button>
-            <button class="btn btn-primary btn-sm" onclick="runTop10Query(${i})" data-i18n="gui_run_btn">Run</button>
+            <button class="btn btn-sm" style="background:var(--bg);border:1px solid var(--border);margin-right:6px;" onclick="openQueryModal(${i})" aria-label="${_t('gui_edit_query_widget')}" title="${_t('gui_edit_query_widget')}">✏️</button>
+            <button class="btn btn-primary btn-sm" onclick="runTop10Query(${i})">${_t('gui_run_btn')}</button>
          </div>
          
           <table class="rule-table" style="margin-top:10px;border-top:1px solid var(--border);font-size:0.8rem;">
            <thead><tr>
              <th style="width:25px">#</th>
-             <th style="width:100px" data-i18n="gui_value">Value</th>
-             <th style="width:110px">First/Last Seen</th>
-             <th>Source</th>
-             <th>Destination</th>
-             <th style="width:70px">Service</th>
-             <th style="width:70px" data-i18n="gui_policy_dec">Decision</th>
-             <th style="width:140px">Actions</th>
+             <th style="width:100px">${_t('gui_value')}</th>
+             <th style="width:110px">${_t('gui_first_last_seen')}</th>
+             <th>${_t('gui_source_identity')}</th>
+             <th>${_t('gui_destination_identity')}</th>
+             <th style="width:70px">${_t('gui_service_port')}</th>
+             <th style="width:70px">${_t('gui_policy_dec')}</th>
+             <th style="width:140px">${_t('gui_actions')}</th>
            </tr></thead>
            <tbody id="d-qbody-${i}">
-            <tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_translations['gui_top10_empty'] || 'No data. Click Run to query.'}</td></tr>
+            <tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_t('gui_top10_empty')}</td></tr>
           </tbody>
          </table>
       </div>`;
@@ -1448,7 +1457,7 @@ function renderDashboardQueries() {
 function openQueryModal(idx = -1) {
   $('dq-idx').value = idx;
   if (idx < 0) {
-    $('mq-title').textContent = _translations['gui_add_query_widget'] || 'Add Query Widget';
+    $('mq-title').textContent = _t('gui_add_query_widget');
     $('dq-name').value = '';
     $('dq-rank').value = 'count';
     document.querySelector('input[name="dq-pd"][value="3"]').checked = true;
@@ -1458,7 +1467,7 @@ function openQueryModal(idx = -1) {
     $('dq-any-label').value = ''; $('dq-any-ip').value = '';
     $('dq-ex-any-label').value = ''; $('dq-ex-any-ip').value = '';
   } else {
-    $('mq-title').textContent = _translations['gui_edit_query_widget'] || 'Edit Query Widget';
+    $('mq-title').textContent = _t('gui_edit_query_widget');
     const q = _dashboardQueries[idx];
     $('dq-name').value = q.name || '';
     $('dq-rank').value = q.rank_by || 'count';
@@ -1482,7 +1491,7 @@ function openQueryModal(idx = -1) {
     let delBtn = document.createElement('button');
     delBtn.id = 'm-query-del';
     delBtn.className = 'btn btn-danger';
-    delBtn.innerText = _translations['gui_delete'] || 'Delete';
+    delBtn.innerText = _t('gui_delete');
     delBtn.style.marginRight = 'auto';
     delBtn.onclick = () => deleteTop10Query(idx);
     btn.insertBefore(delBtn, btn.firstChild);
@@ -1521,11 +1530,11 @@ async function saveDashboardQuery() {
     if (m) m.classList.remove('show');
     await loadDashboardQueries();
   }
-  else alert((_translations['error_generic'] || 'Error: {error}').replace('{error}', r.error));
+  else alert((_t('error_generic')).replace('{error}', r.error));
 }
 
 async function deleteTop10Query(idx) {
-  if (!confirm(_translations['gui_confirm_delete_widget'] || 'Delete this widget?')) return;
+  if (!confirm(_t('gui_confirm_delete_widget'))) return;
   const r = await fetch('/api/dashboard/queries/' + idx, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrfToken() } }).then(res => res.json());
   if (r.ok) {
     _clearAllTop10Cache();
@@ -1533,7 +1542,7 @@ async function deleteTop10Query(idx) {
     if (m) m.classList.remove('show');
     await loadDashboardQueries();
   }
-  else alert(_translations['error_deleting'] || 'Delete failed');
+  else alert(_t('error_deleting'));
 }
 
 /* ── Top 10 cache helpers ── */
@@ -1558,7 +1567,7 @@ function _restoreCachedTop10(idx) {
       _renderTop10Body(idx, c.data, c.total, c.ts);
     } else {
       const ms = $(`d-qstate-${idx}`);
-      if (ms) ms.textContent = (_translations['gui_top10_no_records'] || 'No records found.') + '  (' + _fmtCacheTs(c.ts) + ')';
+      if (ms) ms.textContent = (_t('gui_top10_no_records')) + '  (' + _fmtCacheTs(c.ts) + ')';
     }
   } catch (_) { /* corrupt cache — ignore */ }
 }
@@ -1575,13 +1584,14 @@ function _renderTop10Body(idx, data, total, ts) {
 
   let html = '';
   data.forEach((m, i) => {
-    const pd_blocked = _translations['gui_pd_blocked'] || 'Blocked';
-    const pd_potential = _translations['gui_pd_potential'] || 'Potentially Blocked';
-    const pd_allowed = _translations['gui_pd_allowed'] || 'Allowed';
+    const pd_blocked = _t('gui_pd_blocked');
+    const pd_potential = _t('gui_pd_potential');
+    const pd_allowed = _t('gui_pd_allowed');
+    const draftPrefix = _t('gui_draft');
     const pBadge = m.pd === 2 ? `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${pd_blocked}</span>` :
       m.pd === 1 ? `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;">${pd_potential}</span>` :
         m.pd === 0 ? `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;">${pd_allowed}</span>` : m.pd;
-    const draftPdMap = { 'blocked': `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;opacity:0.8;">Draft ${pd_blocked}</span>`, 'potentially_blocked': `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;opacity:0.8;">Draft ${pd_potential}</span>`, 'allowed': `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;opacity:0.8;">Draft ${pd_allowed}</span>` };
+    const draftPdMap = { 'blocked': `<span style="background:var(--danger);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;opacity:0.8;">${draftPrefix} ${pd_blocked}</span>`, 'potentially_blocked': `<span style="background:var(--warn);color:#000;padding:2px 6px;border-radius:4px;font-size:10px;opacity:0.8;">${draftPrefix} ${pd_potential}</span>`, 'allowed': `<span style="background:var(--success);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;opacity:0.8;">${draftPrefix} ${pd_allowed}</span>` };
     const draftBadge = m.draft_pd && draftPdMap[m.draft_pd] ? `<div style="margin-top:3px;">${draftPdMap[m.draft_pd]}</div>` : '';
 
     const sLabels = renderLabelsHtml(m.s_labels);
@@ -1589,9 +1599,9 @@ function _renderTop10Body(idx, data, total, ts) {
 
     let isoBtn = '';
     if (m.s_href && m.d_href) {
-      isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${m.s_href}', false, '${m.d_href}')"><span data-i18n="gui_btn_isolate">${_translations['gui_btn_isolate'] || 'Isolate'}</span></button>`;
+      isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${m.s_href}', false, '${m.d_href}')"><span data-i18n="gui_btn_isolate">${_t('gui_btn_isolate')}</span></button>`;
     } else if (m.s_href || m.d_href) {
-      isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${m.s_href || m.d_href}')"><span data-i18n="gui_btn_isolate">${_translations['gui_btn_isolate'] || 'Isolate'}</span></button>`;
+      isoBtn = `<button class="btn btn-danger btn-sm" onclick="openQuarantineModal('${m.s_href || m.d_href}')"><span data-i18n="gui_btn_isolate">${_t('gui_btn_isolate')}</span></button>`;
     }
 
     const formatActor = (name, ip, href, labelsHtml, process, user) => {
@@ -1631,7 +1641,7 @@ function _renderTop10Body(idx, data, total, ts) {
       </tr>`;
   });
   bd.innerHTML = html;
-  let status = (_translations['gui_top10_found'] || 'Found {count} records. (Top 10)').replace('{count}', total);
+  let status = (_t('gui_top10_found')).replace('{count}', total);
   if (ts) status += '  (' + _fmtCacheTs(ts) + ')';
   ms.textContent = status;
   initTableResizers();
@@ -1650,24 +1660,24 @@ async function runTop10Query(idx) {
 
   const payload = { ...q, mins: parseInt($('d-global-min').value) || 30 };
 
-  ms.textContent = _translations['gui_top10_querying'] || 'Querying...';
-  bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_translations['gui_top10_loading'] || 'Loading...'}</td></tr>`;
+  ms.textContent = _t('gui_top10_querying');
+  bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_t('gui_top10_loading')}</td></tr>`;
 
   try {
     const r = await post('/api/dashboard/top10', payload);
-    if (!r.ok) throw new Error(r.error || 'Unknown error');
+    if (!r.ok) throw new Error(r.error || _t('gui_ev_unknown_error'));
 
     if (r.data && r.data.length) {
       _saveTop10Cache(idx, r.data, r.total);
       _renderTop10Body(idx, r.data, r.total, Date.now());
     } else {
       _saveTop10Cache(idx, [], 0);
-      bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_translations['gui_top10_no_records'] || 'No records found.'}</td></tr>`;
-      ms.textContent = (_translations['gui_done'] || 'Done.') + '  (' + _fmtCacheTs(Date.now()) + ')';
+      bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_t('gui_top10_no_records')}</td></tr>`;
+      ms.textContent = (_t('gui_done')) + '  (' + _fmtCacheTs(Date.now()) + ')';
     }
   } catch (e) {
-    ms.textContent = (_translations['error_generic'] || 'Error: {error}').replace('{error}', e.message);
-    bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px;">${_translations['gui_top10_error'] || 'Error querying data.'}</td></tr>`;
+    ms.textContent = (_t('error_generic')).replace('{error}', e.message);
+    bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger);padding:20px;">${_t('gui_top10_error')}</td></tr>`;
   }
 }
 

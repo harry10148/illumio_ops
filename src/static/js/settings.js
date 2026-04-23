@@ -230,7 +230,7 @@ async function loadSettings() {
     <div class="form-group">
       <label data-i18n="gui_timezone">Timezone</label>
       <select id="s-timezone" style="width:100%; padding:8px; border-radius:var(--radius); background:var(--bg3); border:1px solid var(--border); color:var(--fg);">
-        <option value="local" ${st.timezone === 'local' || !st.timezone ? 'selected' : ''}>Local Browser Time</option>
+        <option value="local" ${st.timezone === 'local' || !st.timezone ? 'selected' : ''}>${_t('gui_local_browser_time')}</option>
         <option value="UTC" ${st.timezone === 'UTC' ? 'selected' : ''}>UTC</option>
         <option value="UTC-12" ${st.timezone === 'UTC-12' ? 'selected' : ''}>UTC-12</option>
         <option value="UTC-11" ${st.timezone === 'UTC-11' ? 'selected' : ''}>UTC-11</option>
@@ -363,13 +363,13 @@ function _renderTlsCertInfo() {
   const info = _tlsStatus.cert_info;
   if (!info || !info.exists) {
     el.innerHTML = _tlsStatus.enabled
-      ? '<p style="color:var(--dim);font-size:0.88em;margin-top:8px;">' + (_translations['gui_tls_no_cert'] || 'No certificate found. It will be generated on next server start.') + '</p>'
+      ? '<p style="color:var(--dim);font-size:0.88em;margin-top:8px;">' + (_t('gui_tls_no_cert')) + '</p>'
       : '';
     return;
   }
   const expiredBadge = info.expired
-    ? '<span style="color:var(--danger);font-weight:600;margin-left:8px;">EXPIRED</span>'
-    : (info.expiring_soon ? '<span style="color:var(--warn, orange);font-weight:600;margin-left:8px;">EXPIRING SOON</span>' : '');
+    ? `<span style="color:var(--danger);font-weight:600;margin-left:8px;">${_t('gui_tls_expired')}</span>`
+    : (info.expiring_soon ? `<span style="color:var(--warn, orange);font-weight:600;margin-left:8px;">${_t('gui_tls_expiring_soon')}</span>` : '');
   const days = _tlsStatus.days_remaining;
   // Show days-remaining row when openssl was able to read expiry; omit
   // otherwise so we don't show a misleading "0" for missing info.
@@ -393,18 +393,18 @@ function _renderTlsCertInfo() {
 }
 
 async function renewTlsCert() {
-  if (!confirm(_translations['gui_tls_renew_confirm'] || 'Renew the self-signed certificate? The server must be restarted to apply.')) return;
+  if (!confirm(_t('gui_tls_renew_confirm'))) return;
   try {
     const r = await post('/api/tls/renew', {});
     if (r && r.ok) {
-      toast(_translations['gui_tls_renewed'] || 'Certificate renewed. Restart the server to apply.');
+      toast(_t('gui_tls_renewed'));
       _tlsStatus.cert_info = r.cert_info;
       _renderTlsCertInfo();
     } else {
-      toast(r?.error || 'Renew failed', 'err');
+      toast(r?.error || _t('gui_tls_renew_failed'), 'err');
     }
   } catch (e) {
-    toast('Renew failed: ' + e.message, 'err');
+    toast(_t('gui_tls_renew_failed_detail').replace('{error}', e.message), 'err');
   }
 }
 
@@ -456,14 +456,14 @@ async function saveSettings() {
   if (typeof renderQtPage === 'function') renderQtPage();
   if (typeof renderQwPage === 'function') renderQwPage();
   if (typeof renderDashboardQueries === 'function') renderDashboardQueries();
-  toast(_translations['gui_msg_settings_saved'] || 'Settings saved');
+  toast(_t('gui_msg_settings_saved'));
 }
 
 /* ─── PCE Profile Management ──────────────────────────────────────── */
 async function addPceProfile() {
   const name = ($('s-pce-name') || {}).value?.trim();
   const url  = ($('s-pce-url')  || {}).value?.trim();
-  if (!name || !url) { toast(_translations['gui_msg_name_required'] || 'Name and URL required', 'err'); return; }
+  if (!name || !url) { toast(_t('gui_msg_name_required'), 'err'); return; }
   const data = {
     action: 'add', name, url,
     org_id:     ($('s-pce-org')    || {}).value?.trim() || '1',
@@ -472,20 +472,20 @@ async function addPceProfile() {
     verify_ssl: ($('s-pce-ssl')    || {}).checked !== false,
   };
   const r = await post('/api/pce-profiles', data);
-  if (r && r.ok) { toast(_translations['gui_pce_add'] || 'PCE profile added'); await loadSettings(); }
+  if (r && r.ok) { toast(_t('gui_pce_add')); await loadSettings(); }
 }
 
 async function activatePceProfile(id) {
   const r = await post('/api/pce-profiles', { action: 'activate', id });
   if (r && r.ok) {
     const name = (_settings.pce_profiles || []).find(p => p.id === id)?.name || '';
-    toast((_translations['gui_pce_switched'] || 'Switched to {name}').replace('{name}', name));
+    toast((_t('gui_pce_switched')).replace('{name}', name));
     await loadSettings();
   }
 }
 
 async function deletePceProfile(id) {
-  if (!confirm(_translations['gui_msg_confirm_delete'] || 'Delete this profile?')) return;
+  if (!confirm(_t('gui_msg_confirm_delete'))) return;
   const r = await post('/api/pce-profiles', { action: 'delete', id });
-  if (r && r.ok) { toast(_translations['gui_pce_delete_profile'] || 'Deleted'); await loadSettings(); }
+  if (r && r.ok) { toast(_t('gui_pce_delete_profile')); await loadSettings(); }
 }
