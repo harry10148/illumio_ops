@@ -30,6 +30,16 @@ def _signal_handler(signum, _frame):
     logger.info(f"Received signal {signum}. Shutting down gracefully...")
     _shutdown_event.set()
 
+def _register_signals():
+    """Register SIGINT/SIGTERM handlers. Must only be called from the main thread."""
+    import signal as _signal
+    _signal.signal(_signal.SIGINT, _signal_handler)
+    try:
+        _signal.signal(_signal.SIGTERM, _signal_handler)
+    except (AttributeError, ValueError):
+        # SIGTERM not available on Windows for non-console handlers; skip silently
+        pass
+
 def run_daemon_loop(interval_minutes: int):
     """Headless monitoring loop — APScheduler-backed.
 
@@ -37,16 +47,11 @@ def run_daemon_loop(interval_minutes: int):
     BackgroundScheduler (3 jobs: monitor_cycle, tick_report_schedules,
     tick_rule_schedules).  Resolves Status.md A3 (single-threaded blocking).
     """
-    import signal as _signal
-
-    # C1: Register signal handlers so SIGINT/SIGTERM trigger graceful shutdown
-    # (previous self-rolled loop had these; must preserve for systemd/docker)
-    _signal.signal(_signal.SIGINT, _signal_handler)
-    try:
-        _signal.signal(_signal.SIGTERM, _signal_handler)
-    except (AttributeError, ValueError):
-        # SIGTERM not available on Windows for non-console handlers; skip silently
-        pass
+    # Signal handlers can only be registered from the main thread.
+    # When called as a background thread (run_daemon_with_gui), the caller
+    # registers signals before spawning; skip here to avoid ValueError.
+    if threading.current_thread() is threading.main_thread():
+        _register_signals()
 
     _shutdown_event.clear()
 
@@ -86,7 +91,10 @@ def run_daemon_with_gui(interval_minutes: int, port: int):
     """Headless monitoring loop running in background thread + Flask GUI in main thread."""
     cm = ConfigManager()
     logger.info(f"Starting daemon loop with Web GUI (interval={interval_minutes}m, port={port})")
-    
+
+    # Register signals here (main thread) — run_daemon_loop skips them when threaded
+    _register_signals()
+
     # Start daemon in background thread
     t_daemon = threading.Thread(target=run_daemon_loop, args=(interval_minutes,), daemon=True)
     t_daemon.start()
