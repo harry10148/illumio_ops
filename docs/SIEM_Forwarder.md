@@ -1,5 +1,14 @@
 # SIEM Forwarder
 
+> [!WARNING]
+> Status: **Preview** (2026-04-23).
+> Existing deployments may continue to use SIEM forwarding for compatibility, but full production rollout should wait until runtime pipeline gaps are closed.
+>
+> Known gaps tracked in Task.md:
+> - Runtime ingest path does not yet auto-enqueue SIEM dispatch rows.
+> - Scheduler dispatch path is not yet wired to a full end-to-end consumer loop.
+> - Payload-build failures can currently leave rows in persistent `pending` state.
+
 ## Architecture
 
 ```

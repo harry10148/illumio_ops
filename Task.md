@@ -1,7 +1,37 @@
 # Active Tasks — illumio_ops
 
-**As of:** 2026-04-20  
+**As of:** 2026-04-23  
 **Source:** Code Review (full project analysis) + Upgrade Roadmap
+
+---
+
+## Stability Code Review Follow-up (2026-04-22)
+
+- [x] Regression baseline re-check: `TMPDIR=/tmp TEMP=/tmp TMP=/tmp pytest -q -s` → `523 passed, 1 skipped`.
+- [ ] **P1 — Wire SIEM runtime pipeline end-to-end**: runtime path currently lacks automatic enqueue on ingest and scheduler `run_siem_dispatch` consumer execution.
+- [ ] **P1 — Prevent SIEM `pending` queue starvation**: when payload build fails (`_build_payload` returns `None`), mark dispatch rows as failed/quarantined (or retry with bounded backoff) instead of leaving them forever pending.
+- [ ] **P2 — Fix `cron_expr` timezone drift**: `ReportScheduler.should_run()` currently evaluates cron with `timezone="UTC"` regardless of schedule timezone.
+- [ ] **P2 — Remove silent scheduler init failure**: `build_scheduler()` currently swallows cache/SIEM registration exceptions (`except Exception: pass`), which can disable jobs without visibility.
+- [x] **P0 — SIEM Preview positioning (compat mode)**: keep existing SIEM deployments runnable, add startup/runtime preview warnings, and mark SIEM docs as Preview until P1 runtime gaps are closed.
+
+---
+
+## i18n System Review Follow-up (2026-04-22)
+
+- [x] Verified current i18n gate still passes: `python scripts/audit_i18n_usage.py` → 0 findings.
+- [x] **P1a — Eliminate silent JS fallback literals**: replaced `_translations[key] || 'English...'` with strict `_t(key)` across `src/static/js/*.js` (missing keys now surface as `[MISSING:key]`).
+- [x] **P1b — Add CI guard for fallback literals**: `scripts/audit_i18n_usage.py` now includes Category `H` to fail on `_translations[...] || '...'` patterns in JS/HTML.
+- [x] Validation after P1a/P1b: `node --check` on modified JS files, `python scripts/audit_i18n_usage.py` (`A–H = 0`), and `TMPDIR=/tmp TEMP=/tmp TMP=/tmp pytest -q --basetemp=/tmp/pytest-illumio tests/test_i18n_audit.py tests/test_i18n_quality.py tests/test_gui_security.py` (`42 passed`).
+- [x] **P1c — Eliminate remaining hardcoded UI literals**: migrated remaining JS-generated/template plain-English text nodes to translation keys (`data-i18n` / `_t(...)`), including dashboard/query widget residuals, report-generation source selector labels, apply/query actions, throttle labels, skip-link text, and floating quarantine action text.
+- [x] **P1 — Introduce strict i18n mode for UI surface**: `src/i18n.py` now marks missing tracked keys with `[MISSING:key]` (does not silently fall back), covering Web UI/CLI/report/alert key prefixes; dynamic `event_label_*`/`cat_*` remain fallback-safe.
+- [x] **P2 — Replace heuristic zh generation with explicit source-of-truth table**: added `src/i18n_zh_TW.json` (1583 keys) and wired `src/i18n.py` to prefer explicit zh values.
+- [x] **P2 — Strengthen key extraction coverage**: audit added Category `I` for tracked EN↔zh parity and now treats `[MISSING:key]` as failure.
+- [x] Cross-surface verification (Web UI/CLI/report/message alert paths): `TMPDIR=/tmp TEMP=/tmp TMP=/tmp pytest -q --basetemp=/tmp/pytest-illumio tests/test_i18n_audit.py tests/test_i18n_quality.py tests/test_gui_security.py tests/test_report_generator.py tests/test_policy_usage_report.py tests/test_audit.py tests/test_cli_report_commands.py tests/test_main_menu.py tests/test_event_monitoring.py` (`71 passed`).
+- [x] **P1c-2 — Web UI hardcoded literal cleanup (high-risk JS paths)**: migrated remaining action/event/module-log/quarantine/rule-scheduler/settings/dashboard runtime messages to `_t(...)`, removed translation fallback patterns from `events.js`/`quarantine.js`, and added 83 new explicit GUI keys to `i18n_en.json` + `i18n_zh_TW.json`.
+- [x] Re-verified after P1c-2: `node --check` on updated JS modules + `python scripts/audit_i18n_usage.py` (`A–I = 0`) + cross-surface regression (`71 passed`).
+- [x] **P1c-3 — dashboard snapshot/report-data label normalization**: dashboard snapshot readers now normalize payload aliases (`Port`, `Flow Count`, `Bytes Total`, `Src IP`, `Dst IP` + snake_case variants) in both `dashboard.js` and `dashboard_v2.js`, and policy-usage summary labels are key-based.
+- [x] **P1c-4 — dashboard query widget residual literals**: query table headers/tooltips (`First/Last Seen`, `Source`, `Destination`, `Service`, `Actions`, edit aria-label/title), PD prefix, and draft badge labels are now key-based in `dashboard.js`.
+- [x] **P1d — include `_t(...)` in i18n key discovery/audit**: `src/i18n.py::_discover_keys()` and `scripts/audit_i18n_usage.py` now scan `_t(...)`, preventing false-green audits when keys are used only in runtime JS helpers.
 
 ---
 

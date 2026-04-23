@@ -12,6 +12,7 @@ from src.scheduler.jobs import (
     tick_report_schedules,
     tick_rule_schedules,
 )
+from src.siem.preview import emit_preview_warning
 
 def build_scheduler(cm, interval_minutes: int = 10) -> BackgroundScheduler:
     """Factory for a BackgroundScheduler wired with illumio_ops jobs.
@@ -92,15 +93,19 @@ def build_scheduler(cm, interval_minutes: int = 10) -> BackgroundScheduler:
                           args=[cm], id="pce_cache_aggregate", replace_existing=True)
             sched.add_job(run_cache_retention, _IT(hours=24),
                           args=[cm], id="pce_cache_retention", replace_existing=True)
+    except Exception as exc:
+        logger.exception("Failed to register pce_cache scheduler jobs: {}", exc)
 
+    try:
         siem_cfg = cm.models.siem
         if siem_cfg.enabled:
+            emit_preview_warning(cm, context="scheduler_startup")
             from apscheduler.triggers.interval import IntervalTrigger as _IT
             from src.scheduler.jobs import run_siem_dispatch
             sched.add_job(run_siem_dispatch, _IT(seconds=siem_cfg.dispatch_tick_seconds),
                           args=[cm], id="siem_dispatch", replace_existing=True)
-    except Exception:
-        pass  # cache/siem not configured — skip gracefully
+    except Exception as exc:
+        logger.exception("Failed to register SIEM scheduler jobs: {}", exc)
 
     logger.info(
         "Scheduler built: monitor=%dm report=60s rule=%ds persist=%s",

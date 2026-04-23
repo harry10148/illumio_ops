@@ -52,8 +52,10 @@ def run_daemon_loop(interval_minutes: int):
 
     from src.scheduler import build_scheduler
     from src.scheduler.jobs import run_monitor_cycle
+    from src.siem.preview import emit_preview_warning
 
     cm = ConfigManager()
+    emit_preview_warning(cm, context="daemon_startup")
     print(t("daemon_start", interval=interval_minutes))
     print(t("daemon_stop_hint"))
     logger.info("Starting scheduler-backed daemon (interval={}m)", interval_minutes)
@@ -561,6 +563,11 @@ def main():
     setup_logger("src", LOG_FILE,
                  level=_log_cfg.get("level", "INFO"),
                  json_sink=_log_cfg.get("json_sink", False))
+    try:
+        from src.siem.preview import emit_preview_warning
+        emit_preview_warning(_early_cm, context="main_entrypoint")
+    except Exception:
+        pass  # intentional fallback: preview warning must not block CLI startup
 
     from src.module_log import ModuleLog
     _logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')

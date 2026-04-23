@@ -28,6 +28,12 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 ---
 
+## SIEM Status (Preview)
+
+> [!WARNING]
+> Built-in SIEM forwarder is currently in **Preview** status.
+> Existing deployments already using SIEM can keep running for compatibility, but new production rollout is not recommended until runtime pipeline gaps are closed.
+
 ## Quick Start
 
 ### 1. Requirements

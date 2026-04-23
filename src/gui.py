@@ -3244,6 +3244,11 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
 
     # TLS / HTTPS configuration
     cm.load()
+    try:
+        from src.siem.preview import emit_preview_warning
+        emit_preview_warning(cm, context="web_gui_startup")
+    except Exception:
+        pass  # intentional fallback: preview warning must not block GUI startup
     tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
     ssl_context = None
 

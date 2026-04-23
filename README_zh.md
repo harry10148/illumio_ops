@@ -28,6 +28,12 @@
 
 ---
 
+## SIEM 狀態（Preview）
+
+> [!WARNING]
+> 內建 SIEM Forwarder 目前定位為 **Preview**。
+> 已在使用中的部署可先維持相容運作；新環境暫不建議直接作為正式生產轉送方案，待 runtime pipeline 缺口補齊後再升級為 GA。
+
 ## 快速開始
 
 ### 1. 系統需求
