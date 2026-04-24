@@ -66,3 +66,5 @@ grep_out.txt
 
 # Local preview output from manual report renders
 .tmp_preview/
+
+.superpowers/
