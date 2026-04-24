@@ -153,7 +153,8 @@ class ReportGenerator:
 
     # ── cache-aware traffic fetch ────────────────────────────────────────────
 
-    def _fetch_traffic(self, start: datetime.datetime, end: datetime.datetime) -> dict:
+    def _fetch_traffic(self, start: datetime.datetime, end: datetime.datetime,
+                       filters: Optional[dict] = None) -> dict:
         """Return traffic flows with metadata. Uses cache when fully covered."""
         if self._cache is not None:
             state = self._cache.cover_state("traffic", start, end)
@@ -168,6 +169,7 @@ class ReportGenerator:
         flows = self.api.fetch_traffic_for_report(
             start_time_str=start.isoformat().replace("+00:00", "Z") if hasattr(start, "isoformat") else str(start),
             end_time_str=end.isoformat().replace("+00:00", "Z") if hasattr(end, "isoformat") else str(end),
+            filters=filters,
         )
         return {"raw": flows or [], "agg": None, "source": "api"}
 
@@ -198,8 +200,10 @@ class ReportGenerator:
         print(t("rpt_querying_traffic", start=start_date, end=end_date))
         policy_decisions = list((filters or {}).get("policy_decisions") or ["blocked", "potentially_blocked", "allowed"])
 
-        records = self.api.fetch_traffic_for_report(
-            start_time_str=start_date, end_time_str=end_date, filters=filters)
+        start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        end_dt = datetime.datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        traffic = self._fetch_traffic(start_dt, end_dt, filters)
+        records = traffic["raw"]
 
         if not records:
             logger.warning("[ReportGenerator] No records returned from API")
