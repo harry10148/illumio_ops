@@ -1769,5 +1769,15 @@
   "event_tips_cluster_update": "PCE cluster configuration was modified. Rare in steady-state — alert on unexpected changes. No sub-variants. Use an actor advanced matcher to track who made the change.",
   "event_tips_workloads_unpair": "One or more workloads were unmanaged from PCE (VEN removed). Usually accompanies agent.deactivate. Alert on bulk unpairing (high count) — may indicate a configuration error or unauthorized decommission.",
   "event_tips_nen_missed_heartbeats": "NEN missed expected heartbeats — early warning before full degradation. Pair with network_enforcement_node.degraded for progression tracking. Alert early to preempt policy enforcement failures on network devices.",
-  "event_tips_nen_degraded": "NEN is in a degraded state and may not be enforcing policy correctly — an escalation of network_enforcement_node.missed_heartbeats. Immediate action required; network devices may operate without up-to-date policy."
+  "event_tips_nen_degraded": "NEN is in a degraded state and may not be enforcing policy correctly — an escalation of network_enforcement_node.missed_heartbeats. Immediate action required; network devices may operate without up-to-date policy.",
+  "cache_backfill_title": "Backfill Cache",
+  "cache_backfill_source": "Data Source",
+  "cache_backfill_since": "From Date",
+  "cache_backfill_until": "Until Date",
+  "cache_backfill_running": "Backfill in progress…",
+  "cache_backfill_done": "Backfill complete",
+  "cache_backfill_failed": "Backfill failed",
+  "cache_miss_notice": "Data outside cache retention. Use backfill to import historical data.",
+  "cli_cache_status": "Cache status",
+  "cli_cache_retention": "Cache retention policy"
 }
