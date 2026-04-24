@@ -1,5 +1,5 @@
 [Unit]
-Description=Illumio PCE Ops
+Description=Illumio PCE Ops (offline bundle)
 Documentation=https://github.com/your-org/illumio_ops
 After=network-online.target
 Wants=network-online.target
@@ -9,10 +9,7 @@ Type=simple
 User=illumio_ops
 Group=illumio_ops
 WorkingDirectory=/opt/illumio_ops
-# Ubuntu/Debian: PEP 668 blocks system-wide pip; use a venv.
-#   python3 -m venv /opt/illumio_ops/venv
-#   /opt/illumio_ops/venv/bin/pip install flask pandas pyyaml
-ExecStart=/opt/illumio_ops/venv/bin/python /opt/illumio_ops/illumio_ops.py --monitor --interval 10
+ExecStart=/opt/illumio_ops/python/bin/python3 /opt/illumio_ops/illumio_ops.py --monitor --interval 10
 Restart=always
 RestartSec=10
 StandardOutput=journal

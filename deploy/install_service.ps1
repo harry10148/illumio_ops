@@ -35,7 +35,10 @@ param(
     [string]$NssmPath = "",
 
     [Parameter(Mandatory = $false)]
-    [int]$Interval = 10
+    [int]$Interval = 10,
+
+    [Parameter(Mandatory = $false)]
+    [string]$InstallRoot = ""
 )
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -43,18 +46,23 @@ $ServiceName = "IllumioOps"
 $DisplayName = "Illumio PCE Ops"
 $Description = "Monitors Illumio PCE for events, traffic anomalies, and health."
 $ProjectRoot = Split-Path -Parent $PSScriptRoot          # deploy/ -> project root
+if ($InstallRoot -ne "") { $ProjectRoot = $InstallRoot }
 $EntryScript = Join-Path $ProjectRoot "illumio_ops.py"
 $LogDir      = Join-Path $ProjectRoot "logs"
 
-# Prefer venv Python if it exists; fall back to system Python
-$VenvPython = Join-Path $ProjectRoot "venv\Scripts\python.exe"
-if (Test-Path $VenvPython) {
+# Python priority: 1) bundled PBS  2) venv  3) system
+$BundledPython = Join-Path $ProjectRoot "python\python.exe"
+$VenvPython    = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+if (Test-Path $BundledPython) {
+    $PythonExe = $BundledPython
+    Write-Host "Using bundled Python: $PythonExe" -ForegroundColor Gray
+} elseif (Test-Path $VenvPython) {
     $PythonExe = $VenvPython
     Write-Host "Using venv Python: $PythonExe" -ForegroundColor Gray
 } else {
     $PythonExe = (Get-Command python -ErrorAction SilentlyContinue).Source
     if (-not $PythonExe) {
-        Write-Host "ERROR: Python not found. Install Python or create a venv at '$VenvPython'." -ForegroundColor Red
+        Write-Host "ERROR: Python not found." -ForegroundColor Red
         exit 1
     }
 }
