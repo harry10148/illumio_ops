@@ -100,7 +100,7 @@ class Analyzer:
             "event_parser_samples": [],
         }
         ensure_monitoring_state(self.state)
-        self.event_poller = EventPoller(self.api)
+        self.event_poller = EventPoller(self.api, subscriber=subscriber_events)
         self.load_state()
         ensure_monitoring_state(self.state)
         self.stats = StatsTracker(self.state)
