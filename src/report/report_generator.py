@@ -264,7 +264,7 @@ class ReportGenerator:
         paths = []
 
         if fmt in ('html', 'all', 'all_raw'):
-            path = HtmlExporter(result.module_results).export(output_dir)
+            path = HtmlExporter(result.module_results, data_source=result.data_source).export(output_dir)
             paths.append(path)
             self._write_report_metadata(path, self._build_report_metadata(result, file_format="html"))
             print(t("rpt_html_saved", path=path))
@@ -272,7 +272,7 @@ class ReportGenerator:
         if fmt in ('pdf', 'all'):
             try:
                 from src.report.exporters.pdf_exporter import export_pdf
-                html_content = HtmlExporter(result.module_results)._build()
+                html_content = HtmlExporter(result.module_results, data_source=result.data_source)._build()
                 import datetime as _dt
                 ts_str = _dt.datetime.now().strftime('%Y-%m-%d_%H%M')
                 pdf_path = os.path.join(output_dir, f'Illumio_Traffic_Report_{ts_str}.pdf')

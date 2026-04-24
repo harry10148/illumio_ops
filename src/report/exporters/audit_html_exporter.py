@@ -78,10 +78,11 @@ def _df_to_html(df, no_data_key: str = "rpt_no_data", show_risk: bool = False) -
     )
 
 class AuditHtmlExporter:
-    def __init__(self, results: dict, df: pd.DataFrame = None, date_range: tuple = ("", "")):
+    def __init__(self, results: dict, df: pd.DataFrame = None, date_range: tuple = ("", ""), data_source: str = ""):
         self._r = results
         self._df = df
         self._date_range = date_range
+        self._data_source = data_source
 
     @staticmethod
     def _risk_badge(risk_level: str) -> str:
@@ -175,6 +176,20 @@ class AuditHtmlExporter:
             f'<div class="summary-pill"><span class="summary-pill-label">{STRINGS["rpt_pill_focus"]["en"]}</span><span class="summary-pill-value">{STRINGS["rpt_focus_audit"]["en"]}</span></div>'
             "</div>"
         )
+
+        if self._data_source:
+            ds_key = {
+                "cache": "rpt_data_source_cache",
+                "api": "rpt_data_source_api",
+            }.get(self._data_source, "rpt_data_source_mixed")
+            ds_label = STRINGS[ds_key]["en"]
+            ds_color = {"cache": "#22C55E", "api": "#60A5FA"}.get(self._data_source, "#EAB308")
+            data_source_pill = (
+                f'<div class="summary-pill" style="border-left: 3px solid {ds_color};">'
+                f'<span class="summary-pill-label" data-i18n="{ds_key}">{ds_label}</span>'
+                f'</div>'
+            )
+            summary_pills = summary_pills.replace("</div>", data_source_pill + "</div>", 1)
 
         body = (
             '<section id="summary" class="card report-hero">'
