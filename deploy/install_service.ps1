@@ -71,6 +71,9 @@ if (Test-Path $BundledPython) {
 if ($NssmPath -and (Test-Path $NssmPath)) {
     $NSSM = $NssmPath
 }
+elseif (Test-Path (Join-Path $PSScriptRoot "nssm.exe")) {
+    $NSSM = Join-Path $PSScriptRoot "nssm.exe"
+}
 else {
     $NssmCmd = Get-Command nssm -ErrorAction SilentlyContinue
     if ($NssmCmd) {
