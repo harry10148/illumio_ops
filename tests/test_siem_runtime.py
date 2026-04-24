@@ -128,8 +128,8 @@ def test_dispatcher_marks_failed_when_payload_none(sf):
     from unittest.mock import MagicMock
     import sqlalchemy
 
-    _add_event(sf)
-    enqueue(sf, "pce_events", 1, ["test-dest"])
+    event_id = _add_event(sf)
+    enqueue(sf, "pce_events", event_id, ["test-dest"])
 
     mock_fmt = MagicMock(spec=CEFFormatter)
     mock_transport = MagicMock()

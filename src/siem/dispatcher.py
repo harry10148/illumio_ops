@@ -75,6 +75,7 @@ class DestinationDispatcher:
                         .where(SiemDispatch.id == dispatch_row.id)
                         .values(status="failed", last_error="payload_build_failed")
                     )
+                failed += 1
                 continue
             try:
                 self._transport.send(payload)
