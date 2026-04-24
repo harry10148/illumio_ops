@@ -55,7 +55,8 @@ def build_scheduler(cm, interval_minutes: int = 10) -> BackgroundScheduler:
 
     try:
         _cache_enabled = cm.models.pce_cache.enabled
-    except Exception:
+    except Exception as e:
+        logger.warning("Cache config unavailable, defaulting to API interval: {}", e)
         _cache_enabled = False
 
     if _cache_enabled:

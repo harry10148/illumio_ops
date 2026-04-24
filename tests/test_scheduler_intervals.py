@@ -1,5 +1,4 @@
 """Tests for monitor_cycle trigger interval based on pce_cache.enabled."""
-import pytest
 from unittest.mock import MagicMock
 
 
