@@ -512,6 +512,20 @@ Reports are saved to the `reports/` directory as `.html` (formatted report) and/
 pip install pandas pyyaml
 ```
 
+### Reporting from cached PCE data
+
+When `pce_cache.enabled = true` in `config.json`, Audit and Traffic reports automatically read from the local SQLite cache when the requested date range falls within the retention window. This reduces PCE API load and speeds up report generation.
+
+If the requested range is outside the retention window, the report falls back to the live PCE API transparently.
+
+To import historical data outside the retention window, use the backfill command:
+
+```bash
+illumio-ops cache backfill --source events --since YYYY-MM-DD --until YYYY-MM-DD
+```
+
+See `docs/PCE_Cache.md` for full details.
+
 ### 9.2 Report Types Overview
 
 | Report Type | Data Source | Modules | Description |

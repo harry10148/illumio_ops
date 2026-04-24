@@ -79,3 +79,36 @@ Search loguru output for:
 | DB growing fast | `traffic_raw_retention_days` too high | Drop to 3–5 days |
 | Watermark not advancing | Events ingest error | Check log for `Events ingest failed` |
 | Cache DB locked | Multiple processes | Ensure only one `--monitor` runs |
+
+## Cache-miss semantics
+
+When a report generator requests data for a time range, `CacheReader.cover_state()` returns one of three states:
+
+- **`full`** — the entire range lies within the configured retention window; data is served from cache, no API call is made.
+- **`partial`** — the range start precedes the retention cutoff but the end is within it; the generator falls back to the API for the full range.
+- **`miss`** — the entire range predates the retention window; the generator falls back to the API.
+
+### Backfill
+
+To populate the cache for historical ranges use the CLI:
+
+```bash
+illumio-ops cache backfill --source events --since 2026-01-01 --until 2026-03-01
+illumio-ops cache backfill --source traffic --since 2026-01-01 --until 2026-03-01
+```
+
+Backfill writes directly into `pce_events` / `pce_traffic_flows_raw`, bypassing the normal ingestor watermark. The retention worker will purge backfilled data on its next tick if it falls outside the configured retention window.
+
+Check cache status and retention policy:
+
+```bash
+illumio-ops cache status
+illumio-ops cache retention
+```
+
+### Data source indicator
+
+Generated HTML reports display a colored pill in the report header indicating the data source:
+- **Green** — data served from local cache
+- **Blue** — data fetched from live PCE API
+- **Yellow** — mixed (partial cache + API)
