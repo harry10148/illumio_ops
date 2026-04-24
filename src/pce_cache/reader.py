@@ -33,9 +33,6 @@ class CacheReader:
         return "full"
 
     def read_events(self, start: datetime, end: datetime) -> list[dict]:
-        state = self.cover_state("events", start, end)
-        if state == "miss":
-            raise ValueError("cache-miss: range entirely before retention cutoff")
         with self._sf() as s:
             q = (
                 select(PceEvent)
@@ -45,9 +42,6 @@ class CacheReader:
             return [orjson.loads(r.raw_json) for r in s.execute(q).scalars()]
 
     def read_flows_raw(self, start: datetime, end: datetime) -> list[dict]:
-        state = self.cover_state("traffic", start, end)
-        if state == "miss":
-            raise ValueError("cache-miss: range entirely before retention cutoff")
         with self._sf() as s:
             q = (
                 select(PceTrafficFlowRaw)
