@@ -89,17 +89,17 @@ Plan: [docs/superpowers/plans/2026-04-19-phase-13-pce-cache-and-siem.md](docs/su
 
 ---
 
-## Phase 14: Reports on PCE Cache 📋 PLANNED (2026-04-19)
+## Phase 14: Reports on PCE Cache ✅ DONE (2026-04-24)
 
 Plan: [docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md](docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md) • Target tag: `v3.12.0-reports-cache` • Branch: `feature/phase-14-reports-cache`
 
-- [ ] **T1**: Branch + baseline (≥ 470 passed post-Phase 13)
-- [ ] **T2**: `CacheReader` facade with full/partial/miss coverage semantics
-- [ ] **T3**: `AuditGenerator` cache-first + API fallback
-- [ ] **T4**: `ReportGenerator` traffic cache-first + API fallback (raw + agg)
-- [ ] **T5**: `BackfillRunner` + `illumio-ops cache backfill|status|retention` + GUI modal
-- [ ] **T6**: HTML report "Data source" pill (cache / API / mixed) in both audit + traffic exporters
-- [ ] **T7**: Docs (user manual section) + E2E + final validation + PR + tag
+- [x] **T1**: Branch + baseline (≥ 470 passed post-Phase 13)
+- [x] **T2**: `CacheReader` facade with full/partial/miss coverage semantics
+- [x] **T3**: `AuditGenerator` cache-first + API fallback
+- [x] **T4**: `ReportGenerator` traffic cache-first + API fallback (raw + agg)
+- [x] **T5**: `BackfillRunner` + `illumio-ops cache backfill|status|retention` + GUI modal
+- [x] **T6**: HTML report "Data source" pill (cache / API / mixed) in both audit + traffic exporters
+- [x] **T7**: Docs (user manual section) + E2E + final validation + PR + tag
 
 ---
 

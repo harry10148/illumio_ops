@@ -415,10 +415,24 @@ def _extract_workloads_affected_from_event(row) -> int:
 # ── Main generator class ─────────────────────────────────────────────────────
 
 class AuditGenerator:
-    def __init__(self, config_manager, api_client=None, config_dir: str = 'config'):
+    def __init__(self, config_manager=None, api_client=None, config_dir: str = 'config',
+                 *, api=None, cache_reader=None):
         self.cm = config_manager
-        self.api = api_client
+        # Accept either api_client= (legacy) or api= (new style)
+        self.api = api if api is not None else api_client
         self._config_dir = config_dir
+        self._cache = cache_reader
+
+    def _fetch_events(self, start: datetime.datetime, end: datetime.datetime) -> list:
+        """Fetch events from cache when fully covered, otherwise fall back to API."""
+        if self._cache is not None:
+            state = self._cache.cover_state("events", start, end)
+            if state == "full":
+                logger.info("Audit report: events from cache ({} → {})", start, end)
+                return self._cache.read_events(start, end)
+            # partial or miss: fall through to API
+        start_str = start.isoformat().replace("+00:00", "Z")
+        return self.api.get_events(since=start_str)
 
     def generate_from_api(self, start_date: Optional[str] = None,
                           end_date: Optional[str] = None) -> AuditReportResult:
@@ -433,7 +447,9 @@ class AuditGenerator:
             ).isoformat().replace("+00:00", "Z")
 
         print(t("rpt_audit_querying", start=start_date, end=end_date))
-        events = self.api.fetch_events(start_time_str=start_date, end_time_str=end_date)
+        _start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        _end_dt = datetime.datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        events = self._fetch_events(_start_dt, _end_dt)
 
         if not events:
             print(t("rpt_audit_no_events"))

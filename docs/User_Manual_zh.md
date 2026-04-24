@@ -514,6 +514,20 @@ sudo systemctl enable --now illumio-ops
 pip install pandas pyyaml
 ```
 
+### 從 Cache 讀取報表資料
+
+當 `config.json` 中 `pce_cache.enabled = true` 時，稽核與流量報表會自動從本地 SQLite Cache 讀取資料（若請求的日期範圍在保留期限內）。這可降低 PCE API 負載並加速報表產生。
+
+若請求範圍超出保留期限，報表會自動回退至即時 PCE API。
+
+如需匯入超出保留期限的歷史資料，請使用 Backfill 指令：
+
+```bash
+illumio-ops cache backfill --source events --since YYYY-MM-DD --until YYYY-MM-DD
+```
+
+詳見 `docs/PCE_Cache.md`。
+
 ### 9.2 報表類型總覽
 
 | 報表類型 | 資料來源 | 模組數 | 說明 |

@@ -142,11 +142,36 @@ class ReportGenerator:
         DataSource → Parser → Validator → RulesEngine → 12 Modules → Export
     """
 
-    def __init__(self, config_manager, api_client=None, config_dir: str = 'config'):
+    def __init__(self, config_manager=None, api_client=None, config_dir: str = 'config',
+                 cache_reader=None, api=None):
         self.cm = config_manager
-        self.api = api_client
+        # Allow `api` as a keyword alias for `api_client` (used by tests and cache path)
+        self.api = api_client if api_client is not None else api
         self._config_dir = config_dir
+        self._cache = cache_reader
         self._report_cfg = self._load_report_config()
+
+    # ── cache-aware traffic fetch ────────────────────────────────────────────
+
+    def _fetch_traffic(self, start: datetime.datetime, end: datetime.datetime,
+                       filters: Optional[dict] = None) -> dict:
+        """Return traffic flows with metadata. Uses cache when fully covered."""
+        if self._cache is not None:
+            state = self._cache.cover_state("traffic", start, end)
+            if state == "full":
+                logger.info("Traffic report: flows from cache ({} → {})", start, end)
+                return {
+                    "raw": self._cache.read_flows_raw(start, end),
+                    "agg": self._cache.read_flows_agg(start, end),
+                    "source": "cache",
+                }
+            # partial or miss: fall through to API
+        flows = self.api.fetch_traffic_for_report(
+            start_time_str=start.isoformat().replace("+00:00", "Z") if hasattr(start, "isoformat") else str(start),
+            end_time_str=end.isoformat().replace("+00:00", "Z") if hasattr(end, "isoformat") else str(end),
+            filters=filters,
+        )
+        return {"raw": flows or [], "agg": None, "source": "api"}
 
     # ── public ───────────────────────────────────────────────────────────────
 
@@ -175,8 +200,10 @@ class ReportGenerator:
         print(t("rpt_querying_traffic", start=start_date, end=end_date))
         policy_decisions = list((filters or {}).get("policy_decisions") or ["blocked", "potentially_blocked", "allowed"])
 
-        records = self.api.fetch_traffic_for_report(
-            start_time_str=start_date, end_time_str=end_date, filters=filters)
+        start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        end_dt = datetime.datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        traffic = self._fetch_traffic(start_dt, end_dt, filters)
+        records = traffic["raw"]
 
         if not records:
             logger.warning("[ReportGenerator] No records returned from API")
@@ -237,7 +264,7 @@ class ReportGenerator:
         paths = []
 
         if fmt in ('html', 'all', 'all_raw'):
-            path = HtmlExporter(result.module_results).export(output_dir)
+            path = HtmlExporter(result.module_results, data_source=result.data_source).export(output_dir)
             paths.append(path)
             self._write_report_metadata(path, self._build_report_metadata(result, file_format="html"))
             print(t("rpt_html_saved", path=path))
@@ -245,7 +272,7 @@ class ReportGenerator:
         if fmt in ('pdf', 'all'):
             try:
                 from src.report.exporters.pdf_exporter import export_pdf
-                html_content = HtmlExporter(result.module_results)._build()
+                html_content = HtmlExporter(result.module_results, data_source=result.data_source)._build()
                 import datetime as _dt
                 ts_str = _dt.datetime.now().strftime('%Y-%m-%d_%H%M')
                 pdf_path = os.path.join(output_dir, f'Illumio_Traffic_Report_{ts_str}.pdf')

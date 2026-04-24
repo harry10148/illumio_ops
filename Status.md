@@ -1,7 +1,7 @@
 # Project Status — illumio_ops
 
 **As of:** 2026-04-23  
-**Version:** v3.11.0-siem-cache (Phase 13 Complete)  
+**Version:** v3.12.0-reports-cache (Phase 14 Complete, pending merge)  
 **Branch:** feature/phase-13-siem-cache (PR open, pending merge)
 **Phase:** 13 phases shipped; Phase 14–16 planned (16 = final)  
 **Code Review Date:** 2026-04-13  
@@ -42,7 +42,7 @@
 
 ## Phase 14–16 — PLANNED
 
-- **Phase 14** — `AuditGenerator` + `ReportGenerator` read from cache when range in retention, backfill CLI for out-of-range. Plan: [docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md](docs/superpowers/plans/2026-04-19-phase-14-reports-on-cache.md). Target tag: `v3.12.0-reports-cache`.
+- **Phase 14 Complete** — `CacheReader` façade, `AuditGenerator` + `ReportGenerator` cache-first, `BackfillRunner` + `illumio-ops cache backfill|status|retention` CLI, HTML data-source pill, E2E tests. Tag: `v3.12.0-reports-cache` (pending PR merge).
 - **Phase 15** — `Analyzer` + `EventPoller` subscribe to cache via `ingested_at`-cursor; enables 30s monitor tick without breaching PCE 500/min. Plan: [docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md](docs/superpowers/plans/2026-04-19-phase-15-alerts-on-cache.md). Target tag: `v3.13.0-alerts-cache`.
 - **Phase 16** — **Offline bundle (final phase)** — one `bash scripts/build_offline_bundle.sh` on Linux/WSL produces two artifacts: `illumio_ops-<ver>-offline-linux-x86_64.tar.gz` (RHEL 8+9, `sudo ./install.sh`) and `illumio_ops-<ver>-offline-windows-x86_64.zip` (Windows 10/11/Server, `.\install.ps1`). PBS CPython 3.12, weasyprint excluded, `--format pdf` degrades gracefully. `install.sh`/`install.ps1` preserve `config.json` + `rule_schedules.json` on upgrade. Plan: [docs/superpowers/plans/2026-04-20-phase-16-offline-bundle.md](docs/superpowers/plans/2026-04-20-phase-16-offline-bundle.md). Target tag: `v3.14.0-offline-bundle`.
 - **Roadmap** — [docs/superpowers/plans/2026-04-19-phase-13-14-15-roadmap.md](docs/superpowers/plans/2026-04-19-phase-13-14-15-roadmap.md) with 15 confirmed design decisions.

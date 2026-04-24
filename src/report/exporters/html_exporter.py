@@ -311,8 +311,9 @@ def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
 class HtmlExporter:
     """Export report results to a single self-contained HTML file."""
 
-    def __init__(self, results: dict):
+    def __init__(self, results: dict, data_source: str = ""):
         self._r = results
+        self._data_source = data_source
 
     def export(self, output_dir: str = 'reports') -> str:
         """Write HTML file and return full path."""
@@ -378,6 +379,20 @@ class HtmlExporter:
             f'<div class="summary-pill"><span class="summary-pill-label">{STRINGS["rpt_pill_focus"]["en"]}</span><span class="summary-pill-value">{STRINGS["rpt_focus_traffic"]["en"]}</span></div>'
             '</div>'
         )
+
+        if self._data_source:
+            ds_key = {
+                "cache": "rpt_data_source_cache",
+                "api": "rpt_data_source_api",
+            }.get(self._data_source, "rpt_data_source_mixed")
+            ds_label = STRINGS[ds_key]["en"]
+            ds_color = {"cache": "#22C55E", "api": "#60A5FA"}.get(self._data_source, "#EAB308")
+            data_source_pill = (
+                f'<div class="summary-pill" style="border-left: 3px solid {ds_color};">'
+                f'<span class="summary-pill-label" data-i18n="{ds_key}">{ds_label}</span>'
+                f'</div>'
+            )
+            summary_pills = summary_pills.replace('</div>', data_source_pill + '</div>', 1)
 
         # Maturity score gauge
         m_score = mod12.get('maturity_score', 0)
