@@ -142,11 +142,34 @@ class ReportGenerator:
         DataSource → Parser → Validator → RulesEngine → 12 Modules → Export
     """
 
-    def __init__(self, config_manager, api_client=None, config_dir: str = 'config'):
+    def __init__(self, config_manager=None, api_client=None, config_dir: str = 'config',
+                 cache_reader=None, api=None):
         self.cm = config_manager
-        self.api = api_client
+        # Allow `api` as a keyword alias for `api_client` (used by tests and cache path)
+        self.api = api_client if api_client is not None else api
         self._config_dir = config_dir
+        self._cache = cache_reader
         self._report_cfg = self._load_report_config()
+
+    # ── cache-aware traffic fetch ────────────────────────────────────────────
+
+    def _fetch_traffic(self, start: datetime.datetime, end: datetime.datetime) -> dict:
+        """Return traffic flows with metadata. Uses cache when fully covered."""
+        if self._cache is not None:
+            state = self._cache.cover_state("traffic", start, end)
+            if state == "full":
+                logger.info("Traffic report: flows from cache ({} → {})", start, end)
+                return {
+                    "raw": self._cache.read_flows_raw(start, end),
+                    "agg": self._cache.read_flows_agg(start, end),
+                    "source": "cache",
+                }
+            # partial or miss: fall through to API
+        flows = self.api.fetch_traffic_for_report(
+            start_time_str=start.isoformat().replace("+00:00", "Z") if hasattr(start, "isoformat") else str(start),
+            end_time_str=end.isoformat().replace("+00:00", "Z") if hasattr(end, "isoformat") else str(end),
+        )
+        return {"raw": flows or [], "agg": None, "source": "api"}
 
     # ── public ───────────────────────────────────────────────────────────────
 
