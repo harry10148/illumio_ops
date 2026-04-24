@@ -28,6 +28,8 @@ if [ "$ACTION" = "uninstall" ]; then
     rm -f "$SERVICE_FILE"
     systemctl daemon-reload
     echo "==> Removing $INSTALL_ROOT"
+    [[ -n "$INSTALL_ROOT" && "$INSTALL_ROOT" != "/" ]] || \
+        { echo "ERROR: Refusing to remove dangerous path: '$INSTALL_ROOT'"; exit 1; }
     rm -rf "$INSTALL_ROOT"
     if id illumio_ops &>/dev/null; then
         userdel illumio_ops
@@ -66,7 +68,8 @@ if ! id illumio_ops &>/dev/null; then
 fi
 chown -R illumio_ops:illumio_ops "$INSTALL_ROOT"
 
-install -m 0644 "$SRC/deploy/illumio-ops.service" "$SERVICE_FILE"
+sed "s|/opt/illumio_ops|$INSTALL_ROOT|g" "$SRC/deploy/illumio-ops.service" > "$SERVICE_FILE"
+chmod 0644 "$SERVICE_FILE"
 systemctl daemon-reload
 
 if [ "$IS_UPGRADE" = true ]; then

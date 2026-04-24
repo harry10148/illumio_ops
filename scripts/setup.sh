@@ -45,6 +45,7 @@ if [ ! -f "$REPO_ROOT/config/config.json" ]; then
 fi
 
 VENV_PYTHON="$REPO_ROOT/venv/bin/python3"
+SVC_USER="${SUDO_USER:-$(whoami)}"
 
 cat > "$SERVICE_FILE" << EOF
 [Unit]
@@ -54,7 +55,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=$(whoami)
+User=$SVC_USER
 WorkingDirectory=$REPO_ROOT
 ExecStart=$VENV_PYTHON $REPO_ROOT/illumio_ops.py --monitor --interval $INTERVAL
 Restart=always
@@ -62,6 +63,11 @@ RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=illumio-ops
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$REPO_ROOT
 
 [Install]
 WantedBy=multi-user.target

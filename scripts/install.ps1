@@ -48,14 +48,26 @@ New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
 
 Write-Host "==> Copying Python runtime"
 Robocopy "$SRC\python" "$InstallRoot\python" /E /NP /NFL /NDL | Out-Null
+if ($LASTEXITCODE -ge 8) {
+    Write-Host "ERROR: Robocopy failed copying Python runtime (exit $LASTEXITCODE)" -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "==> Copying application files"
 if ($IsUpgrade) {
     # Preserve operator-owned files on upgrade
     Robocopy "$SRC\app" "$InstallRoot" /E /NP /NFL /NDL `
         /XF "config.json" "rule_schedules.json" | Out-Null
+    if ($LASTEXITCODE -ge 8) {
+        Write-Host "ERROR: Robocopy failed copying application files (exit $LASTEXITCODE)" -ForegroundColor Red
+        exit 1
+    }
 } else {
     Robocopy "$SRC\app" "$InstallRoot" /E /NP /NFL /NDL | Out-Null
+    if ($LASTEXITCODE -ge 8) {
+        Write-Host "ERROR: Robocopy failed copying application files (exit $LASTEXITCODE)" -ForegroundColor Red
+        exit 1
+    }
     Copy-Item "$InstallRoot\config\config.json.example" `
               "$InstallRoot\config\config.json" -Force
 }

@@ -101,8 +101,13 @@ function Install-Service {
         New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
     }
 
-    # Install the service
-    & $NSSM install $ServiceName $PythonExe $EntryScript --monitor --interval $Interval
+    # Install the service (idempotent — skip if already registered)
+    $existingSvc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if ($existingSvc) {
+        Write-Host "  Service $ServiceName already registered — skipping nssm install" -ForegroundColor Gray
+    } else {
+        & $NSSM install $ServiceName $PythonExe $EntryScript --monitor --interval $Interval
+    }
     & $NSSM set $ServiceName DisplayName $DisplayName
     & $NSSM set $ServiceName Description $Description
     & $NSSM set $ServiceName AppDirectory $ProjectRoot
@@ -135,7 +140,12 @@ function Install-Service {
 # ─── Uninstall ────────────────────────────────────────────────────────────────
 function Uninstall-Service {
     Write-Host "Stopping and removing $DisplayName..." -ForegroundColor Yellow
-    & $NSSM stop $ServiceName
+    $existingSvc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if (-not $existingSvc) {
+        Write-Host "  Service $ServiceName not found — nothing to remove" -ForegroundColor Gray
+        return
+    }
+    & $NSSM stop $ServiceName 2>$null
     & $NSSM remove $ServiceName confirm
     Write-Host "Service removed." -ForegroundColor Green
 }

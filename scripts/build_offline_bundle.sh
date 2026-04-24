@@ -77,6 +77,11 @@ build_linux() {
 build_windows() {
     local BUILD="$REPO_ROOT/build/offline-windows"
     local ARCHIVE="illumio_ops-${VERSION}-offline-windows-x86_64.zip"
+    local LINUX_PYTHON="$REPO_ROOT/build/offline-linux/python/bin/python3"
+
+    [[ -x "$LINUX_PYTHON" ]] || \
+        { echo "ERROR: Linux PBS Python not found — run build_linux first (required for cross-platform wheel download)"; exit 1; }
+
     echo "==> [Windows] Cleaning build dir"
     rm -rf "$BUILD" && mkdir -p "$BUILD"
 
@@ -86,7 +91,7 @@ build_windows() {
     echo "==> [Windows] Downloading win_amd64 wheels"
     mkdir -p "$BUILD/wheels"
     # Use the local Linux PBS pip to download Windows wheels (cross-platform download)
-    "$REPO_ROOT/build/offline-linux/python/bin/python3" -m pip download \
+    "$LINUX_PYTHON" -m pip download \
         --only-binary=:all: \
         --platform win_amd64 \
         --python-version 3.12 \
