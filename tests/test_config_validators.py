@@ -30,3 +30,23 @@ def test_exclude_src_ips_rejects_partial_ip():
 def test_exclude_src_ips_empty_list_ok():
     cfg = TrafficFilterSettings(exclude_src_ips=[])
     assert cfg.exclude_src_ips == []
+
+
+def test_ports_accepts_valid_range():
+    cfg = TrafficFilterSettings(ports=[22, 443, 65535, 1])
+    assert cfg.ports == [22, 443, 65535, 1]
+
+
+def test_ports_rejects_zero():
+    with pytest.raises(ValidationError):
+        TrafficFilterSettings(ports=[0, 80])
+
+
+def test_ports_rejects_too_high():
+    with pytest.raises(ValidationError):
+        TrafficFilterSettings(ports=[65536])
+
+
+def test_ports_rejects_negative():
+    with pytest.raises(ValidationError):
+        TrafficFilterSettings(ports=[-1])

@@ -170,6 +170,14 @@ class TrafficFilterSettings(_Base):
                 raise ValueError(f"exclude_src_ips: {ip!r} is not a valid IP address") from e
         return v
 
+    @field_validator("ports")
+    @classmethod
+    def _validate_ports(cls, v: list[int]) -> list[int]:
+        for p in v:
+            if not (1 <= p <= 65535):
+                raise ValueError(f"ports: {p} is out of range (1-65535)")
+        return v
+
 
 class TrafficSamplingSettings(_Base):
     model_config = ConfigDict(extra="ignore")
