@@ -305,3 +305,117 @@ window.collectTrafficSampling = function () {
     max_rows_per_batch: Number(maxEl ? maxEl.value : 200000),
   };
 };
+
+// ── SIEM sub-tab ─────────────────────────────────────────────────────────────
+window._integrations.setRender('siem', async function renderSiem() {
+  var el = document.getElementById('it-pane-siem');
+  if (!el) return;
+  el.innerHTML = '<p class="subtitle" data-i18n="gui_it_loading">Loading...</p>';
+
+  var fw, destsBody, status;
+  try {
+    var results = await Promise.all([
+      fetch('/api/siem/forwarder').then(function(r) { return r.json(); }),
+      fetch('/api/siem/destinations').then(function(r) { return r.json(); }),
+      fetch('/api/siem/status').then(function(r) { return r.json(); }),
+    ]);
+    fw = results[0]; destsBody = results[1]; status = results[2];
+  } catch (err) {
+    el.innerHTML = '<p style="color:red">Failed to load SIEM data: ' + escapeAttr(String(err)) + '</p>';
+    return;
+  }
+  var dests = destsBody.destinations || destsBody || [];
+
+  el.innerHTML = buildSiemForwarderForm(fw) + buildSiemDestinationsSection();
+
+  var tbody = document.getElementById('siem-dest-tbody');
+  var perDest = (status && status.per_destination) || {};
+  var rows = dests.map(function(d) { return buildSiemRow(d, perDest[d.name] || {}); }).join('');
+  tbody.innerHTML = rows || '<tr><td colspan="6" style="color:var(--dim);">(none)</td></tr>';
+  if (typeof window.i18nApply === 'function') window.i18nApply();
+});
+
+function buildSiemForwarderForm(fw) {
+  return '<section class="rs-glass" style="margin-bottom:16px;">'
+    + '<h3 data-i18n="gui_siem_forwarder">Forwarder</h3>'
+    + '<label><input type="checkbox" id="siem-enabled"' + (fw.enabled ? ' checked' : '') + '>'
+    + ' <span data-i18n="gui_siem_enabled">Enabled</span></label>'
+    + '<div><label><span data-i18n="gui_siem_dispatch_tick">dispatch_tick_seconds</span>:'
+    + ' <input type="number" id="siem-tick" min="1" value="' + Number(fw.dispatch_tick_seconds) + '"></label></div>'
+    + '<div><label><span data-i18n="gui_siem_dlq_max">dlq_max_per_dest</span>:'
+    + ' <input type="number" id="siem-dlq-max" min="100" value="' + Number(fw.dlq_max_per_dest) + '"></label></div>'
+    + '<button class="btn btn-primary" onclick="siemSaveForwarder()" data-i18n="gui_save">Save</button>'
+    + '</section>';
+}
+
+function buildSiemDestinationsSection() {
+  return '<section class="rs-glass">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<h3 data-i18n="gui_siem_destinations">Destinations</h3>'
+    + '<button class="btn" onclick="siemOpenDestModal()" data-i18n="gui_siem_add">+ Add</button>'
+    + '</div>'
+    + '<table style="width:100%;font-size:.85rem;">'
+    + '<thead><tr>'
+    + '<th data-i18n="gui_siem_th_name">Name</th>'
+    + '<th data-i18n="gui_siem_th_transport">Transport</th>'
+    + '<th data-i18n="gui_siem_th_format">Format</th>'
+    + '<th data-i18n="gui_siem_th_endpoint">Endpoint</th>'
+    + '<th data-i18n="gui_siem_th_status">Status</th>'
+    + '<th data-i18n="gui_siem_th_actions">Actions</th>'
+    + '</tr></thead>'
+    + '<tbody id="siem-dest-tbody"></tbody>'
+    + '</table>'
+    + '</section>'
+    + '<div id="siem-banner" style="margin-top:12px;"></div>'
+    + '<div id="siem-modal-host"></div>';
+}
+
+function buildSiemRow(d, st) {
+  var dot = (st.failed > 0) ? '🔴' : (st.pending > 0 ? '🟡' : '🟢');
+  var nameEnc = encodeURIComponent(d.name);
+  var dim = d.enabled ? '' : ' <span style="color:var(--dim);">(disabled)</span>';
+  return '<tr>'
+    + '<td>' + escapeAttr(d.name) + dim + '</td>'
+    + '<td>' + escapeAttr(d.transport) + '</td>'
+    + '<td>' + escapeAttr(d.format) + '</td>'
+    + '<td>' + escapeAttr(d.endpoint) + '</td>'
+    + '<td>' + dot + '</td>'
+    + '<td>'
+    + '<button class="btn" onclick="siemTestDest(\'' + nameEnc + '\')" data-i18n="gui_siem_test">Test</button>'
+    + ' <button class="btn" onclick="siemOpenDestModal(\'' + nameEnc + '\')" data-i18n="gui_siem_edit">Edit</button>'
+    + ' <button class="btn btn-danger" onclick="siemDeleteDest(\'' + nameEnc + '\')" data-i18n="gui_siem_delete">Delete</button>'
+    + '</td>'
+    + '</tr>';
+}
+
+async function siemSaveForwarder() {
+  var payload = {
+    enabled: document.getElementById('siem-enabled').checked,
+    dispatch_tick_seconds: Number(document.getElementById('siem-tick').value),
+    dlq_max_per_dest: Number(document.getElementById('siem-dlq-max').value),
+  };
+  var resp = await fetch('/api/siem/forwarder', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  var body = await resp.json();
+  var banner = document.getElementById('siem-banner');
+  if (body.ok) {
+    showRestartBanner(banner);
+  } else {
+    banner.textContent = 'Validation error: ' + JSON.stringify(body.errors || body.error || '');
+  }
+}
+
+async function siemDeleteDest(nameEnc) {
+  var name = decodeURIComponent(nameEnc);
+  var confirmMsg = (typeof _t === 'function') ? _t('gui_confirm_delete') : 'Delete this destination?';
+  if (!confirm(confirmMsg)) return;
+  await fetch('/api/siem/destinations/' + encodeURIComponent(name), {method: 'DELETE'});
+  window._integrations.renderSiem();
+}
+
+// Placeholder stubs — real implementations in Tasks 19 and 20.
+function siemOpenDestModal(nameEnc) {}
+function siemTestDest(nameEnc) {}
