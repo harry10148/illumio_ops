@@ -336,6 +336,7 @@
   "gui_cache_card_traffic_raw": "Traffic Raw",
   "gui_cache_card_traffic_agg": "Traffic Agg",
   "gui_cache_enabled": "Enabled",
+  "gui_cache_disabled": "Disabled",
   "gui_cache_sec_basic": "Basic",
   "gui_cache_sec_polling": "Polling (seconds)",
   "gui_cache_sec_retention": "Retention (days)",

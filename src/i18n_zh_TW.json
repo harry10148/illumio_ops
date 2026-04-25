@@ -336,6 +336,7 @@
   "gui_cache_card_traffic_raw": "原始流量",
   "gui_cache_card_traffic_agg": "彙總流量",
   "gui_cache_enabled": "啟用",
+  "gui_cache_disabled": "停用",
   "gui_cache_sec_basic": "基本",
   "gui_cache_sec_polling": "輪詢（秒）",
   "gui_cache_sec_retention": "保留（天）",
