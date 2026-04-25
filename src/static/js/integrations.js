@@ -989,7 +989,7 @@ function _buildOvCards(cache, siemStatus, totalPending, totalSent, totalFailed, 
     + '<div class="card card-neutral">'
     + '<div class="label" data-i18n="gui_ov_siem_destinations">SIEM Destinations</div>'
     + '<div class="value">' + siemStatus.length + '</div>'
-    + '<div style="font-size:.75rem;color:var(--dim);">' + escapeAttr(_t('gui_ov_destinations_fmt').replace('{n}', siemStatus.length)) + '</div>'
+    + '<div style="font-size:.75rem;color:var(--dim);">' + _t('gui_ov_destinations_fmt').replace('{n}', siemStatus.length) + '</div>'
     + '</div>'
     + '<div class="card ' + siemClass + '">'
     + '<div class="label" data-i18n="gui_ov_siem_queue">SIEM Queue</div>'
@@ -1022,7 +1022,7 @@ function _buildOvRecentTable(siemStatus) {
     + '<div class="table-container">'
     + '<table class="rule-table">'
     + '<colgroup>'
-    + '<col style="width:30%"><col style="width:14%"><col style="width:18%"><col style="width:14%"><col style="width:14%">'
+    + '<col style="width:30%"><col style="width:14%"><col style="width:18%"><col style="width:14%"><col style="width:24%">'
     + '</colgroup>'
     + '<thead><tr>'
     + '<th data-i18n="gui_dlq_th_dest">Dest</th>'
@@ -1039,7 +1039,7 @@ function _buildOvRecentTable(siemStatus) {
 window._integrations.setRender('overview', async function renderOverview() {
   var el = document.getElementById('it-pane-overview');
   if (!el) return;
-  el.innerHTML = '<p data-i18n="gui_it_loading" style="color:var(--dim)">Loading...</p>';
+  el.innerHTML = '<p class="subtitle" data-i18n="gui_it_loading">Loading...</p>';
 
   var cache, siem;
   try {
@@ -1053,7 +1053,7 @@ window._integrations.setRender('overview', async function renderOverview() {
     el.textContent = '';
     var p = document.createElement('p');
     p.style.color = 'var(--danger,red)';
-    p.textContent = 'Failed to load overview: ' + String(err);
+    p.textContent = _t('gui_ov_load_error').replace('{err}', String(err));
     el.appendChild(p);
     return;
   }

@@ -557,6 +557,7 @@
   "gui_it_overview": "總覽",
   "gui_it_siem": "SIEM",
   "gui_ov_cache_lag": "快取列數",
+  "gui_ov_load_error": "無法載入總覽：{err}",
   "gui_ov_dlq": "DLQ",
   "gui_ov_dlq_total": "DLQ 總數",
   "gui_ov_events": "事件",

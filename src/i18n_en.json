@@ -557,6 +557,7 @@
   "gui_it_overview": "Overview",
   "gui_it_siem": "SIEM",
   "gui_ov_cache_lag": "Cache Rows",
+  "gui_ov_load_error": "Failed to load overview: {err}",
   "gui_ov_dlq": "DLQ",
   "gui_ov_dlq_total": "DLQ Total",
   "gui_ov_events": "events",
