@@ -1075,6 +1075,8 @@
   "main_menu_root_4": " 4. System Settings",
   "main_menu_root_5": " 5. Launch Web GUI",
   "main_menu_root_6": " 6. View System Logs",
+  "main_menu_root_7": " 7. Manage PCE Cache",
+  "main_menu_root_8": " 8. Manage SIEM Forwarder",
   "main_menu_title": "=== Illumio PCE Ops ===",
   "menu_add_bw_vol_title": "=== Add Bandwidth & Volume Rule ===",
   "menu_add_event_title": "=== Add Event Monitor Rule ===",

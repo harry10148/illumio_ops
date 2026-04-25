@@ -321,12 +321,14 @@ def main_menu():
             t("main_menu_root_4"),
             t("main_menu_root_5"),
             t("main_menu_root_6"),
+            t("main_menu_root_7"),
+            t("main_menu_root_8"),
             t("main_menu_0"),
         ]
 
         draw_panel("Illumio PCE Ops", lines)
 
-        sel = safe_input(f"\n{t('please_select')}", int, range(0, 7))
+        sel = safe_input(f"\n{t('please_select')}", int, range(0, 9))
 
         if sel is None or sel == 0:
             break
@@ -358,6 +360,12 @@ def main_menu():
                 launch_gui(cm, port=port)
         elif sel == 6:
             view_logs(LOG_FILE)
+        elif sel == 7:
+            from src.pce_cache_cli import manage_pce_cache_menu
+            manage_pce_cache_menu(cm)
+        elif sel == 8:
+            from src.siem_cli import manage_siem_menu
+            manage_siem_menu(cm)
 
 # ─── Report Sub-Menu ─────────────────────────────────────────────────────────
 
