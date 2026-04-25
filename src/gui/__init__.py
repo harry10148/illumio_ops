@@ -39,6 +39,11 @@ from src.report.dashboard_summaries import (
 )
 from src.href_utils import extract_id as _extract_id_href
 
+# Daemon-restart hook state. Set by run_daemon_with_gui() in src/main.py.
+_GUI_OWNS_DAEMON: bool = False
+_DAEMON_SCHEDULER = None
+_DAEMON_RESTART_FN = None
+
 _ANSI_RE = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 def _strip_ansi(text: str) -> str:
@@ -3043,6 +3048,20 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         app.register_blueprint(cache_bp)
     except Exception:
         pass
+
+    @app.route('/api/daemon/restart', methods=['POST'])
+    def api_daemon_restart():
+        import src.gui as _self
+        if not _self._GUI_OWNS_DAEMON:
+            return jsonify({"ok": False,
+                            "error": "Daemon is managed externally; restart via systemctl or your service manager."}), 409
+        if _self._DAEMON_RESTART_FN is None:
+            return jsonify({"ok": False, "error": "restart hook not installed"}), 500
+        try:
+            _self._DAEMON_SCHEDULER = _self._DAEMON_RESTART_FN()
+            return jsonify({"ok": True}), 200
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
 
     return app
 

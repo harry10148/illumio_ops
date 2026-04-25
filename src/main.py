@@ -127,7 +127,22 @@ def run_daemon_with_gui(interval_minutes: int, port: int):
         print(t("report_requires_flask"))
         print(t("cli_pip_install_hint", pkg="flask"))
         sys.exit(1)
-        
+
+    # Install restart hook so the GUI can restart the daemon scheduler.
+    import src.gui as _gui
+    from src.scheduler import build_scheduler
+
+    def _restart():
+        if _gui._DAEMON_SCHEDULER is not None and getattr(_gui._DAEMON_SCHEDULER, "running", False):
+            _gui._DAEMON_SCHEDULER.shutdown(wait=False)
+        cm.load()
+        new_sched = build_scheduler(cm, interval_minutes=interval_minutes)
+        new_sched.start()
+        return new_sched
+
+    _gui._GUI_OWNS_DAEMON = True
+    _gui._DAEMON_RESTART_FN = _restart
+
     launch_gui(cm, port=port, persistent_mode=True)
 
 def view_logs(log_file):
