@@ -870,7 +870,7 @@
   "gui_siem_add_destination": "新增目的地",
   "gui_siem_delete": "刪除",
   "gui_siem_delete_destination": "刪除目的地",
-  "gui_siem_destinations": "SIEM 目的地",
+  "gui_siem_destinations": "目的地",
   "gui_siem_dispatch_tick": "每次派送間隔（秒）",
   "gui_siem_dlq_max": "每目的地最大 DLQ 數",
   "gui_siem_dlq_title": "無法送達佇列",
