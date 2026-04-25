@@ -2028,6 +2028,8 @@ _ZH_EXPLICIT.update({
     "monitor_cache_enabled_hint": "監控週期：30 秒（從 PCE 快取讀取）",
     "alert_cache_lag_warning": "快取擷取器延遲警告：來源={source} 延遲={lag}秒",
     "alert_cache_lag_error": "快取擷取器停止響應：來源={source} 延遲={lag}秒",
+    "gui_it_siem": "SIEM",   # SIEM stays in English per glossary
+    "gui_it_dlq": "DLQ",     # DLQ stays in English per glossary
 })
 
 def _humanize_key_en(key: str) -> str:
