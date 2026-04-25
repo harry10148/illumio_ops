@@ -372,7 +372,7 @@ function buildSiemDestinationsSection() {
 
 function buildSiemRow(d, st) {
   var dot = (st.failed > 0) ? '🔴' : (st.pending > 0 ? '🟡' : '🟢');
-  var nameEnc = encodeURIComponent(d.name);
+  var nameEnc = encodeURIComponent(d.name).replace(/'/g, '%27');
   var dim = d.enabled ? '' : ' <span style="color:var(--dim);">(disabled)</span>';
   return '<tr>'
     + '<td>' + escapeAttr(d.name) + dim + '</td>'
@@ -419,3 +419,6 @@ async function siemDeleteDest(nameEnc) {
 // Placeholder stubs — real implementations in Tasks 19 and 20.
 function siemOpenDestModal(nameEnc) {}
 function siemTestDest(nameEnc) {}
+
+window.siemSaveForwarder = siemSaveForwarder;
+window.siemDeleteDest = siemDeleteDest;
