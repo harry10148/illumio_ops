@@ -564,6 +564,7 @@
   "gui_ov_recent_events": "Recent dispatch events",
   "gui_ov_rows": "rows",
   "gui_ov_sent": "sent",
+  "gui_ov_destinations_fmt": "{n} destination(s)",
   "gui_ov_siem_destinations": "SIEM Destinations",
   "gui_ov_siem_queue": "SIEM Queue",
   "gui_ov_traffic": "traffic",

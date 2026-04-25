@@ -944,7 +944,7 @@ window._integrations.setRender('overview', async function renderOverview() {
     + '</div>'
     + '<div class="card card-neutral">'
     + '<div class="label" data-i18n="gui_ov_siem_destinations">SIEM Destinations</div>'
-    + '<div class="value" style="font-size:.85rem;">' + siemStatus.length + ' destination(s)</div>'
+    + '<div class="value" style="font-size:.85rem;">' + _t('gui_ov_destinations_fmt').replace('{n}', siemStatus.length) + '</div>'
     + '</div>'
     + '<div class="card ' + siemClass + '">'
     + '<div class="label" data-i18n="gui_ov_siem_queue">SIEM Queue</div>'

@@ -564,6 +564,7 @@
   "gui_ov_recent_events": "近期分派事件",
   "gui_ov_rows": "筆",
   "gui_ov_sent": "已發",
+  "gui_ov_destinations_fmt": "{n} 個目的地",
   "gui_ov_siem_destinations": "SIEM 目的地",
   "gui_ov_siem_queue": "SIEM 佇列",
   "gui_ov_traffic": "流量",
