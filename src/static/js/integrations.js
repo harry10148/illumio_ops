@@ -416,9 +416,147 @@ async function siemDeleteDest(nameEnc) {
   window._integrations.renderSiem();
 }
 
-// Placeholder stubs — real implementations in Tasks 19 and 20.
-function siemOpenDestModal(nameEnc) {}
+async function siemOpenDestModal(nameEnc) {
+  var name = nameEnc ? decodeURIComponent(nameEnc) : null;
+  var dest = {
+    name: '', enabled: true, transport: 'udp', format: 'cef',
+    endpoint: '', tls_verify: true, tls_ca_bundle: '', hec_token: '',
+    batch_size: 100, source_types: ['audit', 'traffic'], max_retries: 10
+  };
+  if (name) {
+    var body = await fetch('/api/siem/destinations').then(function(r) { return r.json(); });
+    var all = body.destinations || body || [];
+    var found = all.filter(function(d) { return d.name === name; })[0];
+    if (found) dest = Object.assign(dest, found);
+  }
+  document.getElementById('siem-modal-host').innerHTML = buildDestModal(dest, name);
+  siemToggleCondFields();
+  if (typeof window.i18nApply === 'function') window.i18nApply();
+}
+
+function buildDestModal(dest, editName) {
+  var nameVal = escapeAttr(dest.name);
+  var endpoint = escapeAttr(dest.endpoint);
+  var caBundle = escapeAttr(dest.tls_ca_bundle || '');
+  var hecToken = escapeAttr(dest.hec_token || '');
+  var readonly = editName ? ' readonly' : '';
+  var editAttr = editName ? encodeURIComponent(editName).replace(/'/g, '%27') : '';
+  var titleKey = editName ? 'gui_siem_modal_title_edit' : 'gui_siem_modal_title_add';
+  var titleText = editName ? 'Edit' : 'Add';
+  var sourceTypes = dest.source_types || [];
+
+  function mkOpts(list, cur) {
+    return list.map(function(v) {
+      return '<option' + (v === cur ? ' selected' : '') + '>' + escapeAttr(v) + '</option>';
+    }).join('');
+  }
+
+  return '<div class="modal-backdrop" onclick="siemCloseModal(event)">'
+    + '<div class="modal" onclick="event.stopPropagation()">'
+    + '<h2 data-i18n="' + titleKey + '">' + titleText + ' destination</h2>'
+    + '<h3 data-i18n="gui_siem_sec_basic">Basic</h3>'
+    + '<label>name: <input id="md-name" value="' + nameVal + '"' + readonly + '></label>'
+    + '<label><input type="checkbox" id="md-enabled"' + (dest.enabled ? ' checked' : '') + '>'
+    + ' <span data-i18n="gui_siem_enabled">Enabled</span></label>'
+    + '<div>source_types:'
+    + ' <label><input type="checkbox" name="md-st" value="audit"' + (sourceTypes.indexOf('audit') >= 0 ? ' checked' : '') + '> audit</label>'
+    + ' <label><input type="checkbox" name="md-st" value="traffic"' + (sourceTypes.indexOf('traffic') >= 0 ? ' checked' : '') + '> traffic</label>'
+    + '</div>'
+    + '<h3 data-i18n="gui_siem_sec_transport">Transport</h3>'
+    + '<label>transport: <select id="md-transport" onchange="siemToggleCondFields()">'
+    + mkOpts(['udp', 'tcp', 'tls', 'hec'], dest.transport)
+    + '</select></label>'
+    + '<label>format: <select id="md-format">'
+    + mkOpts(['cef', 'json', 'syslog_cef', 'syslog_json'], dest.format)
+    + '</select></label>'
+    + '<label>endpoint: <input id="md-endpoint" value="' + endpoint + '"></label>'
+    + '<div id="md-tls-section">'
+    + '<h3 data-i18n="gui_siem_sec_tls">TLS</h3>'
+    + '<label><input type="checkbox" id="md-tls-verify"' + (dest.tls_verify ? ' checked' : '') + '> tls_verify</label>'
+    + '<label>tls_ca_bundle: <input id="md-tls-ca" value="' + caBundle + '"></label>'
+    + '</div>'
+    + '<div id="md-hec-section">'
+    + '<h3 data-i18n="gui_siem_sec_hec">HEC</h3>'
+    + '<label>hec_token: <input type="password" id="md-hec-token" value="' + hecToken + '"></label>'
+    + '</div>'
+    + '<h3 data-i18n="gui_siem_sec_batch">Batch</h3>'
+    + '<label>batch_size (1-10000): <input type="number" id="md-batch" min="1" max="10000" value="' + Number(dest.batch_size) + '"></label>'
+    + '<label>max_retries (&gt;=0): <input type="number" id="md-retries" min="0" value="' + Number(dest.max_retries) + '"></label>'
+    + '<div id="md-banner" style="margin-top:10px;color:var(--danger);"></div>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">'
+    + '<button class="btn" onclick="siemCloseModal(event)" data-i18n="gui_cancel">Cancel</button>'
+    + '<button class="btn" onclick="siemTestDestInline()" data-i18n="gui_siem_test_inline">Test Connection</button>'
+    + '<button class="btn btn-primary" onclick="siemSaveDest(\'' + editAttr + '\')" data-i18n="gui_save">Save</button>'
+    + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+function siemToggleCondFields() {
+  var transport = document.getElementById('md-transport');
+  if (!transport) return;
+  var t = transport.value;
+  var tlsEl = document.getElementById('md-tls-section');
+  var hecEl = document.getElementById('md-hec-section');
+  if (tlsEl) tlsEl.style.display = (t === 'tls' || t === 'hec') ? '' : 'none';
+  if (hecEl) hecEl.style.display = (t === 'hec') ? '' : 'none';
+}
+
+function siemCloseModal(event) {
+  if (event && event.type === 'click') {
+    // If called from backdrop click, close; if from button, also close
+  }
+  document.getElementById('siem-modal-host').innerHTML = '';
+}
+
+async function siemSaveDest(editNameEnc) {
+  var editName = editNameEnc ? decodeURIComponent(editNameEnc) : '';
+  var sourceTypes = Array.from(document.querySelectorAll('input[name="md-st"]:checked'))
+    .map(function(el) { return el.value; });
+  var payload = {
+    name: editName || document.getElementById('md-name').value.trim(),
+    enabled: document.getElementById('md-enabled').checked,
+    transport: document.getElementById('md-transport').value,
+    format: document.getElementById('md-format').value,
+    endpoint: document.getElementById('md-endpoint').value.trim(),
+    tls_verify: document.getElementById('md-tls-verify').checked,
+    tls_ca_bundle: document.getElementById('md-tls-ca').value.trim() || null,
+    hec_token: document.getElementById('md-hec-token').value || null,
+    batch_size: Number(document.getElementById('md-batch').value),
+    max_retries: Number(document.getElementById('md-retries').value),
+    source_types: sourceTypes.length ? sourceTypes : ['audit', 'traffic'],
+  };
+  var resp;
+  if (editName) {
+    resp = await fetch('/api/siem/destinations/' + encodeURIComponent(editName), {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+  } else {
+    resp = await fetch('/api/siem/destinations', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+  }
+  var body = await resp.json();
+  if (resp.ok && body.ok !== false) {
+    siemCloseModal();
+    window._integrations.renderSiem();
+    showRestartBanner(document.getElementById('siem-banner'));
+  } else {
+    var banner = document.getElementById('md-banner');
+    banner.textContent = 'Save failed: ' + (body.error || JSON.stringify(body.errors || body));
+  }
+}
+
+// Placeholder stub — real implementation in Task 20.
 function siemTestDest(nameEnc) {}
 
 window.siemSaveForwarder = siemSaveForwarder;
 window.siemDeleteDest = siemDeleteDest;
+window.siemOpenDestModal = siemOpenDestModal;
+window.siemToggleCondFields = siemToggleCondFields;
+window.siemCloseModal = siemCloseModal;
+window.siemSaveDest = siemSaveDest;

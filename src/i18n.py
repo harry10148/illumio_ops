@@ -2030,6 +2030,8 @@ _ZH_EXPLICIT.update({
     "alert_cache_lag_error": "快取擷取器停止響應：來源={source} 延遲={lag}秒",
     "gui_it_siem": "SIEM",   # SIEM stays in English per glossary
     "gui_it_dlq": "DLQ",     # DLQ stays in English per glossary
+    "gui_siem_sec_tls": "TLS",   # TLS stays in English per glossary
+    "gui_siem_sec_hec": "HEC",   # HEC stays in English per glossary
 })
 
 def _humanize_key_en(key: str) -> str:
