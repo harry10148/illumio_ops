@@ -6,6 +6,8 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_login import login_required
 from loguru import logger
 
+from src.siem.tester import send_test_event
+
 bp = Blueprint("siem", __name__, url_prefix="/api/siem")
 
 
@@ -188,3 +190,15 @@ def put_forwarder():
     if result["ok"]:
         cm.load()
     return jsonify(result), (200 if result["ok"] else 422)
+
+
+@bp.route("/destinations/<name>/test", methods=["POST"])
+@login_required
+def test_destination(name: str):
+    cm = current_app.config['CM']
+    dest = next((d for d in cm.models.siem.destinations
+                 if d.name == name), None)
+    if dest is None:
+        return jsonify({"ok": False, "error": "destination not found"}), 404
+    r = send_test_event(dest)
+    return jsonify({"ok": r.ok, "error": r.error, "latency_ms": r.latency_ms}), 200
