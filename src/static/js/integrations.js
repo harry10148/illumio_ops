@@ -223,6 +223,8 @@ async function doDaemonRestart(btn, msgSpan) {
     }
     if (body.ok) {
       btn.textContent = '✓';
+      msgSpan.textContent = _t('gui_restart_success');
+      msgSpan.removeAttribute('data-i18n');
       setTimeout(function() {
         if (btn.parentElement && btn.parentElement.parentElement) {
           btn.parentElement.parentElement.style.display = 'none';
@@ -236,7 +238,7 @@ async function doDaemonRestart(btn, msgSpan) {
   } catch (exc) {
     btn.textContent = original;
     btn.disabled = false;
-    alert('Error: ' + exc);
+    alert(_t('gui_restart_failed') + ': ' + exc);
   }
 }
 
