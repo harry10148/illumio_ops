@@ -621,6 +621,16 @@ window._integrations.setRender('dlq', async function renderDlq() {
   var el = document.getElementById('it-pane-dlq');
   if (!el) return;
   el.innerHTML = buildDlqSkeleton();
+  var bulkBar = document.getElementById('dlq-bulk-bar');
+  if (bulkBar) {
+    bulkBar.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:8px;">'
+      + '<button class="btn" onclick="dlqSelectAll()" data-i18n="gui_dlq_select_all">Select All</button>'
+      + '<button class="btn" onclick="dlqReplaySelected()" data-i18n="gui_dlq_replay_selected">Replay Selected</button>'
+      + '<button class="btn btn-warn" onclick="dlqPurgeSelected()" data-i18n="gui_dlq_purge_selected">Purge Selected</button>'
+      + '<button class="btn btn-danger" onclick="dlqPurgeAll()" data-i18n="gui_dlq_purge_all">Purge ALL</button>'
+      + '<button class="btn" onclick="dlqExport()" data-i18n="gui_dlq_export">Export CSV</button>'
+      + '</div>';
+  }
   await populateDlqDestinations();
   await dlqSearch();
   if (typeof window.i18nApply === 'function') window.i18nApply();
@@ -705,6 +715,7 @@ async function _dlqLoadPage() {
   }
 
   var pageEntries = allEntries.slice((_dlqPage - 1) * DLQ_PAGE_SIZE, _dlqPage * DLQ_PAGE_SIZE);
+  window._dlqCurrentEntries = pageEntries;
   var tbody = document.getElementById('dlq-tbody');
   if (!tbody) return;
   tbody.innerHTML = pageEntries.map(buildDlqRow).join('')
@@ -739,17 +750,152 @@ function buildDlqRow(e) {
 function dlqPrevPage() { if (_dlqPage > 1) { _dlqPage--; _dlqLoadPage(); } }
 function dlqNextPage() { if (_dlqPage < DLQ_MAX_PAGE) { _dlqPage++; _dlqLoadPage(); } }
 
-// Stubs for Task 22
-function dlqView(id) {}
-function dlqSelectAll() {}
-function dlqReplaySelected() {}
-function dlqReplay(ids) {}
+// ── DLQ bulk actions ─────────────────────────────────────────────────────────
+var _dlqCurrentEntries = [];
+
+function dlqSelectAll() {
+  document.querySelectorAll('.dlq-chk').forEach(function(c) { c.checked = true; });
+}
+
+function _dlqSelectedIds() {
+  return Array.from(document.querySelectorAll('.dlq-chk:checked')).map(function(c) { return Number(c.value); });
+}
+
+async function dlqReplaySelected() {
+  var ids = _dlqSelectedIds();
+  if (!ids.length) return;
+  var dest = (document.getElementById('dlq-dest') || {}).value || '';
+  if (!dest) { alert('Select a destination filter first.'); return; }
+  try {
+    await fetch('/api/siem/dlq/replay', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dest: dest, limit: ids.length}),
+    });
+  } catch (err) { alert('Replay error: ' + String(err)); return; }
+  dlqSearch();
+}
+
+async function dlqReplay(ids) {
+  var dest = (document.getElementById('dlq-dest') || {}).value || '';
+  if (!dest) { alert('Select a destination filter first.'); return; }
+  try {
+    await fetch('/api/siem/dlq/replay', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dest: dest, limit: ids.length || 1}),
+    });
+  } catch (err) { alert('Replay error: ' + String(err)); return; }
+  dlqSearch();
+}
+
+async function dlqPurgeSelected() {
+  var ids = _dlqSelectedIds();
+  if (!ids.length) return;
+  var dest = (document.getElementById('dlq-dest') || {}).value || '';
+  if (!dest) { alert('Select a destination filter first.'); return; }
+  if (!confirm('Purge ' + ids.length + ' entries from ' + dest + '?')) return;
+  try {
+    await fetch('/api/siem/dlq/purge', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dest: dest, older_than_days: 0}),
+    });
+  } catch (err) { alert('Purge error: ' + String(err)); return; }
+  dlqSearch();
+}
+
+async function dlqPurgeAll() {
+  var dest = (document.getElementById('dlq-dest') || {}).value || '';
+  if (!dest) { alert('Pick a destination first.'); return; }
+  var confirmMsg = (typeof _t === 'function') ? _t('gui_dlq_confirm_purge_all') : 'Type the destination name to confirm Purge ALL';
+  var typed = prompt(confirmMsg, '');
+  if (typed !== dest) return;
+  try {
+    await fetch('/api/siem/dlq/purge', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({dest: dest, older_than_days: 0}),
+    });
+  } catch (err) { alert('Purge error: ' + String(err)); return; }
+  dlqSearch();
+}
+
+function dlqExport() {
+  var destEl = document.getElementById('dlq-dest');
+  var dest = destEl ? destEl.value : '';
+  var q = new URLSearchParams();
+  if (dest) q.set('dest', dest);
+  var a = document.createElement('a');
+  a.href = '/api/siem/dlq/export?' + q.toString();
+  a.download = 'dlq.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function dlqView(id) {
+  var entry = null;
+  if (window._dlqCurrentEntries) {
+    entry = window._dlqCurrentEntries.filter(function(e) { return Number(e.id) === id; })[0] || null;
+  }
+  if (!entry) { alert('Entry not found'); return; }
+
+  var host = document.getElementById('dlq-modal-host');
+  if (!host) return;
+  host.innerHTML = '';
+  var backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.addEventListener('click', function() { host.innerHTML = ''; });
+  var modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.addEventListener('click', function(e) { e.stopPropagation(); });
+
+  var title = document.createElement('h3');
+  title.setAttribute('data-i18n', 'gui_dlq_modal_title');
+  title.textContent = 'DLQ entry detail';
+  modal.appendChild(title);
+
+  [
+    ['Destination', entry.destination || entry.source_table],
+    ['Event ID', entry.source_id],
+    ['Reason', entry.last_error],
+    ['Failed at', entry.quarantined_at],
+    ['Retries', entry.retries],
+  ].forEach(function(pair) {
+    var d = document.createElement('div');
+    var b = document.createElement('b');
+    b.textContent = pair[0];
+    d.appendChild(b);
+    d.appendChild(document.createTextNode(': ' + (pair[1] == null ? '' : pair[1])));
+    modal.appendChild(d);
+  });
+
+  if (entry.payload_preview) {
+    var pre = document.createElement('pre');
+    pre.style.cssText = 'background:var(--bg3);padding:10px;overflow:auto;max-height:400px;';
+    pre.textContent = entry.payload_preview;
+    modal.appendChild(pre);
+  }
+
+  var row = document.createElement('div');
+  row.style.textAlign = 'right';
+  var btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.setAttribute('data-i18n', 'gui_close');
+  btn.textContent = 'Close';
+  btn.addEventListener('click', function() { host.innerHTML = ''; });
+  row.appendChild(btn);
+  modal.appendChild(row);
+  backdrop.appendChild(modal);
+  host.appendChild(backdrop);
+  if (typeof window.i18nApply === 'function') window.i18nApply();
+}
 
 window.dlqSearch = dlqSearch;
 window._dlqLoadPage = _dlqLoadPage;
 window.dlqPrevPage = dlqPrevPage;
 window.dlqNextPage = dlqNextPage;
-window.dlqView = dlqView;
 window.dlqSelectAll = dlqSelectAll;
 window.dlqReplaySelected = dlqReplaySelected;
 window.dlqReplay = dlqReplay;
+window.dlqPurgeSelected = dlqPurgeSelected;
+window.dlqPurgeAll = dlqPurgeAll;
+window.dlqExport = dlqExport;
+window.dlqView = dlqView;
