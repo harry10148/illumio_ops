@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_login import login_required
 from loguru import logger
 
@@ -161,3 +161,30 @@ def purge_dlq():
         return jsonify({"status": "ok", "removed": removed})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
+
+
+@bp.route("/forwarder", methods=["GET"])
+@login_required
+def get_forwarder():
+    cm = current_app.config['CM']
+    s = cm.models.siem
+    return jsonify({"enabled": s.enabled,
+                    "dispatch_tick_seconds": s.dispatch_tick_seconds,
+                    "dlq_max_per_dest": s.dlq_max_per_dest})
+
+
+@bp.route("/forwarder", methods=["PUT"])
+@login_required
+def put_forwarder():
+    from src.config_models import SiemForwarderSettings
+    from src.gui.settings_helpers import save_section
+    cm = current_app.config['CM']
+    incoming = request.get_json(silent=True) or {}
+    current = cm.models.siem.model_dump(mode="json")
+    for k in ("enabled", "dispatch_tick_seconds", "dlq_max_per_dest"):
+        if k in incoming:
+            current[k] = incoming[k]
+    result = save_section(cm, "siem", current, SiemForwarderSettings)
+    if result["ok"]:
+        cm.load()
+    return jsonify(result), (200 if result["ok"] else 422)
