@@ -185,7 +185,59 @@ async function cacheSave() {
 
 function showRestartBanner(target) {
   target.style.display = 'block';
-  target.textContent = 'Settings saved. Restart monitor to apply scheduling changes.';
+  target.innerHTML = '';
+  var wrap = document.createElement('div');
+  wrap.className = 'banner';
+  var span = document.createElement('span');
+  span.setAttribute('data-i18n', 'gui_restart_required_banner');
+  span.textContent = 'Settings saved. Restart monitor to apply scheduling changes.';
+  var restartBtn = document.createElement('button');
+  restartBtn.className = 'btn btn-primary';
+  restartBtn.setAttribute('data-i18n', 'gui_restart_monitor_btn');
+  restartBtn.textContent = 'Restart Monitor';
+  restartBtn.addEventListener('click', function() { doDaemonRestart(restartBtn, span); });
+  var dismissBtn = document.createElement('button');
+  dismissBtn.className = 'btn';
+  dismissBtn.setAttribute('data-i18n', 'gui_dismiss');
+  dismissBtn.textContent = 'Dismiss';
+  dismissBtn.addEventListener('click', function() { target.style.display = 'none'; });
+  wrap.appendChild(span);
+  wrap.appendChild(restartBtn);
+  wrap.appendChild(dismissBtn);
+  target.appendChild(wrap);
+  if (typeof window.i18nApply === 'function') window.i18nApply();
+}
+
+async function doDaemonRestart(btn, msgSpan) {
+  btn.disabled = true;
+  var original = btn.textContent;
+  btn.textContent = '…';
+  try {
+    var resp = await fetch('/api/daemon/restart', {method: 'POST'});
+    var body = await resp.json();
+    if (resp.status === 409) {
+      msgSpan.textContent = _t('gui_daemon_external_restart_hint');
+      msgSpan.removeAttribute('data-i18n');
+      btn.style.display = 'none';
+      return;
+    }
+    if (body.ok) {
+      btn.textContent = '✓';
+      setTimeout(function() {
+        if (btn.parentElement && btn.parentElement.parentElement) {
+          btn.parentElement.parentElement.style.display = 'none';
+        }
+      }, 1500);
+    } else {
+      btn.textContent = original;
+      btn.disabled = false;
+      alert(_t('gui_restart_failed') + ': ' + (body.error || ''));
+    }
+  } catch (exc) {
+    btn.textContent = original;
+    btn.disabled = false;
+    alert('Error: ' + exc);
+  }
 }
 
 async function cacheBackfill() {
