@@ -84,6 +84,7 @@ window._integrations.setRender('cache', async function renderCache() {
   var form = buildCacheForm(s);
   el.innerHTML = header + form + '<div id="cache-banner" style="display:none;margin-top:12px;"></div>';
   el.dataset.settings = JSON.stringify(s);
+  renderTrafficFilter(s);
   if (typeof window.i18nApply === 'function') window.i18nApply();
 });
 
@@ -201,3 +202,79 @@ async function cacheBackfill() {
 async function cacheRetentionNow() {
   alert('Run "Retention now" via CLI; HTTP trigger not yet implemented.');
 }
+
+// ── Cache traffic_filter section ────────────────────────────────────────────
+function renderTrafficFilter(s) {
+  var tf = s.traffic_filter || {};
+  var actions = ['blocked', 'potentially_blocked', 'allowed'];
+  var protocols = ['TCP', 'UDP', 'ICMP'];
+  var envVals = (tf.workload_label_env || []).map(escapeAttr).join(',');
+  var portVals = (tf.ports || []).map(Number).join(',');
+  var ipVals = (tf.exclude_src_ips || []).map(escapeAttr).join(',');
+
+  var html = '<h3 data-i18n="gui_cache_sec_traffic_filter">Traffic Filter</h3>'
+    + '<div><span data-i18n="gui_cache_tf_actions">Actions</span>: '
+    + actions.map(function(a) {
+        return '<label><input type="checkbox" name="tf-action" value="' + escapeAttr(a) + '"'
+          + ((tf.actions || []).indexOf(a) >= 0 ? ' checked' : '') + '> ' + escapeAttr(a) + '</label>';
+      }).join(' ')
+    + '</div>'
+    + '<div><span data-i18n="gui_cache_tf_protocols">Protocols</span>: '
+    + protocols.map(function(p) {
+        return '<label><input type="checkbox" name="tf-protocol" value="' + escapeAttr(p) + '"'
+          + ((tf.protocols || []).indexOf(p) >= 0 ? ' checked' : '') + '> ' + escapeAttr(p) + '</label>';
+      }).join(' ')
+    + '</div>'
+    + '<div><label><span data-i18n="gui_cache_tf_workload_env">Workload label env</span>:'
+    + ' <input id="tf-env" value="' + envVals + '"></label></div>'
+    + '<div><label><span data-i18n="gui_cache_tf_ports">Ports</span>:'
+    + ' <input id="tf-ports" value="' + portVals + '" placeholder="22,443,..."></label></div>'
+    + '<div><label><span data-i18n="gui_cache_tf_exclude_ips">Exclude src IPs</span>:'
+    + ' <input id="tf-ips" value="' + ipVals + '" placeholder="10.0.0.1,..."></label></div>'
+    + '<div id="tf-validation-hints" style="color:var(--danger);font-size:.8rem;"></div>';
+
+  var extra = document.getElementById('cache-form-extra');
+  if (extra) extra.innerHTML = html;
+}
+
+window.collectTrafficFilter = function () {
+  function pick(sel) {
+    return Array.from(document.querySelectorAll(sel)).map(function(el) { return el.value; });
+  }
+  function parse(id) {
+    var el = document.getElementById(id);
+    return (el ? el.value : '').split(',').map(function(x) { return x.trim(); }).filter(Boolean);
+  }
+  return {
+    actions: pick('input[name="tf-action"]:checked'),
+    workload_label_env: parse('tf-env'),
+    ports: parse('tf-ports').map(Number).filter(function(n) { return Number.isFinite(n); }),
+    protocols: pick('input[name="tf-protocol"]:checked'),
+    exclude_src_ips: parse('tf-ips'),
+  };
+};
+
+function validateIp(s) {
+  return /^((\d{1,3}\.){3}\d{1,3}|[\da-fA-F:]+)$/.test(s);
+}
+
+function validateTrafficFilterHints() {
+  var hints = [];
+  var ipsEl = document.getElementById('tf-ips');
+  var ips = (ipsEl ? ipsEl.value : '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  ips.forEach(function(ip) { if (!validateIp(ip)) hints.push('Invalid IP: ' + ip); });
+  var portsEl = document.getElementById('tf-ports');
+  var ports = (portsEl ? portsEl.value : '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+  ports.forEach(function(p) {
+    var n = Number(p);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) hints.push('Invalid port: ' + p);
+  });
+  var el = document.getElementById('tf-validation-hints');
+  if (el) el.textContent = hints.join(' · ');
+}
+
+document.addEventListener('input', function(e) {
+  if (e.target && (e.target.id === 'tf-ips' || e.target.id === 'tf-ports')) {
+    validateTrafficFilterHints();
+  }
+});
