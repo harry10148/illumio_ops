@@ -289,9 +289,9 @@ function renderTrafficSampling(s) {
   var ratio = Number(ts.sample_ratio_allowed || 1);
   var maxRows = Number(ts.max_rows_per_batch || 200000);
   var html = '<h3 data-i18n="gui_cache_sec_traffic_sampling">Traffic Sampling</h3>'
-    + '<div><label>sample_ratio_allowed (&gt;=1):'
+    + '<div><label><span data-i18n="gui_cache_ts_ratio">sample_ratio_allowed</span> (&gt;=1):'
     + ' <input type="number" id="ts-ratio" min="1" value="' + ratio + '"></label></div>'
-    + '<div><label>max_rows_per_batch (1-200000):'
+    + '<div><label><span data-i18n="gui_cache_ts_max_rows">max_rows_per_batch</span> (1-200000):'
     + ' <input type="number" id="ts-max" min="1" max="200000" value="' + maxRows + '"></label></div>';
   var extra = document.getElementById('cache-form-extra');
   if (extra) extra.insertAdjacentHTML('beforeend', html);
