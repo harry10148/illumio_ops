@@ -611,3 +611,140 @@ window.siemOpenDestModal = siemOpenDestModal;
 window.siemToggleCondFields = siemToggleCondFields;
 window.siemCloseModal = siemCloseModal;
 window.siemSaveDest = siemSaveDest;
+
+// ── DLQ sub-tab ──────────────────────────────────────────────────────────────
+var _dlqPage = 1;
+var DLQ_PAGE_SIZE = 50;
+
+window._integrations.setRender('dlq', async function renderDlq() {
+  var el = document.getElementById('it-pane-dlq');
+  if (!el) return;
+  el.innerHTML = buildDlqSkeleton();
+  await populateDlqDestinations();
+  await dlqSearch();
+  if (typeof window.i18nApply === 'function') window.i18nApply();
+});
+
+function buildDlqSkeleton() {
+  return '<h3 data-i18n="gui_dlq_title">Dead Letter Queue</h3>'
+    + '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:end;flex-wrap:wrap;">'
+    + '<label><span data-i18n="gui_dlq_filter_dest">Destination</span>:'
+    + ' <select id="dlq-dest"><option value="" data-i18n="gui_dlq_filter_all">All</option></select></label>'
+    + '<label><span data-i18n="gui_dlq_filter_reason">Reason contains</span>:'
+    + ' <input id="dlq-reason"></label>'
+    + '<button class="btn" onclick="dlqSearch()" data-i18n="gui_dlq_search">Search</button>'
+    + '</div>'
+    + '<div id="dlq-bulk-bar"></div>'
+    + '<table style="width:100%;font-size:.85rem;">'
+    + '<thead><tr><th></th>'
+    + '<th data-i18n="gui_dlq_th_dest">Dest</th>'
+    + '<th data-i18n="gui_dlq_th_event_id">Event ID</th>'
+    + '<th data-i18n="gui_dlq_th_reason">Reason</th>'
+    + '<th data-i18n="gui_dlq_th_failed_at">Failed At</th>'
+    + '<th></th>'
+    + '</tr></thead>'
+    + '<tbody id="dlq-tbody"></tbody>'
+    + '</table>'
+    + '<div id="dlq-pager" style="margin-top:8px;"></div>'
+    + '<div id="dlq-modal-host"></div>';
+}
+
+async function populateDlqDestinations() {
+  try {
+    var body = await fetch('/api/siem/destinations').then(function(r) { return r.json(); });
+    var dests = body.destinations || body || [];
+    var sel = document.getElementById('dlq-dest');
+    if (!sel) return;
+    dests.forEach(function(d) {
+      var opt = document.createElement('option');
+      opt.value = d.name;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+  } catch (err) {
+    console.warn('Could not load destinations for DLQ filter:', err);
+  }
+}
+
+async function dlqSearch() {
+  _dlqPage = 1;
+  await _dlqLoadPage();
+}
+
+async function _dlqLoadPage() {
+  var destEl = document.getElementById('dlq-dest');
+  var reasonEl = document.getElementById('dlq-reason');
+  var dest = destEl ? destEl.value : '';
+  var reason = reasonEl ? reasonEl.value.trim() : '';
+
+  var q = new URLSearchParams();
+  if (dest) q.set('dest', dest);
+  // Fetch enough for current page (API has no offset)
+  q.set('limit', String(DLQ_PAGE_SIZE * _dlqPage));
+
+  var allEntries = [];
+  try {
+    var body = await fetch('/api/siem/dlq?' + q.toString()).then(function(r) { return r.json(); });
+    allEntries = body.entries || body || [];
+  } catch (err) {
+    var tbody = document.getElementById('dlq-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="color:red">Failed to load: ' + escapeAttr(String(err)) + '</td></tr>';
+    return;
+  }
+
+  // Client-side reason filter
+  if (reason) {
+    var reasonLower = reason.toLowerCase();
+    allEntries = allEntries.filter(function(e) {
+      return (e.last_error || '').toLowerCase().indexOf(reasonLower) >= 0;
+    });
+  }
+
+  var pageEntries = allEntries.slice((_dlqPage - 1) * DLQ_PAGE_SIZE, _dlqPage * DLQ_PAGE_SIZE);
+  var tbody = document.getElementById('dlq-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = pageEntries.map(buildDlqRow).join('')
+    || '<tr><td colspan="6" style="color:var(--dim);" data-i18n="gui_dlq_empty">(no DLQ entries)</td></tr>';
+
+  var pager = document.getElementById('dlq-pager');
+  if (pager) {
+    var hasMore = allEntries.length >= DLQ_PAGE_SIZE * _dlqPage;
+    pager.innerHTML = 'Page ' + _dlqPage + ' · '
+      + '<button class="btn" onclick="dlqPrevPage()"' + (_dlqPage <= 1 ? ' disabled' : '') + '>‹</button>'
+      + ' <button class="btn" onclick="dlqNextPage()"' + (!hasMore ? ' disabled' : '') + '>›</button>';
+  }
+  if (typeof window.i18nApply === 'function') window.i18nApply();
+}
+
+function buildDlqRow(e) {
+  var id = Number(e.id);
+  return '<tr>'
+    + '<td><input type="checkbox" class="dlq-chk" value="' + id + '"></td>'
+    + '<td>' + escapeAttr(e.source_table || '') + '</td>'
+    + '<td>' + escapeAttr(e.source_id || '') + '</td>'
+    + '<td>' + escapeAttr(e.last_error || '') + '</td>'
+    + '<td>' + escapeAttr(e.quarantined_at || '') + '</td>'
+    + '<td>'
+    + '<button class="btn" onclick="dlqView(' + id + ')" data-i18n="gui_dlq_view">View</button>'
+    + ' <button class="btn" onclick="dlqReplay([' + id + '])" data-i18n="gui_dlq_replay">Replay</button>'
+    + '</td>'
+    + '</tr>';
+}
+
+function dlqPrevPage() { if (_dlqPage > 1) { _dlqPage--; _dlqLoadPage(); } }
+function dlqNextPage() { _dlqPage++; _dlqLoadPage(); }
+
+// Stubs for Task 22
+function dlqView(id) {}
+function dlqSelectAll() {}
+function dlqReplaySelected() {}
+function dlqReplay(ids) {}
+
+window.dlqSearch = dlqSearch;
+window._dlqLoadPage = _dlqLoadPage;
+window.dlqPrevPage = dlqPrevPage;
+window.dlqNextPage = dlqNextPage;
+window.dlqView = dlqView;
+window.dlqSelectAll = dlqSelectAll;
+window.dlqReplaySelected = dlqReplaySelected;
+window.dlqReplay = dlqReplay;
