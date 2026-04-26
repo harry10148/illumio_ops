@@ -14,7 +14,7 @@
 
 **Branch:** `feat/report-r01-semantics`
 **Target tag:** `v3.18.0-report-semantics`
-**Baseline (record at start):** Run `python3 -m pytest tests/ -q` and write the count here. Spec baseline reference: 582 passed + 1 skipped (post-Phase 15). Target after this plan: ~620 passed.
+**Baseline (record at start):** 649 passed, 1 skipped (2026-04-27, post-pdf-reportlab). i18n audit: A–I = 0 findings. Target after this plan: ~680 passed.
 
 ---
 
