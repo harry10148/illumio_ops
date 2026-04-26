@@ -10,11 +10,6 @@ import importlib
 import sys
 from typing import NamedTuple
 
-# Packages that load native libraries on import and may fail on Windows
-# dev machines without the runtime installed. On Linux (the production
-# target), RPM deps will be declared so these always succeed.
-WINDOWS_OPTIONAL_MODULES = {"weasyprint"}  # needs GTK3 runtime on Windows
-
 
 class Pkg(NamedTuple):
     """A package to verify: distribution name, import name, optional version attr path."""
@@ -29,6 +24,7 @@ PRODUCTION = [
     Pkg("flask", "flask"),
     Pkg("pandas", "pandas"),
     Pkg("pyyaml", "yaml"),
+    Pkg("cheroot", "cheroot"),
     # Phase 1
     Pkg("rich", "rich"),
     Pkg("questionary", "questionary"),
@@ -40,7 +36,6 @@ PRODUCTION = [
     Pkg("cachetools", "cachetools"),
     # Phase 3
     Pkg("pydantic", "pydantic", "VERSION"),
-    Pkg("pydantic-settings", "pydantic_settings"),
     # Phase 4
     Pkg("flask-wtf", "flask_wtf"),
     Pkg("flask-limiter", "flask_limiter"),
@@ -49,12 +44,13 @@ PRODUCTION = [
     Pkg("argon2-cffi", "argon2"),
     # Phase 5
     Pkg("openpyxl", "openpyxl"),
-    Pkg("weasyprint", "weasyprint"),
+    Pkg("reportlab", "reportlab"),
     Pkg("matplotlib", "matplotlib"),
     Pkg("plotly", "plotly"),
     Pkg("pygments", "pygments"),
     # Phase 6
     Pkg("APScheduler", "apscheduler"),
+    Pkg("SQLAlchemy", "sqlalchemy"),
     # Phase 7
     Pkg("loguru", "loguru"),
 ]
@@ -88,7 +84,6 @@ def verify(pkgs: list[Pkg], category: str, fatal: bool) -> list[str]:
     """Try to import each package; print a status line; return failed dist names."""
     print(f"\n=== {category} ({len(pkgs)} packages) ===")
     failed: list[str] = []
-    is_windows = sys.platform.startswith("win")
     for pkg in pkgs:
         # Suppress deprecation warnings raised by getattr(mod, '__version__')
         # for packages (Flask/Click/argon2) that deprecate the attribute.
@@ -100,15 +95,9 @@ def verify(pkgs: list[Pkg], category: str, fatal: bool) -> list[str]:
                 version = _get_version(mod, pkg.version_attr)
             print(f"  OK    {pkg.dist:<22} {version}")
         except (ImportError, OSError) as exc:
-            # weasyprint on Windows needs GTK3 runtime (not part of pip wheel).
-            # Treat as non-fatal SKIP on Windows; still FAIL on Linux/macOS.
-            is_windows_optional = pkg.module in WINDOWS_OPTIONAL_MODULES and is_windows
-            mark = "SKIP" if (not fatal or is_windows_optional) else "FAIL"
-            hint = ""
-            if is_windows_optional:
-                hint = " (Windows: install GTK3 runtime; see docs)"
-            print(f"  {mark}  {pkg.dist:<22} -- {type(exc).__name__}: {exc}{hint}")
-            if fatal and not is_windows_optional:
+            mark = "SKIP" if not fatal else "FAIL"
+            print(f"  {mark}  {pkg.dist:<22} -- {type(exc).__name__}: {exc}")
+            if fatal:
                 failed.append(pkg.dist)
     return failed
 
@@ -121,7 +110,7 @@ def main() -> int:
     parser.add_argument(
         "--offline-bundle",
         action="store_true",
-        help="Verify offline bundle: weasyprint must be absent; all others must import.",
+        help="Verify offline bundle: same production package set (ReportLab ships pure-Python).",
     )
     args = parser.parse_args()
 
@@ -129,14 +118,7 @@ def main() -> int:
     print(f"Python: {sys.version}")
 
     if args.offline_bundle:
-        offline_production = [p for p in PRODUCTION if p.dist.lower() != "weasyprint"]
-        failed = verify(offline_production, "Production (offline bundle — weasyprint excluded)", fatal=True)
-        try:
-            importlib.import_module("weasyprint")
-            print("  FAIL  weasyprint must NOT be installed in offline bundle env")
-            return 1
-        except (ImportError, OSError):
-            print("  OK    weasyprint absent (expected for offline bundle)")
+        failed = verify(PRODUCTION, "Production (offline bundle)", fatal=True)
         if failed:
             print(f"\nFAILED: {len(failed)} package(s): {', '.join(failed)}")
             return 1

@@ -1,5 +1,5 @@
 # illumio_ops offline bundle dependencies.
-# Derived from requirements.txt — PDF export (requires system cairo/pango) excluded.
+# Derived from requirements.txt; ReportLab PDF export included (pure-Python, no native deps).
 # HTML/XLSX/CSV/charts work on both online and offline builds.
 #
 # Build command (Linux/WSL):
@@ -18,7 +18,7 @@
 flask>=3.0,<4.0
 pandas>=2.0,<4.0
 pyyaml>=6.0,<7.0
-waitress>=3.0,<4.0
+cheroot>=8.6,<12.0
 
 # ── Phase 1: CLI UX ──────────────────────────────────────────────────────────
 rich>=13.7,<16.0
@@ -41,9 +41,9 @@ flask-talisman>=1.1,<2.0
 flask-login>=0.6,<0.7
 argon2-cffi>=23.1,<26.0
 
-# ── Phase 5: Reports (Excel + interactive charts; PDF excluded) ───────────────
+# ── Phase 5: Reports (Excel + PDF + interactive charts) ──────────────────────
 openpyxl>=3.1,<4.0
-# PDF export excluded (requires system cairo/pango not bundled)
+reportlab>=4.0,<5.0
 matplotlib>=3.8,<4.0
 plotly>=5.20,<7.0
 pygments>=2.17,<3.0
