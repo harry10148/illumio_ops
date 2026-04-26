@@ -4,7 +4,48 @@ function _csrfToken() {
   const meta = document.querySelector('meta[name="csrf-token"]');
   return meta ? meta.getAttribute('content') : '';
 }
-const api = async (url, opt) => { const r = await fetch(url, opt); return r.json() };
+function _setCsrfToken(token) {
+  if (!token) return;
+  let meta = document.querySelector('meta[name="csrf-token"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'csrf-token');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', token);
+}
+async function _refreshCsrfToken() {
+  const r = await fetch('/api/csrf-token');
+  const data = await r.json();
+  _setCsrfToken(data.csrf_token);
+  return data.csrf_token;
+}
+function _withFreshCsrf(opt = {}) {
+  const method = (opt.method || 'GET').toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return opt;
+  const headers = new Headers(opt.headers || {});
+  headers.set('X-CSRF-Token', _csrfToken());
+  return { ...opt, headers };
+}
+const api = async (url, opt = {}) => {
+  const parse = async (response) => {
+    try {
+      return await response.json();
+    } catch (_) {
+      return { ok: false, error: response.statusText || `HTTP ${response.status}` };
+    }
+  };
+  let r = await fetch(url, _withFreshCsrf(opt));
+  let data = await parse(r);
+  const method = (opt.method || 'GET').toUpperCase();
+  if (r.status === 400 && data && data.code === 'csrf_error' && method !== 'GET') {
+    if (data.csrf_token) _setCsrfToken(data.csrf_token);
+    else await _refreshCsrfToken();
+    r = await fetch(url, _withFreshCsrf(opt));
+    data = await parse(r);
+  }
+  return data;
+};
 const post = (url, body) => api(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() }, body: JSON.stringify(body) });
 const put = (url, body) => api(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() }, body: JSON.stringify(body) });
 const del = url => api(url, { method: 'DELETE', headers: { 'X-CSRF-Token': _csrfToken() } });
@@ -276,6 +317,8 @@ async function loadTranslations() {
   applyI18n(document);
   initTableResizers();
 }
+
+window.i18nApply = function(root) { applyI18n(root); };
 
 function applyI18n(root = document) {
   const scope = root && root.querySelectorAll ? root : document;

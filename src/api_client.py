@@ -105,6 +105,9 @@ class ApiClient:
         self._session = requests.Session()
         _verify_cfg = self.api_cfg.get('verify_ssl', True)
         self._session.verify = _verify_cfg if isinstance(_verify_cfg, str) else bool(_verify_cfg)
+        if not self._session.verify:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         self._session.headers.update({
             "Authorization": self._auth_header,
             "Accept": "application/json",

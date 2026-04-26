@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from datetime import datetime, timezone, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
@@ -10,6 +11,9 @@ from src.siem.tester import send_test_event
 
 bp = Blueprint("siem", __name__, url_prefix="/api/siem")
 
+_SF_KEY = "_siem_Session"
+_LOCK_KEY = "_siem_sf_lock"
+
 
 def _get_siem_cfg():
     from src.config import ConfigManager
@@ -17,17 +21,25 @@ def _get_siem_cfg():
 
 
 def _get_sf():
-    import os
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from src.config import ConfigManager
-    from src.pce_cache.schema import init_schema
-    cm = ConfigManager()
-    cfg = cm.models.pce_cache
-    os.makedirs(os.path.dirname(os.path.abspath(cfg.db_path)), exist_ok=True)
-    engine = create_engine(f"sqlite:///{cfg.db_path}")
-    init_schema(engine)
-    return sessionmaker(engine)
+    sf = current_app.config.get(_SF_KEY)
+    if sf is not None:
+        return sf
+    lock = current_app.config.setdefault(_LOCK_KEY, threading.Lock())
+    with lock:
+        sf = current_app.config.get(_SF_KEY)
+        if sf is not None:
+            return sf
+        import os
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from src.pce_cache.schema import init_schema
+        cm = current_app.config["CM"]
+        cfg = cm.models.pce_cache
+        os.makedirs(os.path.dirname(os.path.abspath(cfg.db_path)), exist_ok=True)
+        engine = create_engine(f"sqlite:///{cfg.db_path}")
+        init_schema(engine)
+        current_app.config[_SF_KEY] = sessionmaker(engine)
+    return current_app.config[_SF_KEY]
 
 
 @bp.route("/destinations", methods=["GET"])

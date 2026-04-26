@@ -1302,9 +1302,11 @@ class Reporter:
         Returns:
             bool: True on success, False on error.
         """
-        import os
+        import io, zipfile
         from email.mime.base import MIMEBase
         from email import encoders
+
+        _MAX_ATTACH_BYTES = 10 * 1024 * 1024  # 10 MB per attachment
 
         cfg = self.cm.config["email"]
         recipients = (
@@ -1316,26 +1318,60 @@ class Reporter:
             print(f"{Colors.WARNING}{t('no_recipients')}{Colors.ENDC}")
             return False
 
+        # Zip non-.zip files in-memory; skip files that exceed the size limit
+        attach_parts = []
+        skipped = []
+        for path in (attachment_paths or []):
+            if not path or not os.path.exists(path):
+                continue
+            fname = os.path.basename(path)
+            try:
+                if fname.lower().endswith('.zip'):
+                    with open(path, 'rb') as f:
+                        data = f.read()
+                    attach_name = fname
+                else:
+                    buf = io.BytesIO()
+                    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+                        zf.write(path, fname)
+                    data = buf.getvalue()
+                    attach_name = fname + '.zip'
+
+                if len(data) > _MAX_ATTACH_BYTES:
+                    skipped.append(fname)
+                    logger.warning(
+                        f"[Email] Skipping {fname}: "
+                        f"{len(data) / 1024 / 1024:.1f} MB exceeds "
+                        f"{_MAX_ATTACH_BYTES // 1024 // 1024} MB limit"
+                    )
+                    continue
+
+                part = MIMEBase("application", "zip")
+                part.set_payload(data)
+                encoders.encode_base64(part)
+                part.add_header("Content-Disposition", f'attachment; filename="{attach_name}"')
+                attach_parts.append(part)
+            except (IOError, OSError) as e:
+                print(f"{Colors.WARNING}Warning: could not attach {path}: {e}{Colors.ENDC}")
+
+        if skipped:
+            limit_mb = _MAX_ATTACH_BYTES // 1024 // 1024
+            warning_text = t("rpt_email_attach_too_large",
+                             limit_mb=limit_mb, files=", ".join(skipped))
+            warning_html = (
+                "<div style='background:#FFF3CD;border:1px solid #F0AD4E;border-radius:8px;"
+                "padding:12px;margin:8px 16px;font-family:Arial,sans-serif;"
+                f"font-size:12px;color:#856404;'>⚠ {html.escape(warning_text)}</div>"
+            )
+            html_body = html_body.replace('</body></html>', warning_html + '</body></html>', 1)
+
         msg = MIMEMultipart()
         msg["Subject"] = subject
         msg["From"] = cfg["sender"]
         msg["To"] = ",".join(recipients)
         msg.attach(MIMEText(html_body, "html"))
-
-        for path in (attachment_paths or []):
-            if path and os.path.exists(path):
-                try:
-                    with open(path, "rb") as f:
-                        part = MIMEBase("application", "octet-stream")
-                        part.set_payload(f.read())
-                    encoders.encode_base64(part)
-                    part.add_header(
-                        "Content-Disposition",
-                        f'attachment; filename="{os.path.basename(path)}"',
-                    )
-                    msg.attach(part)
-                except (IOError, OSError) as e:
-                    print(f"{Colors.WARNING}Warning: could not attach {path}: {e}{Colors.ENDC}")
+        for part in attach_parts:
+            msg.attach(part)
 
         try:
             smtp_conf = self.cm.config.get("smtp", {})
