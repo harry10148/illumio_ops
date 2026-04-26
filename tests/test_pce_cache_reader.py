@@ -107,3 +107,10 @@ def test_cover_state_partial_when_start_before_cache_data(session_factory):
     rd = CacheReader(session_factory, events_retention_days=90, traffic_raw_retention_days=7)
     # Range starts 3 days ago — entirely within retention window but before any cached data
     assert rd.cover_state("events", now - timedelta(days=3), now) == "partial"
+
+
+def test_cover_state_partial_when_cache_empty_and_range_in_retention(session_factory):
+    """Empty cache within retention window → partial (earliest is None branch)."""
+    now = datetime.now(timezone.utc)
+    rd = CacheReader(session_factory, events_retention_days=90, traffic_raw_retention_days=7)
+    assert rd.cover_state("events", now - timedelta(hours=1), now) == "partial"
