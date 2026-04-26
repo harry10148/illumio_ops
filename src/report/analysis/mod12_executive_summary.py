@@ -324,5 +324,30 @@ def _build_top_actions(attack_summary, *, limit=3):
 
 def _network_inventory_kpis(flows_df, *, label_summary=None, ringfence_summary=None,
                              unmanaged_summary=None, **_) -> dict:
-    # Placeholder — implemented in Task 20
-    return {"profile": "network_inventory", "kpis": {}}
+    import pandas as pd
+    total = len(flows_df)
+    # Count distinct apps and envs from destination labels
+    app_col = "app" if "app" in flows_df.columns else ("dst_app" if "dst_app" in flows_df.columns else None)
+    apps = flows_df[app_col].dropna().nunique() if app_col and total else 0
+    env_col = "env" if "env" in flows_df.columns else ("dst_env" if "dst_env" in flows_df.columns else None)
+    envs = flows_df[env_col].dropna().nunique() if env_col and total else 0
+    # Known dependency coverage: flows where src+dst labels are fully resolved
+    if "src_label" in flows_df.columns and "dst_label" in flows_df.columns:
+        known = int((flows_df["src_label"].notna() & flows_df["dst_label"].notna()).sum())
+    else:
+        known = 0
+    label_complete = (label_summary or {}).get("fill_rate",
+        (known / total) if total else 0.0)
+    rule_candidates = (ringfence_summary or {}).get("candidate_rules_count", 0)
+    unmanaged = (unmanaged_summary or {}).get("count", 0)
+    top_gap = (ringfence_summary or {}).get("top_rule_gap", {
+        "src_label": None, "dst_label": None, "flows": 0})
+    kpis = {
+        "observed_apps_envs": {"apps": apps, "envs": envs},
+        "known_dependency_coverage": round((known / total) if total else 0.0, 4),
+        "label_completeness": round(label_complete, 4),
+        "rule_candidate_count": rule_candidates,
+        "unmanaged_unknown_dependencies": unmanaged,
+        "top_rule_building_gap": top_gap,
+    }
+    return {"profile": "network_inventory", "kpis": kpis}
