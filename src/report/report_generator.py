@@ -155,7 +155,10 @@ class ReportGenerator:
 
     def _fetch_traffic(self, start: datetime.datetime, end: datetime.datetime,
                        filters: Optional[dict] = None) -> dict:
-        """Return traffic flows with metadata. Uses cache when fully covered."""
+        """Return traffic flows with metadata. Uses cache when fully covered.
+        On partial coverage where cache_start > request start, merges API gap
+        with cached data and tags source as 'mixed'.
+        """
         if self._cache is not None:
             state = self._cache.cover_state("traffic", start, end)
             if state == "full":
@@ -165,7 +168,22 @@ class ReportGenerator:
                     "agg": self._cache.read_flows_agg(start, end),
                     "source": "cache",
                 }
-            # partial or miss: fall through to API
+            if state == "partial":
+                cache_start = self._cache.earliest_ingested_at("traffic")
+                if cache_start is not None and cache_start > start:
+                    logger.info(
+                        "Traffic report: hybrid fetch — API gap [{} → {}), cache [{} → {}]",
+                        start, cache_start, cache_start, end,
+                    )
+                    def _fmt(dt):
+                        return dt.isoformat().replace("+00:00", "Z") if hasattr(dt, "isoformat") else str(dt)
+                    gap = self.api.fetch_traffic_for_report(
+                        start_time_str=_fmt(start),
+                        end_time_str=_fmt(cache_start),
+                        filters=filters,
+                    ) or []
+                    cached = self._cache.read_flows_raw(cache_start, end)
+                    return {"raw": gap + cached, "agg": None, "source": "mixed"}
         flows = self.api.fetch_traffic_for_report(
             start_time_str=start.isoformat().replace("+00:00", "Z") if hasattr(start, "isoformat") else str(start),
             end_time_str=end.isoformat().replace("+00:00", "Z") if hasattr(end, "isoformat") else str(end),
@@ -209,7 +227,7 @@ class ReportGenerator:
             logger.warning("[ReportGenerator] No records returned from API")
             print(t("rpt_no_traffic_data"))
             return ReportResult(
-                data_source='api',
+                data_source=traffic["source"],
                 record_count=0,
                 query_context={
                     "start_date": start_date,
@@ -224,7 +242,7 @@ class ReportGenerator:
         df = self._parse_api(records)
         return self._run_pipeline(
             df,
-            source='api',
+            source=traffic["source"],
             query_context={
                 "start_date": start_date,
                 "end_date": end_date,
