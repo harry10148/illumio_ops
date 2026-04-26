@@ -441,6 +441,7 @@
   "gui_enable_hc": "Enable PCE Health Check",
   "gui_err_empty_csv": "CSV filename is empty.",
   "gui_err_forbidden": "Forbidden.",
+  "gui_err_csrf_expired": "Session security token expired. Retrying request...",
   "gui_err_invalid_auth": "Invalid username or password.",
   "gui_err_invalid_ip": "Invalid IP address",
   "gui_err_invalid_old_pass": "Old password is incorrect.",

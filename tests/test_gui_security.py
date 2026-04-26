@@ -2,6 +2,7 @@ import pytest
 import os
 import json
 import tempfile
+import threading
 from src.alerts.metadata import FieldMeta, PluginMeta
 from src.config import ConfigManager
 from src.gui import build_app as _create_app
@@ -72,6 +73,21 @@ def test_login_success(client):
     response = client.get('/')
     assert response.status_code == 200
 
+def test_index_initial_translations_include_schedule_keys(client):
+    login = client.post('/api/login', json={
+        "username": "admin",
+        "password": "testpass"
+    })
+    assert login.status_code == 200
+
+    response = client.get('/')
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "sched_enabled_short" in body
+    assert "sched_disabled_short" in body
+    assert "sched_running" in body
+
 def test_login_fail(client):
     response = client.post('/api/login', json={
         "username": "admin",
@@ -79,6 +95,83 @@ def test_login_fail(client):
     })
     assert response.status_code == 401
     assert response.json.get("ok") is False
+
+def test_report_schedule_run_marks_schedule_running(client, app_persistent, monkeypatch, tmp_path):
+    cm = app_persistent.config["CM"]
+    cm.load()
+    cm.config["report_schedules"] = [
+        {
+            "id": 123,
+            "name": "Daily",
+            "enabled": True,
+            "report_type": "traffic",
+            "schedule_type": "daily",
+            "hour": 8,
+            "minute": 0,
+            "email_report": True,
+        }
+    ]
+    cm.save()
+
+    state_file = tmp_path / "state.json"
+    monkeypatch.setattr("src.gui._resolve_state_file", lambda: str(state_file))
+    started = threading.Event()
+    release = threading.Event()
+
+    def _blocked_run_schedule(self, schedule):
+        started.set()
+        release.wait(timeout=5)
+        return True
+
+    monkeypatch.setattr("src.report_scheduler.ReportScheduler.run_schedule", _blocked_run_schedule)
+
+    login = client.post('/api/login', json={
+        "username": "admin",
+        "password": "testpass"
+    })
+    csrf_token = _csrf(login)
+
+    try:
+        response = client.post(
+            "/api/report-schedules/123/run",
+            headers={"X-CSRF-Token": csrf_token},
+        )
+
+        assert response.status_code == 200
+        assert response.json["ok"] is True
+        assert started.wait(timeout=2)
+        with state_file.open(encoding="utf-8") as f:
+            state = json.load(f)
+        assert state["report_schedule_states"]["123"]["status"] == "running"
+    finally:
+        release.set()
+
+def test_api_csrf_failure_returns_refreshable_json(client):
+    login = client.post('/api/login', json={
+        "username": "admin",
+        "password": "testpass"
+    })
+    assert login.status_code == 200
+
+    response = client.post(
+        "/api/report-schedules/123/run",
+        headers={"X-CSRF-Token": "expired-token"},
+    )
+
+    assert response.status_code == 400
+    assert response.is_json
+    body = response.get_json()
+    assert body["ok"] is False
+    assert body["code"] == "csrf_error"
+    assert body["csrf_token"]
+
+def test_frontend_api_helper_refreshes_expired_csrf_token():
+    with open("src/static/js/utils.js", encoding="utf-8") as f:
+        js = f.read()
+
+    assert "csrf_error" in js
+    assert "/api/csrf-token" in js
+    assert "_setCsrfToken" in js
 
 def test_ip_whitelist(app_persistent):
     client = app_persistent.test_client()

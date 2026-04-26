@@ -1172,6 +1172,7 @@ _ZH_EXPLICIT: dict[str, str] = {
     "gui_err_invalid_old_pass": "舊密碼不正確。",
     "gui_err_unauthorized": "未授權。",
     "gui_err_forbidden": "禁止存取。",
+    "gui_err_csrf_expired": "工作階段安全 token 已過期，正在重試請求...",
     "gui_err_network": "網路錯誤，請稍後再試。",
     "gui_err_ip_not_allowed": "您的 IP 位址不在允許清單中。",
     "gui_err_empty_csv": "CSV 檔名為空。",

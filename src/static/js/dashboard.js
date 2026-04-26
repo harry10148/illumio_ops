@@ -406,6 +406,7 @@ function renderSchedules() {
     let statusBadge = '';
     if (s.last_status === 'success') statusBadge = `<span style="color:var(--green);font-weight:700;">${_t('gui_sched_status_success')}</span>`;
     else if (s.last_status === 'failed') statusBadge = `<span style="color:var(--red);font-weight:700;" title="${escapeHtml(s.last_error||'')}">${_t('gui_sched_status_failed')}</span>`;
+    else if (s.last_status === 'running') statusBadge = `<span style="color:var(--accent);font-weight:700;">${_t('sched_running')}</span>`;
     else statusBadge = `<span style="color:var(--dim);">${_t('gui_sched_status_never')}</span>`;
 
     const enabledBadge = s.enabled

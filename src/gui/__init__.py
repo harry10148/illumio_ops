@@ -246,6 +246,13 @@ def _resolve_config_dir() -> str:
 def _resolve_state_file() -> str:
     return os.path.join(_ROOT_DIR, 'logs', 'state.json')
 
+def _ui_translation_dict(lang: str) -> dict:
+    return {
+        k: v
+        for k, v in get_messages(lang).items()
+        if k.startswith(("gui_", "sched_"))
+    }
+
 def _plugin_config_roots() -> set[str]:
     roots: set[str] = set()
     for plugin_name, meta in PLUGIN_METADATA.items():
@@ -519,15 +526,26 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         return AdminUser(admin_name) if user_id == admin_name else None
 
     # ── flask-wtf CSRF setup ───────────────────────────────────────────────────
-    from flask_wtf.csrf import CSRFProtect, generate_csrf
+    from flask_wtf.csrf import CSRFProtect, CSRFError, generate_csrf
 
     app.config["WTF_CSRF_ENABLED"] = True
-    app.config["WTF_CSRF_TIME_LIMIT"] = 3600  # 1 hour
+    app.config["WTF_CSRF_TIME_LIMIT"] = 28800  # match GUI session lifetime
     app.config["WTF_CSRF_CHECK_DEFAULT"] = True
     # Accept both X-CSRFToken (flask-wtf default) and X-CSRF-Token (legacy SPA header)
     app.config["WTF_CSRF_HEADERS"] = ["X-CSRFToken", "X-CSRF-Token"]
 
     csrf = CSRFProtect(app)
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        if request.path.startswith('/api/'):
+            return jsonify({
+                "ok": False,
+                "code": "csrf_error",
+                "error": t("gui_err_csrf_expired"),
+                "csrf_token": generate_csrf(),
+            }), 400
+        return redirect('/login')
 
     # ── flask-limiter rate limiting ────────────────────────────────────────────
     from flask_limiter import Limiter
@@ -638,7 +656,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         schedules_count = len(cm.config.get("report_schedules", []))
         config_loaded_at = _dt.datetime.now()
         lang = cm.config.get("settings", {}).get("language", "en")
-        ui_translations = {k: v for k, v in get_messages(lang).items() if k.startswith("gui_")}
+        ui_translations = _ui_translation_dict(lang)
         return render_template(
             'index.html',
             pce_url=pce_url,
@@ -751,9 +769,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     @app.route('/api/ui_translations')
     def api_ui_translations():
         lang = cm.config.get("settings", {}).get("language", "en")
-        merged = get_messages(lang)
-        ui_dict = {k: v for k, v in merged.items() if k.startswith("gui_")}
-        return jsonify(ui_dict)
+        return jsonify(_ui_translation_dict(lang))
 
     @app.route('/api/status')
     def api_status():
@@ -2218,6 +2234,9 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             from src.reporter import Reporter
             reporter = Reporter(cm)
             scheduler = ReportScheduler(cm, reporter)
+            scheduler._state_file = _resolve_state_file()
+            now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            scheduler._save_state(schedule_id, now_str, "running")
 
             def _run():
                 try:
