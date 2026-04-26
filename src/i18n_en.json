@@ -1916,5 +1916,13 @@
   "rpt_guidance_mod08_purpose": "List unmanaged hosts (no VEN) participating in observed flows.",
   "rpt_guidance_mod08_signals": "Unmanaged sources accessing crown-jewel apps; high-volume unmanaged egress; unmanaged peers in critical environments.",
   "rpt_guidance_mod08_how": "Each row is an unmanaged IP and its observed peers, ports, and label hits.",
-  "rpt_guidance_mod08_actions": "Install VEN where feasible; document and accept exceptions; tighten boundary rules around unmanaged peers."
+  "rpt_guidance_mod08_actions": "Install VEN where feasible; document and accept exceptions; tighten boundary rules around unmanaged peers.",
+  "rpt_guidance_mod13_purpose": "Estimate enforcement readiness per app/env: how much would shifting to default-deny break vs protect.",
+  "rpt_guidance_mod13_signals": "Low ready-to-enforce share; high PB exposure; unmanaged dependencies blocking enforcement.",
+  "rpt_guidance_mod13_how": "Higher PB count = more flows that would be blocked. Higher allowed share with named rules = more ready.",
+  "rpt_guidance_mod13_actions": "Convert PB into named allows; resolve unmanaged dependencies; then move app to selective enforcement.",
+  "rpt_guidance_mod15_purpose": "Show east-west paths an attacker could traverse after initial foothold.",
+  "rpt_guidance_mod15_signals": "Long chains spanning environments; PB-heavy hops; risky-port chains (SMB/RDP).",
+  "rpt_guidance_mod15_how": "Path length, port mix, and crossings between sensitive labels indicate blast-radius risk.",
+  "rpt_guidance_mod15_actions": "Cut the highest-impact hops via allow rules or boundary deny; isolate crown jewels."
 }

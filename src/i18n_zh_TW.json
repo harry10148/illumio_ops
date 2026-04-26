@@ -1916,5 +1916,13 @@
   "rpt_guidance_mod08_purpose": "列出參與觀察流量、但尚未安裝 VEN 的未納管主機。",
   "rpt_guidance_mod08_signals": "未納管來源存取 crown-jewel 應用；高流量未納管外出流量；關鍵環境中的未納管對等主機。",
   "rpt_guidance_mod08_how": "每一列代表一個未納管 IP 及其觀察到的對等主機、埠口和標籤。",
-  "rpt_guidance_mod08_actions": "可行時安裝 VEN；記錄並接受例外情況；針對未納管對等主機收緊邊界規則。"
+  "rpt_guidance_mod08_actions": "可行時安裝 VEN；記錄並接受例外情況；針對未納管對等主機收緊邊界規則。",
+  "rpt_guidance_mod13_purpose": "評估每個應用/環境的執行準備度：轉換為 default-deny 後，哪些流量會被阻擋、哪些會受到保護。",
+  "rpt_guidance_mod13_signals": "可執行比例低；PB 暴露高；未納管相依性阻礙執行推進。",
+  "rpt_guidance_mod13_how": "PB 數量愈高 = 將被封鎖的流量愈多。有具名規則的 allowed 比例愈高 = 準備度愈高。",
+  "rpt_guidance_mod13_actions": "將 PB 轉換為具名 allow；解決未納管相依性；之後推進應用到 selective enforcement。",
+  "rpt_guidance_mod15_purpose": "顯示攻擊者在取得初始立足點後，可能橫向移動的東西向路徑。",
+  "rpt_guidance_mod15_signals": "跨越多個環境的長路徑鏈；充滿 PB 的跳點；高風險埠口鏈（SMB/RDP）。",
+  "rpt_guidance_mod15_how": "路徑長度、埠口組合和敏感標籤間的交叉代表爆炸半徑風險。",
+  "rpt_guidance_mod15_actions": "透過 allow 規則或 boundary deny 切斷影響最大的跳點；隔離 crown jewel 系統。"
 }

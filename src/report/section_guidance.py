@@ -74,6 +74,26 @@ REGISTRY: dict[str, SectionGuidance] = {
         profile_visibility=("security_risk", "network_inventory"),
         min_detail_level="standard",
     ),
+    "mod13_readiness": SectionGuidance(
+        module_id="mod13_readiness",
+        purpose_key="rpt_guidance_mod13_purpose",
+        watch_signals_key="rpt_guidance_mod13_signals",
+        how_to_read_key="rpt_guidance_mod13_how",
+        recommended_actions_key="rpt_guidance_mod13_actions",
+        primary_audience="mixed",
+        profile_visibility=("security_risk", "network_inventory"),
+        min_detail_level="standard",
+    ),
+    "mod15_lateral_movement": SectionGuidance(
+        module_id="mod15_lateral_movement",
+        purpose_key="rpt_guidance_mod15_purpose",
+        watch_signals_key="rpt_guidance_mod15_signals",
+        how_to_read_key="rpt_guidance_mod15_how",
+        recommended_actions_key="rpt_guidance_mod15_actions",
+        primary_audience="security",
+        profile_visibility=("security_risk", "network_inventory"),
+        min_detail_level="standard",
+    ),
 }
 
 
