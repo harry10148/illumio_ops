@@ -1,1 +1,1 @@
-__version__ = "3.14.0-integrations-ui"
+__version__ = "3.18.0-report-semantics"
