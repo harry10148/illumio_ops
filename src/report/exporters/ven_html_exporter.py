@@ -15,6 +15,7 @@ from .report_i18n import STRINGS, lang_btn_html, make_i18n_js
 from .table_renderer import render_df_table
 from .chart_renderer import render_plotly_html
 from .code_highlighter import get_highlight_css
+from .html_exporter import render_section_guidance
 from src.humanize_ext import human_number
 
 _CSS = build_css("ven")
@@ -137,13 +138,13 @@ class VenHtmlExporter:
             + f'<div class="kpi-grid">{kpi_cards}</div>'
             + status_chart_html
             + "</section>\n"
-            + self._section("online", "rpt_ven_sec_online_title", "Online VENs", online_count, _df_to_html(df_online), "rpt_ven_sec_online_intro", "online")
+            + self._section("online", "rpt_ven_sec_online_title", "Online VENs", online_count, _df_to_html(df_online), "rpt_ven_sec_online_intro", "online", "ven_online_inventory")
             + "\n"
-            + self._section("offline", "rpt_ven_sec_offline_title", "Offline VENs", offline_count, _df_to_html(df_offline), "rpt_ven_sec_offline_intro", "offline")
+            + self._section("offline", "rpt_ven_sec_offline_title", "Offline VENs", offline_count, _df_to_html(df_offline), "rpt_ven_sec_offline_intro", "offline", "ven_offline")
             + "\n"
-            + self._section("lost-today", "rpt_ven_sec_lost_today_title", "Lost Connection in Last 24h", today_count, _df_to_html(df_today), "rpt_ven_sec_lost_today_intro", "offline")
+            + self._section("lost-today", "rpt_ven_sec_lost_today_title", "Lost Connection in Last 24h", today_count, _df_to_html(df_today), "rpt_ven_sec_lost_today_intro", "offline", "ven_lost_heartbeat_24h")
             + "\n"
-            + self._section("lost-yest", "rpt_ven_sec_lost_yest_title", "Lost Connection 24-48h Ago", yest_count, _df_to_html(df_yest), "rpt_ven_sec_lost_yest_intro", "warn")
+            + self._section("lost-yest", "rpt_ven_sec_lost_yest_title", "Lost Connection 24-48h Ago", yest_count, _df_to_html(df_yest), "rpt_ven_sec_lost_yest_intro", "warn", "ven_lost_heartbeat_48h")
             + "\n"
             + '<footer><span data-i18n="rpt_ven_footer">Illumio PCE Ops — VEN Status Report</span> &middot; '
             + today_str
@@ -193,6 +194,7 @@ class VenHtmlExporter:
         content: str,
         intro_key: str = "",
         extra_class: str = "",
+        guidance_module_id: str = "",
     ) -> str:
         # Section heading renders "Title (count)"; applyI18n swaps the title
         # text on lang toggle, count is appended as a static span alongside.
@@ -203,9 +205,12 @@ class VenHtmlExporter:
             intro_html = (
                 f'<p class="section-intro" data-i18n="{intro_key}">{intro_en}</p>'
             )
+        guidance_html = ""
+        if guidance_module_id:
+            guidance_html = render_section_guidance(guidance_module_id, profile="security_risk", detail_level="standard")
         cls = f"card {extra_class}".strip()
         return (
             f'<section id="{id_}" class="{cls}">'
             f'<h2><span data-i18n="{title_key}">{title_en}</span> ({count})</h2>'
-            f"{intro_html}{content}</section>"
+            f"{intro_html}{guidance_html}{content}</section>"
         )
