@@ -1081,6 +1081,108 @@ git commit -m "docs(plan): r01 consumer audit of staged_coverage"
 
 ---
 
+## Consumer Audit (Task 16)
+
+**Grep date:** 2026-04-27  
+**Scope:** src/ + tests/ for staged_coverage, staged_count, staged_share, n_potentially_blocked, staged_ratio, staged_readiness
+
+### Findings Table
+
+| File | Line | Term | Classification | Disposition |
+|------|------|------|---------------|-------------|
+| src/i18n_en.json | 1452 | "rpt_r_staged" | i18n key (internal) | keep as is — still used by mod03 chart labels |
+| src/report/analysis/mod03_uncovered_flows.py | 16 | "Staged Coverage" | comment/docstring | no change needed — internal explanation |
+| src/report/analysis/mod03_uncovered_flows.py | 35 | staged_coverage_pct | internal alias | keep for one release; remove v3.21 |
+| src/report/analysis/mod03_uncovered_flows.py | 49 | staged_coverage_pct | internal alias | keep for one release; remove v3.21 |
+| src/report/analysis/mod03_uncovered_flows.py | 53 | n_potentially_blocked | internal alias | keep for one release; remove v3.21 |
+| src/report/analysis/mod03_uncovered_flows.py | 131 | staged_coverage_pct | internal alias | keep for one release; remove v3.21 |
+| src/report/analysis/mod03_uncovered_flows.py | 135 | n_potentially_blocked | internal alias | keep for one release; remove v3.21 |
+| src/report/analysis/mod12_executive_summary.py | 63 | staged_coverage_pct (read from mod03) | internal consumer | may switch to pb_uncovered_share after v3.21 |
+| src/report/analysis/mod12_executive_summary.py | 124 | staged_coverage_pct (read from mod03) | internal consumer | may switch to pb_uncovered_share after v3.21 |
+| src/report/analysis/mod12_executive_summary.py | 136 | "Staged Coverage" (label) | exported label | Task 15 replaces with rpt_pb_label i18n key |
+| src/report/analysis/mod12_executive_summary.py | 250 | staged_coverage_pct (output) | external-facing JSON | alias — preserve per Task 19 |
+| src/report/analysis/mod13_readiness.py | 18 | staged_readiness (weight key) | internal constant | no change — metric name OK |
+| src/report/analysis/mod13_readiness.py | 117 | staged_ratio (variable) | internal calculation | no change — semantically still "staged" (enforced only, not PB) |
+| src/report/analysis/mod13_readiness.py | 118 | staged_ratio (assignment) | internal calculation | no change — correct semantic |
+| src/report/analysis/mod13_readiness.py | 129 | staged_ratio (score calc) | internal calculation | no change — correct semantic |
+| src/report/analysis/mod13_readiness.py | 141 | staged_readiness_ratio (output) | external-facing JSON | semantic OK — ratio of enforced flows, not PB exposure |
+| src/report/analysis/mod13_readiness.py | 147 | staged_readiness_score (output) | external-facing JSON | semantic OK — score component, not KPI label |
+| src/report/analysis/mod13_readiness.py | 235 | staged_readiness_ratio (aggregation) | internal | no change — correct |
+| src/report/analysis/mod13_readiness.py | 242 | staged_readiness (output score) | external-facing JSON | semantic OK — readiness factor, not PB exposure |
+| src/report/analysis/mod13_readiness.py | 252 | staged_readiness (label) | exported label | Task 15 may update wording; check current value |
+| src/report/analysis/mod13_readiness.py | 278 | staged_readiness (output) | external-facing JSON | semantic OK |
+| src/report/exporters/html_exporter.py | 706 | staged_coverage_pct (read from mod12) | internal render | may switch after v3.21 alias removal |
+| src/report/exporters/report_i18n.py | 98 | "rpt_tr_staged_coverage" | i18n key (internal) | may rename; check usage |
+| tests/test_pb_semantics.py | 52 | n_potentially_blocked (alias test) | test alias guard | keep — guards backward compat |
+| tests/test_pb_semantics.py | 80 | "pb_uncovered_exposure" (KPI check) | test — new field | expected; test design |
+| tests/test_pb_semantics.py | 93 | "staged_coverage is preserved" | test alias guard | keep — guards one-release compat |
+| tests/test_pb_semantics.py | 112-114 | "staged_coverage" (search terms) | test alias guard | keep — searches for alias in output |
+| tests/test_phase11_chart_coverage.py | 207 | staged_coverage_pct (fixture) | test fixture | keep; tests the alias |
+| tests/test_phase11_chart_coverage.py | 210 | n_potentially_blocked (fixture) | test fixture | keep; tests the alias |
+
+### Summary
+
+**Total references found:** 26
+
+**Breakdown:**
+- **Internal aliases (keeping for one release):** 6
+  - `staged_coverage_pct` in mod03 (output field, lines 35, 49, 131)
+  - `n_potentially_blocked` in mod03 (output field, lines 53, 135)
+  - These are labeled `# DEPRECATED ALIAS: remove in v3.21` in code
+
+- **Internal consumers of aliases (may refactor after v3.21):** 3
+  - `mod12_executive_summary` reads `staged_coverage_pct` from mod03 (lines 63, 124, 250)
+  - `html_exporter` reads `staged_coverage_pct` from mod12 (line 706)
+
+- **External-facing JSON outputs (semantically correct, no alias needed):** 5
+  - `staged_readiness_ratio` / `staged_readiness_score` in mod13 (output)
+  - These describe the enforcement readiness metric, NOT PB exposure; correct semantic
+
+- **External-facing labels (being updated per Task 15):** 2
+  - `Staged Coverage` in mod12 line 136 → replaced with `rpt_pb_label` i18n key
+  - `Staged Readiness` in mod13 line 252 → readiness metric label (keep, correct semantic)
+
+- **I18n keys (internal, used for labeling):** 2
+  - `rpt_r_staged` (mod03 chart label) — keep as is
+  - `rpt_tr_staged_coverage` (report_i18n) — may rename but low priority
+
+- **Test fixtures + test guards:** 4
+  - `tests/test_pb_semantics.py` — guards the one-release alias contract
+  - `tests/test_phase11_chart_coverage.py` — fixture uses alias; keeps backward-compat test coverage
+
+### Disposition by Consumer Type
+
+| Type | Count | Action |
+|------|-------|--------|
+| **Internal alias fields (to remove v3.21)** | 6 | Already marked in code with `# DEPRECATED ALIAS: remove in v3.21` comments; Tasks 13–14 implement. No action needed for audit. |
+| **Internal alias consumers (refactor after v3.21)** | 3 | Document as "may use new field name after v3.21"; see Task 21 follow-up. No action needed for audit. |
+| **External semantic fields (no alias needed)** | 5 | `staged_readiness_*` fields are correct — they describe enforced-flows-only readiness, NOT PB exposure. Keep as is. |
+| **Labels being updated (Task 15)** | 2 | "Staged Coverage" label being replaced by `rpt_pb_label` i18n key per Task 15. "Staged Readiness" is correct semantic (enforced ratio), keep. |
+| **I18n keys (internal)** | 2 | Low priority; keep as is for now. May rename in v3.21 cleanup if desired. |
+| **Test guards** | 4 | Keep — these tests verify backward compatibility of one-release alias period. |
+
+### Conclusion
+
+**No drift found.** The codebase is already aligned with Task 16 expectations:
+
+1. **Aliases are already deprecated:** Lines 35, 49, 53, 131, 135 in `mod03_uncovered_flows.py` all include `# DEPRECATED ALIAS: remove in v3.21` comments, showing the original author anticipated the deprecation timeline.
+
+2. **Semantic distinction already present:**
+   - `pb_uncovered_count` / `pb_uncovered_share` in mod03 = uncovered exposure (PB flows)
+   - `staged_readiness_*` in mod13 = enforced-flows-only readiness (correct metric, not PB exposure)
+   - These are not mixed; terminology is consistent.
+
+3. **External consumers accounted for:**
+   - mod12 reads mod03 aliases but will be updated per Task 19 to output both `pb_uncovered_exposure` (new) and `staged_coverage` alias (one release only)
+   - Tests guard the alias; removal in v3.21 is scheduled and documented
+
+4. **Action items for Task 16:**
+   - Update label text ("Staged Coverage" → "PB Uncovered Exposure") per Task 15
+   - Document v3.21 removal items (already present in code; audit confirms)
+   - No code changes required by this audit; code is already prepared
+
+---
+
 ## Task 17: Date Range fallback in mod01 / report_generator
 
 **Files:**
