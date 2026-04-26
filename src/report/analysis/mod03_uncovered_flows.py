@@ -31,7 +31,8 @@ def uncovered_flows(df: pd.DataFrame, top_n: int = 20) -> dict:
     n_unknown = total - n_allowed - n_pb - n_blocked
 
     enforced_coverage_pct = round(n_allowed / total * 100, 1) if total else 0.0
-    staged_coverage_pct = round(n_pb / total * 100, 1) if total else 0.0
+    pb_uncovered_share = round(n_pb / total * 100, 1) if total else 0.0
+    staged_coverage_pct = pb_uncovered_share  # DEPRECATED ALIAS: remove in v3.21
     true_gap_pct = round((n_blocked + n_unknown) / total * 100, 1) if total else 0.0
     # Legacy field: overall coverage (allowed only)
     coverage_pct = enforced_coverage_pct
@@ -44,10 +45,12 @@ def uncovered_flows(df: pd.DataFrame, top_n: int = 20) -> dict:
             'total_uncovered': 0,
             'coverage_pct': 100.0,
             'enforced_coverage_pct': 100.0,
-            'staged_coverage_pct': 0.0,
+            'pb_uncovered_share': 0.0,
+            'staged_coverage_pct': 0.0,  # DEPRECATED ALIAS: remove in v3.21
             'true_gap_pct': 0.0,
             'n_allowed': n_allowed,
-            'n_potentially_blocked': 0,
+            'pb_uncovered_count': 0,
+            'n_potentially_blocked': 0,  # DEPRECATED ALIAS: remove in v3.21
             'n_blocked': 0,
             'n_unknown': 0,
             'inbound_coverage_pct': 100.0,
@@ -124,10 +127,12 @@ def uncovered_flows(df: pd.DataFrame, top_n: int = 20) -> dict:
         'total_uncovered': total_uncovered,
         'coverage_pct': coverage_pct,
         'enforced_coverage_pct': enforced_coverage_pct,
-        'staged_coverage_pct': staged_coverage_pct,
+        'pb_uncovered_share': pb_uncovered_share,
+        'staged_coverage_pct': staged_coverage_pct,  # DEPRECATED ALIAS: remove in v3.21
         'true_gap_pct': true_gap_pct,
         'n_allowed': n_allowed,
-        'n_potentially_blocked': n_pb,
+        'pb_uncovered_count': n_pb,
+        'n_potentially_blocked': n_pb,  # DEPRECATED ALIAS: remove in v3.21
         'n_blocked': n_blocked,
         'n_unknown': n_unknown,
         'inbound_coverage_pct': inbound_cov,
