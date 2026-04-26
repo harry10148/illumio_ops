@@ -15,6 +15,7 @@ from .report_i18n import STRINGS, lang_btn_html, make_i18n_js
 from .table_renderer import render_df_table
 from .chart_renderer import render_plotly_html
 from .code_highlighter import get_highlight_css
+from .html_exporter import render_section_guidance
 from src.humanize_ext import human_number
 
 _CSS = build_css("policy_usage")
@@ -165,6 +166,9 @@ class PolicyUsageHtmlExporter:
             + mod00.get("generated_at", "")
             + period_part
             + "</p></div>"
+            + render_section_guidance("pu_mod00_executive",
+                                      profile="security_risk",
+                                      detail_level="standard")
             + self._summary_pills(mod00)
             + self._kpi_html(mod00.get("kpis", []))
             + self._execution_html(mod00)
@@ -359,6 +363,11 @@ class PolicyUsageHtmlExporter:
         )
 
     def _mod01_html(self) -> str:
+        html_parts = []
+        html_parts.append(render_section_guidance("pu_mod01_overview",
+                                                  profile="security_risk",
+                                                  detail_level="standard"))
+
         mod01 = self._r.get("mod01", {})
         total = mod01.get("total_rules", 0)
         hit = mod01.get("hit_count", 0)
@@ -390,9 +399,15 @@ class PolicyUsageHtmlExporter:
                     chart_html = f'<div class="chart-container">{div}</div>'
             except Exception:
                 pass
-        return stats + chart_html + _df_to_html(summary_df)
+        html_parts.append(stats + chart_html + _df_to_html(summary_df))
+        return "".join(html_parts)
 
     def _mod02_html(self) -> str:
+        html_parts = []
+        html_parts.append(render_section_guidance("pu_mod02_hit_detail",
+                                                  profile="security_risk",
+                                                  detail_level="standard"))
+
         mod02 = self._r.get("mod02", {})
         hit_df = mod02.get("hit_df")
         top_ports_df = mod02.get("top_ports_df")
@@ -407,10 +422,17 @@ class PolicyUsageHtmlExporter:
                 + "</div>"
             )
         if hit_df is None or (hasattr(hit_df, "empty") and hit_df.empty):
-            return top_ports_html + '<p class="note" data-i18n="rpt_pu_no_hit_rules">No rules were hit during this period.</p>'
-        return top_ports_html + note + _rule_cards_html(hit_df, mode="hit")
+            html_parts.append(top_ports_html + '<p class="note" data-i18n="rpt_pu_no_hit_rules">No rules were hit during this period.</p>')
+        else:
+            html_parts.append(top_ports_html + note + _rule_cards_html(hit_df, mode="hit"))
+        return "".join(html_parts)
 
     def _mod03_html(self) -> str:
+        html_parts = []
+        html_parts.append(render_section_guidance("pu_mod03_unused_detail",
+                                                  profile="security_risk",
+                                                  detail_level="standard"))
+
         mod03 = self._r.get("mod03", {})
         unused_df = mod03.get("unused_df")
         count = mod03.get("record_count", 0)
@@ -426,19 +448,26 @@ class PolicyUsageHtmlExporter:
             )
 
         if unused_df is None or (hasattr(unused_df, "empty") and unused_df.empty):
-            return (
+            html_parts.append(
                 caveat_html
                 + '<p class="note" data-i18n="rpt_pu_no_unused_rules">All rules had traffic hits; no unused rules found.</p>'
             )
-
-        note = f'<p style="color:#718096;font-size:12px;">{count} rows</p>' if count else ""
-        return caveat_html + note + _rule_cards_html(unused_df, mode="unused")
+        else:
+            note = f'<p style="color:#718096;font-size:12px;">{count} rows</p>' if count else ""
+            html_parts.append(caveat_html + note + _rule_cards_html(unused_df, mode="unused"))
+        return "".join(html_parts)
 
     def _mod04_html(self) -> str:
+        html_parts = []
+        html_parts.append(render_section_guidance("pu_mod04_deny_effectiveness",
+                                                  profile="security_risk",
+                                                  detail_level="standard"))
+
         mod04 = self._r.get("mod04", {})
         total_deny = mod04.get("total_deny", 0)
         if total_deny == 0:
-            return '<p class="note" data-i18n="rpt_pu_no_deny">No deny rules found in the active policy.</p>'
+            html_parts.append('<p class="note" data-i18n="rpt_pu_no_deny">No deny rules found in the active policy.</p>')
+            return "".join(html_parts)
 
         deny_hit = mod04.get("deny_hit_count", 0)
         deny_unused = mod04.get("deny_unused_count", 0)
@@ -474,4 +503,5 @@ class PolicyUsageHtmlExporter:
                 + _df_to_html(detail_df)
             )
 
-        return stats + summary_html + detail_html
+        html_parts.append(stats + summary_html + detail_html)
+        return "".join(html_parts)
