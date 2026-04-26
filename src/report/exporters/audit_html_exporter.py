@@ -192,7 +192,8 @@ class AuditHtmlExporter:
             summary_pills = summary_pills.replace("</div>", data_source_pill + "</div>", 1)
 
         body = (
-            '<section id="summary" class="card report-hero">'
+            render_section_guidance("audit_mod00_executive", profile="security_risk", detail_level="standard")
+            + '<section id="summary" class="card report-hero">'
             '<div class="report-hero-top"><div class="report-kicker" data-i18n="rpt_kicker_audit">Audit & Event Report</div>'
             '<h1 data-i18n="rpt_au_title">Illumio Audit &amp; System Events Report</h1>'
             '<p class="report-subtitle">'
