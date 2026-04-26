@@ -23,9 +23,42 @@ from .table_renderer import render_df_table
 from .chart_renderer import render_plotly_html
 from .code_highlighter import get_highlight_css
 from src.humanize_ext import human_number
+from src.report.section_guidance import get_guidance, visible_in
+from src.i18n import t
 
 _CSS = build_css('traffic')
 _HIGHLIGHT_CSS = f'<style>\n{get_highlight_css()}\n</style>'
+
+
+def render_section_guidance(module_id: str, profile: str, detail_level: str) -> str:
+    """Return a small HTML card with the section's reader-guide.
+    Empty string if module has no guidance, or section not visible at this
+    (profile, detail_level)."""
+    g = get_guidance(module_id)
+    if g is None:
+        return ""
+    if not visible_in(module_id, profile, detail_level):
+        return ""
+    purpose = t(g.purpose_key)
+    actions = t(g.recommended_actions_key)
+    if detail_level == "executive":
+        return (
+            '<div class="section-guidance executive">'
+            f'<div><b>{t("rpt_guidance_purpose_label")}</b>: {purpose}</div>'
+            f'<div><b>{t("rpt_guidance_recommended_actions_label")}</b>: {actions}</div>'
+            "</div>"
+        )
+    signals = t(g.watch_signals_key)
+    how = t(g.how_to_read_key)
+    return (
+        '<div class="section-guidance standard">'
+        f'<div><b>{t("rpt_guidance_purpose_label")}</b>: {purpose}</div>'
+        f'<div><b>{t("rpt_guidance_watch_signals_label")}</b>: {signals}</div>'
+        f'<div><b>{t("rpt_guidance_how_to_read_label")}</b>: {how}</div>'
+        f'<div><b>{t("rpt_guidance_recommended_actions_label")}</b>: {actions}</div>'
+        "</div>"
+    )
+
 
 def _render_chart_for_html(chart_spec: dict | None) -> str:
     """Emit plotly interactive div. Matplotlib PNG is PDF-only; never shown in HTML."""
@@ -199,8 +232,8 @@ _RULE_DESCRIPTIONS = {
              'Checks for traffic on ransomware\'s primary attack ports (SMB 445, RPC 135, RDP 3389, WinRM 5985/5986) that is NOT blocked. These are the exact ports used in EternalBlue, NotPetya, and WannaCry-class attacks for network-wide lateral spread.'),
     'B002': ('Ransomware High-Risk Remote Access Allowed',
              'Detects allowed flows on secondary remote-access ports (TeamViewer 5938, VNC 5900, NetBIOS 137-139). Ransomware operators and APT groups use these for C2 persistence and remote control after initial compromise.'),
-    'B003': ('Ransomware Ports in Test Mode — Block Not Active',
-             'Detects medium-risk ports (SSH 22, NFS 2049, FTP 20/21, HTTP 80) showing as potentially_blocked. This means the segmentation rule exists but the workload is in visibility/test mode — the block is NOT enforced and traffic flows freely.'),
+    'B003': ('Ransomware Risk Port (Medium) — Uncovered',
+             t('rpt_rule_b003_desc')),
     # ── Policy & coverage gaps ─────────────────────────────────────────────────
     'B004': ('Unmanaged Source High Activity',
              'Counts flows from hosts not enrolled in the PCE. Unmanaged hosts have no VEN and therefore no micro-segmentation enforcement — they are outside the zero-trust boundary and represent uncontrolled attack surface.'),
@@ -235,8 +268,8 @@ _RULE_DESCRIPTIONS = {
     'L007': ('Unmanaged Host Accessing Critical Services',
              'Detects unmanaged (non-PCE) hosts communicating on database, identity (Kerberos/LDAP), or Windows management ports to managed workloads. Unmanaged hosts have no VEN enforcement — they are outside zero-trust. If they can reach critical services, they represent uncontrolled lateral movement entry points.'),
     # ── Lateral movement — enforcement gap ──────────────────────────────────────
-    'L008': ('Lateral Ports in Test Mode — Policy Not Enforced',
-             'Identifies \'potentially_blocked\' flows on lateral movement ports. This means the policy rule exists but the destination workload is in visibility/test mode — the block is not active. These are live, traversable attack paths right now. The most common cause of "we had policies but still got breached" incidents.'),
+    'L008': ('Lateral Ports in Test Mode (PB)',
+             t('rpt_rule_l008_desc')),
     # ── Lateral movement — exfiltration pattern ─────────────────────────────────
     'L009': ('Data Exfiltration Pattern — Outbound to Unmanaged',
              'Detects managed workloads transferring significant data volume to unmanaged (external/unknown) destinations. This is the post-lateral-movement exfiltration phase: attacker has pivoted to a high-value host and is now staging or exfiltrating data to an external C2 or drop server outside PCE visibility.'),
@@ -311,9 +344,12 @@ def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
 class HtmlExporter:
     """Export report results to a single self-contained HTML file."""
 
-    def __init__(self, results: dict, data_source: str = ""):
+    def __init__(self, results: dict, data_source: str = "",
+                 profile: str = "security_risk", detail_level: str = "standard"):
         self._r = results
         self._data_source = data_source
+        self._profile = profile
+        self._detail_level = detail_level
 
     def export(self, output_dir: str = 'reports') -> str:
         """Write HTML file and return full path."""
@@ -327,7 +363,9 @@ class HtmlExporter:
         logger.info(f"[HtmlExporter] Saved: {filepath}")
         return filepath
 
-    def _build(self) -> str:
+    def _build(self, profile: str = "", detail_level: str = "") -> str:
+        profile = profile or self._profile
+        detail_level = detail_level or self._detail_level
         mod12 = self._r.get('mod12', {})
         findings = self._r.get('findings', [])
         n_findings = str(len(findings))
@@ -447,34 +485,54 @@ class HtmlExporter:
             '<h2 data-i18n="rpt_key_findings">Key Findings</h2>' + key_findings_html +
             attack_summary_html +
             '</section>\n' +
-            self._section('overview', 'rpt_tr_sec_overview', '1 \u00b7 Traffic Overview', self._mod01_html(),
+            self._section('overview', 'rpt_tr_sec_overview', '1 \u00b7 Traffic Overview',
+                          render_section_guidance('mod01', profile=profile, detail_level=detail_level) + self._mod01_html(),
                           'rpt_tr_sec_overview_intro', 'Start from overall traffic scale, Policy coverage, and top Ports to set a baseline for reading the rest of the report.') + '\n' +
-            self._section('policy', 'rpt_tr_sec_policy', '2 \u00b7 Policy Decisions', self._mod02_html(),
-                          'rpt_tr_sec_policy_intro', 'Break down the ratios and details of Allowed, Blocked, and Potentially Blocked to gauge how Policy is actually landing.') + '\n' +
-            self._section('uncovered', 'rpt_tr_sec_uncovered', '3 \u00b7 Uncovered Flows', self._mod03_html(),
-                          'rpt_tr_sec_uncovered_intro', 'Focus on traffic not yet covered by effective Policy, helping prioritise which Services and directions to tighten first.') + '\n' +
-            self._section('ransomware', 'rpt_tr_sec_ransomware', '4 \u00b7 Ransomware Exposure', self._mod04_html(),
-                          'rpt_tr_sec_ransomware_intro', 'Check high-risk Ports, Allowed flows, and host exposure commonly tied to ransomware attack chains.') + '\n' +
+            (self._section('policy', 'rpt_tr_sec_policy', '2 \u00b7 Policy Decisions',
+                           render_section_guidance('mod02', profile=profile, detail_level=detail_level) + self._mod02_html(),
+                           'rpt_tr_sec_policy_intro', 'Break down the ratios and details of Allowed, Blocked, and Potentially Blocked to gauge how Policy is actually landing.') + '\n'
+             if visible_in('mod02_policy_decisions', profile, detail_level) else '') +
+            (self._section('uncovered', 'rpt_tr_sec_uncovered', '3 \u00b7 Uncovered Flows',
+                           render_section_guidance('mod03', profile=profile, detail_level=detail_level) + self._mod03_html(),
+                           'rpt_tr_sec_uncovered_intro', 'Focus on traffic not yet covered by effective Policy, helping prioritise which Services and directions to tighten first.') + '\n'
+             if visible_in('mod03_uncovered_flows', profile, detail_level) else '') +
+            (self._section('ransomware', 'rpt_tr_sec_ransomware', '4 \u00b7 Ransomware Exposure',
+                           render_section_guidance('mod04', profile=profile, detail_level=detail_level) + self._mod04_html(),
+                           'rpt_tr_sec_ransomware_intro', 'Check high-risk Ports, Allowed flows, and host exposure commonly tied to ransomware attack chains.') + '\n'
+             if visible_in('mod04_ransomware_exposure', profile, detail_level) else '') +
             # mod05 (Remote Access) consolidated into mod15 (Lateral Movement)
 
-            self._section('user', 'rpt_tr_sec_user', '6 \u00b7 User &amp; Process', self._mod06_html(),
+            self._section('user', 'rpt_tr_sec_user', '6 \u00b7 User &amp; Process',
+                          render_section_guidance('mod06', profile=profile, detail_level=detail_level) + self._mod06_html(),
                           'rpt_tr_sec_user_intro', 'Add user and process context to traffic to judge whether these connections match existing operational patterns.') + '\n' +
-            self._section('matrix', 'rpt_tr_sec_matrix', '7 \u00b7 Cross-Label Matrix', self._mod07_html(),
-                          'rpt_tr_sec_matrix_intro', 'Observe cross-group communication by Label dimension, useful for surfacing segments that should not interact frequently.') + '\n' +
-            self._section('unmanaged', 'rpt_tr_sec_unmanaged', '8 \u00b7 Unmanaged Hosts', self._mod08_html(),
-                          'rpt_tr_sec_unmanaged_intro', 'Inventory traffic involving hosts not managed by VEN; these typically sit outside the visibility and control boundary.') + '\n' +
-            self._section('distribution', 'rpt_tr_sec_distribution','9 \u00b7 Traffic Distribution', self._mod09_html(),
+            (self._section('matrix', 'rpt_tr_sec_matrix', '7 \u00b7 Cross-Label Matrix',
+                           render_section_guidance('mod07', profile=profile, detail_level=detail_level) + self._mod07_html(),
+                           'rpt_tr_sec_matrix_intro', 'Observe cross-group communication by Label dimension, useful for surfacing segments that should not interact frequently.') + '\n'
+             if visible_in('mod07_cross_label_matrix', profile, detail_level) else '') +
+            (self._section('unmanaged', 'rpt_tr_sec_unmanaged', '8 \u00b7 Unmanaged Hosts',
+                           render_section_guidance('mod08', profile=profile, detail_level=detail_level) + self._mod08_html(),
+                           'rpt_tr_sec_unmanaged_intro', 'Inventory traffic involving hosts not managed by VEN; these typically sit outside the visibility and control boundary.') + '\n'
+             if visible_in('mod08_unmanaged_hosts', profile, detail_level) else '') +
+            self._section('distribution', 'rpt_tr_sec_distribution', '9 \u00b7 Traffic Distribution',
+                          render_section_guidance('mod09', profile=profile, detail_level=detail_level) + self._mod09_html(),
                           'rpt_tr_sec_distribution_intro', 'Observe how overall traffic is distributed across Ports and protocols to quickly spot concentration or unexpected highs.') + '\n' +
-            self._section('allowed', 'rpt_tr_sec_allowed', '10 \u00b7 Allowed Traffic', self._mod10_html(),
+            self._section('allowed', 'rpt_tr_sec_allowed', '10 \u00b7 Allowed Traffic',
+                          render_section_guidance('mod10', profile=profile, detail_level=detail_level) + self._mod10_html(),
                           'rpt_tr_sec_allowed_intro', 'Focus on explicitly Allowed traffic to confirm which are required business paths and which still deserve an audit.') + '\n' +
-            self._section('bandwidth', 'rpt_tr_sec_bandwidth', '11 \u00b7 Bandwidth &amp; Volume', self._mod11_html(),
+            self._section('bandwidth', 'rpt_tr_sec_bandwidth', '11 \u00b7 Bandwidth &amp; Volume',
+                          render_section_guidance('mod11', profile=profile, detail_level=detail_level) + self._mod11_html(),
                           'rpt_tr_sec_bandwidth_intro', 'Review high-volume flows by bandwidth and data volume to identify large backups, batch jobs, or suspected exfiltration.') + '\n' +
-            self._section('readiness', 'rpt_tr_sec_readiness', '13 \u00b7 Enforcement Readiness', self._mod13_html(),
-                          'rpt_tr_sec_readiness_intro', 'Aggregate multiple signals into a readiness score to help assess whether it is safe to tighten Enforcement.') + '\n' +
-            self._section('infrastructure','rpt_tr_sec_infrastructure','14 \u00b7 Infrastructure Scoring', self._mod14_html(),
+            (self._section('readiness', 'rpt_tr_sec_readiness', '13 \u00b7 Enforcement Readiness',
+                           render_section_guidance('mod13', profile=profile, detail_level=detail_level) + self._mod13_html(),
+                           'rpt_tr_sec_readiness_intro', 'Aggregate multiple signals into a readiness score to help assess whether it is safe to tighten Enforcement.') + '\n'
+             if visible_in('mod13_readiness', profile, detail_level) else '') +
+            self._section('infrastructure', 'rpt_tr_sec_infrastructure', '14 \u00b7 Infrastructure Scoring',
+                          render_section_guidance('mod14', profile=profile, detail_level=detail_level) + self._mod14_html(),
                           'rpt_tr_sec_infrastructure_intro', 'Identify critical nodes and infrastructure roles with large blast radius from application communication patterns.') + '\n' +
-            self._section('lateral', 'rpt_tr_sec_lateral', '15 \u00b7 Lateral Movement', self._mod15_html(),
-                          'rpt_tr_sec_lateral_intro', 'Focus on paths, Services, and sources tied to lateral movement to surface spread risk.') + '\n' +
+            (self._section('lateral', 'rpt_tr_sec_lateral', '15 \u00b7 Lateral Movement',
+                           render_section_guidance('mod15', profile=profile, detail_level=detail_level) + self._mod15_html(),
+                           'rpt_tr_sec_lateral_intro', 'Focus on paths, Services, and sources tied to lateral movement to surface spread risk.') + '\n'
+             if visible_in('mod15_lateral_movement', profile, detail_level) else '') +
             '<section id="findings" class="card">'
             '<h2><span data-i18n="rpt_tr_sec_findings">Security Findings</span> (' + n_findings + ')</h2>'
             + self._findings_html() +
@@ -674,13 +732,14 @@ class HtmlExporter:
         stats = (
             '<div class="coverage-grid">'
             + _cov_stat('<span data-i18n="rpt_tr_enforced_coverage">Enforced Coverage</span>', str(enforced_cov) + '%')
-            + _cov_stat('<span data-i18n="rpt_tr_staged_coverage">Staged Coverage</span>', str(staged_cov) + '%')
+            + _cov_stat(f'<span data-i18n="rpt_pb_label">{t("rpt_pb_label")}</span>', str(staged_cov) + '%')
             + _cov_stat('<span data-i18n="rpt_tr_true_gap">True Gap</span>', str(true_gap) + '%')
             + (_cov_stat('<span data-i18n="rpt_tr_inbound_coverage">Inbound Coverage</span>', str(inb_cov) + '%') if inb_cov is not None else '')
             + (_cov_stat('<span data-i18n="rpt_tr_outbound_coverage">Outbound Coverage</span>', str(outb_cov) + '%') if outb_cov is not None else '')
             + _cov_stat('<span data-i18n="rpt_col_uncovered_flows">Uncovered Flows</span>', str(m.get('total_uncovered', 0)))
             + '</div>'
             + bar_html
+            + (f'<p class="note" data-i18n-html="rpt_pb_explainer">{t("rpt_pb_explainer")}</p>' if staged_cov > 0 else '')
         )
         out = (
             stats

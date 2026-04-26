@@ -241,6 +241,13 @@ TRAFFIC_CSS = """\
   .ev-pill span.ev-label { color: var(--slate-50); font-size: 10px; display: block; text-transform: uppercase; letter-spacing: .04em; }
   .ev-pill b { color: var(--cyan-110); }
   .finding-rec { background: var(--tan); border-left: 3px solid var(--orange); padding: 10px 12px; border-radius: 4px; font-size: 12px; color: var(--cyan-120); line-height: 1.6; }
+  .section-guidance { background: #f6f8fa; border-left: 4px solid #0969da; padding: 8px 12px; margin: 8px 0 12px; font-size: .9em; }
+  .section-guidance.executive { background: #fff8c5; border-left-color: #d4a72c; }
+  .section-guidance b { color: #24292f; }
+  @media (prefers-color-scheme: dark) {
+    .section-guidance { background: #161b22; border-left-color: #58a6ff; color: #c9d1d9; }
+    .section-guidance b { color: #c9d1d9; }
+  }
 """
 
 AUDIT_CSS = """\

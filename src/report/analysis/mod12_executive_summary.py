@@ -110,7 +110,7 @@ def _compute_maturity_score(results: dict[str, Any]) -> dict[str, Any]:
         },
     }
 
-def executive_summary(results: dict[str, Any]) -> dict:
+def executive_summary(results: dict[str, Any], profile: str = "security_risk") -> dict:
     mod01 = results.get("mod01", {})
     mod03 = results.get("mod03", {})
     mod04 = results.get("mod04", {})
@@ -136,7 +136,10 @@ def executive_summary(results: dict[str, Any]) -> dict:
         {"label": "Staged Coverage", "value": f"{staged_cov}%"},
         {"label": "True Gap", "value": f"{true_gap}%"},
         {"label": "Blocked Flows", "value": _fmt(mod01.get("blocked_flows", 0))},
-        {"label": "Potentially Blocked", "value": _fmt(mod01.get("potentially_blocked_flows", 0))},
+        {"label": "PB Uncovered Exposure", "value": _fmt(
+            mod01.get("potentially_blocked_flows") or
+            mod03.get("pb_uncovered_count", mod03.get("n_potentially_blocked", 0))
+        )},
         {"label": "Unmanaged Src %", "value": f"{100 - mod01.get('src_managed_pct', 100):.1f}%"},
         {"label": "Total Data Volume", "value": f"{mod01.get('total_mb', 0):.1f} MB"},
         {"label": "Date Range", "value": mod01.get("date_range", "N/A")},
@@ -268,3 +271,83 @@ def executive_summary(results: dict[str, Any]) -> dict:
         },
     }
 
+
+def analyze(flows_df: "pd.DataFrame", profile: str = "security_risk", **kwargs) -> dict:
+    """Profile-aware executive summary from raw flows DataFrame.
+
+    profile: "security_risk" | "network_inventory"
+    kwargs: optional pre-computed summaries (attack_summary, lateral_summary,
+            readiness_summary for security_risk; label_summary, ringfence_summary,
+            unmanaged_summary for network_inventory).
+    """
+    if profile == "security_risk":
+        return _security_risk_kpis(flows_df, **kwargs)
+    if profile == "network_inventory":
+        return _network_inventory_kpis(flows_df, **kwargs)
+    raise ValueError(f"unknown profile: {profile!r}")
+
+
+def _security_risk_kpis(flows_df, *, attack_summary=None, lateral_summary=None,
+                        readiness_summary=None, **_) -> dict:
+    total = len(flows_df)
+    allowed = int((flows_df["policy_decision"] == "allowed").sum())
+    pb = int((flows_df["policy_decision"] == "potentially_blocked").sum())
+    blocked = int((flows_df["policy_decision"] == "blocked").sum())
+    allowed_share = (allowed / total) if total else 0.0
+    maturity = allowed_share if readiness_summary is None else (
+        allowed_share * readiness_summary.get("ready_to_enforce_share", 1.0))
+    high_risk_lateral = (lateral_summary or {}).get("high_risk_path_count", 0)
+    top_action = (attack_summary or {}).get("action_matrix", {}).get("top1", {
+        "code": "NONE", "count": 0, "text": ""})
+    kpis = {
+        "microsegmentation_maturity": round(maturity, 4),
+        "active_allow_coverage": round(allowed_share, 4),
+        "pb_uncovered_exposure": pb,
+        "blocked_flows": blocked,
+        "high_risk_lateral_paths": high_risk_lateral,
+        "top_remediation_action": top_action,
+    }
+    return {
+        "profile": "security_risk",
+        "kpis": kpis,
+        "kpi_aliases": {"staged_coverage": pb},  # DEPRECATED alias for v3.21 removal
+        "top_actions": _build_top_actions(attack_summary, limit=3),
+    }
+
+
+def _build_top_actions(attack_summary, *, limit=3):
+    if not attack_summary:
+        return []
+    rows = attack_summary.get("action_matrix", {}).get("ranked", [])
+    return [{"code": r.get("code", ""), "count": r.get("count", 0), **r} for r in rows[:limit]]
+
+
+def _network_inventory_kpis(flows_df, *, label_summary=None, ringfence_summary=None,
+                             unmanaged_summary=None, **_) -> dict:
+    import pandas as pd
+    total = len(flows_df)
+    # Count distinct apps and envs from destination labels
+    app_col = "app" if "app" in flows_df.columns else ("dst_app" if "dst_app" in flows_df.columns else None)
+    apps = flows_df[app_col].dropna().nunique() if app_col and total else 0
+    env_col = "env" if "env" in flows_df.columns else ("dst_env" if "dst_env" in flows_df.columns else None)
+    envs = flows_df[env_col].dropna().nunique() if env_col and total else 0
+    # Known dependency coverage: flows where src+dst labels are fully resolved
+    if "src_label" in flows_df.columns and "dst_label" in flows_df.columns:
+        known = int((flows_df["src_label"].notna() & flows_df["dst_label"].notna()).sum())
+    else:
+        known = 0
+    label_complete = (label_summary or {}).get("fill_rate",
+        (known / total) if total else 0.0)
+    rule_candidates = (ringfence_summary or {}).get("candidate_rules_count", 0)
+    unmanaged = (unmanaged_summary or {}).get("count", 0)
+    top_gap = (ringfence_summary or {}).get("top_rule_gap", {
+        "src_label": None, "dst_label": None, "flows": 0})
+    kpis = {
+        "observed_apps_envs": {"apps": apps, "envs": envs},
+        "known_dependency_coverage": round((known / total) if total else 0.0, 4),
+        "label_completeness": round(label_complete, 4),
+        "rule_candidate_count": rule_candidates,
+        "unmanaged_unknown_dependencies": unmanaged,
+        "top_rule_building_gap": top_gap,
+    }
+    return {"profile": "network_inventory", "kpis": kpis}

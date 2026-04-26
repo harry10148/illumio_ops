@@ -110,12 +110,12 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
         managed_flags = src_flags + dst_flags
         enforce_ratio = float(sum(managed_flags) / len(managed_flags)) if managed_flags else global_workload_ratio
 
-        # Staged readiness: potentially_blocked means rules exist but not yet enforced.
-        # This is a positive signal (rules are ready) — reward it instead of penalizing.
+        # PB flows are uncovered exposure (no enforcement yet). Only allowed flows count as ready.
         pb_ratio = float((flows["policy_decision"] == "potentially_blocked").mean())
         blocked_ratio = float((flows["policy_decision"] == "blocked").mean())
-        # staged_ratio combines allowed (already enforced) + potentially_blocked (ready to enforce)
-        staged_ratio = min(1.0, allowed_ratio + pb_ratio)
+        pb_uncovered_count = int((flows["policy_decision"] == "potentially_blocked").sum())
+        # staged_ratio reflects only enforced (allowed) coverage — PB is NOT credited here
+        staged_ratio = allowed_ratio
 
         remote = flows[flows["port"].isin(_REMOTE_PORTS)]
         if remote.empty:
@@ -149,6 +149,7 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
                 "flow_count": total,
                 "connection_count": int(flows["num_connections"].sum()),
                 "blocked_or_pb_flow_count": int(flows["policy_decision"].isin(["blocked", "potentially_blocked"]).sum()),
+                "pb_uncovered_count": pb_uncovered_count,
             }
         )
 
@@ -278,8 +279,12 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
         factor_scores['remote_app_coverage'],
     ]
 
+    total_pb_uncovered = int(app_env_scores["pb_uncovered_count"].sum())
+
     return {
         "total_score": total_score,
+        "ready_to_enforce_share": round(avg_policy, 4),
+        "pb_uncovered_count": total_pb_uncovered,
         "grade": _score_to_grade(total_score),
         "factor_scores": factor_scores,
         "factor_table": factor_table,
