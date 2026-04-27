@@ -675,3 +675,112 @@ class ReportGenerator:
   </div>
 </div>
 </body></html>"""
+
+
+def generate_traffic_xlsx(flows, out_path: str, profile: str = "security_risk", top_n: int = 100) -> str:
+    """Generate a Traffic report XLSX with real per-sheet DataFrames."""
+    import pandas as pd
+    from openpyxl import Workbook
+    from src.report.analysis.mod12_executive_summary import analyze as exec_analyze
+    from src.report.analysis.mod02_policy_decisions import policy_decision_analysis
+    from src.report.analysis.mod03_uncovered_flows import uncovered_flows
+    from src.report.analysis.mod15_lateral_movement import lateral_movement_risk
+
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    # --- Executive Summary ---
+    ws = wb.create_sheet("Executive Summary")
+    try:
+        exec_data = exec_analyze(flows, profile=profile)
+        kpis = exec_data.get("kpis", {})
+        ws.append(["KPI", "Value"])
+        if isinstance(kpis, dict):
+            for k, v in kpis.items():
+                if isinstance(v, dict):
+                    ws.append([str(k), str(v.get("text", str(v)))])
+                else:
+                    ws.append([str(k), str(v)])
+        elif isinstance(kpis, list):
+            for item in kpis:
+                ws.append([str(item.get("label", "")), str(item.get("value", ""))])
+    except Exception:
+        ws.append(["Note", "Executive summary unavailable"])
+
+    # --- Policy Decisions ---
+    ws = wb.create_sheet("Policy Decisions")
+    try:
+        pol = policy_decision_analysis(flows, top_n=top_n)
+        summary_rows = []
+        for decision in ("allowed", "blocked", "potentially_blocked", "unknown"):
+            stats = pol.get(decision, {})
+            if isinstance(stats, dict) and "count" in stats:
+                summary_rows.append({"Decision": decision, "Count": stats["count"],
+                                     "% of Total": stats.get("pct_of_total", 0)})
+        if summary_rows:
+            ws.append(list(summary_rows[0].keys()))
+            for row in summary_rows:
+                ws.append(list(row.values()))
+        else:
+            ws.append(["Decision", "Count"])
+    except Exception:
+        ws.append(["Decision", "Count"])
+
+    # --- Uncovered Flows ---
+    ws = wb.create_sheet("Uncovered Flows")
+    try:
+        unc = uncovered_flows(flows, top_n=top_n)
+        top_flows = unc.get("top_flows")
+        if top_flows is not None and hasattr(top_flows, "empty") and not top_flows.empty:
+            ws.append(list(top_flows.columns))
+            for _, row in top_flows.iterrows():
+                ws.append([str(v) for v in row])
+        else:
+            # Fallback: filter flows directly
+            if hasattr(flows, "columns") and "policy_decision" in flows.columns:
+                uncov = flows[flows["policy_decision"] != "allowed"]
+                ws.append(list(flows.columns))
+                for _, row in uncov.iterrows():
+                    ws.append([str(v) for v in row])
+            else:
+                ws.append(["Note", f"coverage_pct={unc.get('coverage_pct', 'N/A')}"])
+    except Exception:
+        if hasattr(flows, "columns") and "policy_decision" in flows.columns:
+            uncov = flows[flows["policy_decision"] != "allowed"]
+            ws.append(list(flows.columns))
+            for _, row in uncov.iterrows():
+                ws.append([str(v) for v in row])
+        else:
+            ws.append(["src", "dst", "port", "policy_decision"])
+
+    # --- Lateral Movement ---
+    ws = wb.create_sheet("Lateral Movement")
+    try:
+        lat = lateral_movement_risk(flows, top_n=top_n)
+        service_summary = lat.get("service_summary")
+        if service_summary is not None and hasattr(service_summary, "empty") and not service_summary.empty:
+            ws.append(list(service_summary.columns))
+            for _, row in service_summary.iterrows():
+                ws.append([str(v) for v in row])
+        else:
+            ws.append(["Note", "No lateral movement flows detected"])
+    except Exception:
+        ws.append(["Note", "Lateral movement data unavailable"])
+
+    # --- Top Talkers ---
+    ws = wb.create_sheet("Top Talkers")
+    try:
+        if hasattr(flows, "columns") and "src" in flows.columns and "dst" in flows.columns:
+            talkers = (flows.groupby(["src", "dst"]).size()
+                       .sort_values(ascending=False).head(top_n)
+                       .reset_index(name="flows"))
+            ws.append(list(talkers.columns))
+            for row in talkers.itertuples(index=False):
+                ws.append(list(row))
+        else:
+            ws.append(["src", "dst", "flows"])
+    except Exception:
+        ws.append(["src", "dst", "flows"])
+
+    wb.save(out_path)
+    return out_path
