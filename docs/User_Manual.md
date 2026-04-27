@@ -429,6 +429,103 @@ The package also ships the `illumio-ops` entry-point CLI with the following subc
 
 > **SIEM operator commands:** `illumio-ops siem test`, `illumio-ops siem flush`, `illumio-ops siem status`.
 
+#### `illumio-ops cache` subcommands
+
+| Command | Options | Description |
+|---|---|---|
+| `cache backfill` | `--source events\|traffic`, `--since YYYY-MM-DD`, `--until YYYY-MM-DD` | Backfill the local SQLite cache from the PCE API for a historical date range |
+| `cache status` | — | Show row counts and last-ingested timestamps for events, traffic_raw, and traffic_agg tables |
+| `cache retention` | — | Display the configured retention policy (events, raw, aggregated) |
+
+```bash
+# Backfill the last 30 days of audit events
+illumio-ops cache backfill --source events --since 2026-03-28
+
+# Backfill traffic flows for a specific window
+illumio-ops cache backfill --source traffic --since 2026-03-01 --until 2026-03-31
+
+# Check cache health
+illumio-ops cache status
+```
+
+The cache must be enabled in `config.json` (`pce_cache.enabled: true`) before backfill commands will succeed.
+
+#### `illumio-ops siem` subcommands
+
+| Command | Options | Description |
+|---|---|---|
+| `siem test <name>` | destination name argument | Send a synthetic `siem.test` event to the named destination; reports latency on success |
+| `siem status` | — | Show per-destination pending / sent / failed counts and DLQ depth |
+| `siem dlq --dest <name>` | `--limit N` (default 50) | List dead-letter queue entries for a destination |
+| `siem replay --dest <name>` | `--limit N` (default 100) | Requeue DLQ entries as pending dispatch rows |
+| `siem purge --dest <name>` | `--older-than N` (default 30 days) | Delete DLQ entries older than N days |
+
+```bash
+# Test a Splunk HEC destination
+illumio-ops siem test splunk-hec
+
+# Check dispatch health
+illumio-ops siem status
+
+# Inspect the DLQ
+illumio-ops siem dlq --dest splunk-hec --limit 20
+
+# Replay up to 500 entries after fixing the root cause
+illumio-ops siem replay --dest splunk-hec --limit 500
+
+# Clean up entries older than 7 days
+illumio-ops siem purge --dest splunk-hec --older-than 7
+```
+
+#### `illumio-ops rule` subcommands
+
+| Command | Options | Description |
+|---|---|---|
+| `rule list` | `--type event\|traffic\|bandwidth\|volume\|system\|all`, `--enabled-only` | List all configured monitoring rules, optionally filtered by type |
+
+```bash
+# List all rules
+illumio-ops rule list
+
+# List only traffic rules
+illumio-ops rule list --type traffic
+
+# List only enabled traffic rules
+illumio-ops rule list --type traffic --enabled-only
+```
+
+#### `illumio-ops workload` subcommands
+
+| Command | Options | Description |
+|---|---|---|
+| `workload list` | `--env <value>`, `--limit N` (default 50), `--enforcement full\|selective\|visibility_only\|idle\|all`, `--managed-only` | Fetch and display workloads from the PCE with optional filtering |
+
+```bash
+# List production workloads
+illumio-ops workload list --env prod
+
+# List all VEN-managed workloads in full enforcement
+illumio-ops workload list --enforcement full --managed-only --limit 200
+```
+
+#### `illumio-ops config` subcommands
+
+| Command | Options | Description |
+|---|---|---|
+| `config validate` | `--file <path>` | Validate `config.json` against the Pydantic schema; exits 0 on success, prints errors on failure |
+| `config show` | `--section <name>` | Pretty-print current config (or one section: `api`, `smtp`, `web_gui`, etc.) |
+
+```bash
+# Validate the default config.json
+illumio-ops config validate
+
+# Validate a specific file
+illumio-ops config validate --file /opt/illumio_ops/config/config.json
+
+# Show only the web_gui section
+illumio-ops config show --section web_gui
+```
+
 ---
 
 ## 3. Rule Types & Configuration
@@ -903,6 +1000,39 @@ These modules run automatically as part of the Traffic Report pipeline and appea
 | `mod_exfiltration_intel` | Flag managed-to-unmanaged flows with high byte volume; optionally join against a CSV of known-bad IPs for threat-match enrichment | Flows DataFrame with `src_managed` / `dst_managed` + optional `bytes` column | `high_volume_exfil` list, `managed_to_unmanaged_count`, `threat_intel_matches` | `report.threat_intel_csv_path` |
 | `mod_ringfence` | Per-application dependency profile + candidate allow rules for micro-segmentation; top-app summary when no specific app is targeted | Flows DataFrame with `src_app` / `dst_app` labels | Per-app: intra-app flows, cross-app flows, cross-env flows, candidate allow rules; or top-20 apps list | — |
 
+**Threat Intel CSV format (`mod_exfiltration_intel`):**
+
+The optional `report.threat_intel_csv_path` file must contain at least one column named `ip` (the known-bad IP address). Any additional columns (e.g. `threat_category`, `confidence`, `source`) are preserved and surfaced in the threat-match output:
+
+```csv
+ip,threat_category,confidence,source
+185.220.101.1,tor_exit_node,high,abuse.ch
+203.0.113.45,c2_server,critical,custom_intel
+```
+
+Set the path in `config.json`:
+
+```json
+{
+    "report": {
+        "threat_intel_csv_path": "/opt/illumio_ops/data/threat_intel.csv"
+    }
+}
+```
+
+When no file is configured or the file does not exist, `mod_exfiltration_intel` still runs — it will report high-volume managed→unmanaged flows but return an empty `threat_intel_matches` list.
+
+**Application Ringfence usage (`mod_ringfence`):**
+
+Use this module to isolate a single application's dependency profile before authoring micro-segmentation rules:
+
+1. Run a Traffic Report (the module generates a top-20 app summary by default).
+2. Identify the target application from the top-apps list.
+3. Re-run the report focused on one app — the module will return intra-app flows, cross-app flows, cross-environment flows, and a candidate allow-rule list.
+4. Use the candidate allow-rule list as the basis for creating label-based rules in the PCE.
+
+The module skips silently if neither `src_app` nor `dst_app` labels exist in the traffic dataset.
+
 ### 9.11 Draft Policy Decision Behaviour
 
 **Auto-enable of `compute_draft`:** When a ruleset contains rules that use `requires_draft_pd` logic (i.e., the ruleset has pending draft changes), the reporting pipeline automatically enables draft policy decision computation for that ruleset's traffic flows.
@@ -922,6 +1052,63 @@ These modules run automatically as part of the Traffic Report pipeline and appea
 | `allowed_across_boundary` | Allowed despite crossing an application boundary — review required |
 
 **`draft_enforcement_gap` (from `mod_draft_summary` / `mod_draft_actions`):** The set of flows where `policy_decision = potentially_blocked` but the draft resolves to `allowed` or `blocked_by_boundary` — i.e., flows that currently have no rule but would be covered (or explicitly blocked) once the draft is provisioned. This gap quantifies the enforcement delta that will take effect at the next Provision.
+
+### 9.12 Change Impact Workflow
+
+The `mod_change_impact` module compares KPIs from the current report to the most recent saved snapshot. This enables trend tracking across report runs without manual diffing.
+
+**How snapshots work:**
+
+1. Each time a Traffic Report is generated, the engine saves a snapshot JSON containing the report's KPI values and a `generated_at` timestamp.
+2. On the next report run, `mod_change_impact` loads the previous snapshot and computes per-KPI deltas.
+3. Snapshots older than `report.snapshot_retention_days` (default 90) are pruned automatically.
+
+**KPI direction semantics:**
+
+| KPI | Direction | Better when |
+|---|---|---|
+| `pb_uncovered_exposure` | lower-is-better | Decreasing = fewer uncovered flows |
+| `high_risk_lateral_paths` | lower-is-better | Decreasing = lateral risk reduced |
+| `blocked_flows` | lower-is-better | Decreasing = fewer blocked/dropped flows |
+| `active_allow_coverage` | higher-is-better | Increasing = more flows have an explicit allow rule |
+| `microsegmentation_maturity` | higher-is-better | Increasing = closer to full enforcement |
+
+**Verdict logic:**
+
+| Verdict | Condition |
+|---|---|
+| `improved` | More KPIs improved than regressed |
+| `regressed` | More KPIs regressed than improved |
+| `neutral` | Equal count of improved and regressed KPIs (or no previous snapshot) |
+
+When no previous snapshot exists (first report run), the module returns `skipped: true` with `reason: no_previous_snapshot`.
+
+**Operational use:** Run reports on a consistent schedule (e.g., weekly) and monitor the `overall_verdict` trend. A sustained `regressed` verdict after a policy change indicates the change introduced new coverage gaps or enabled unwanted traffic patterns that should be investigated.
+
+### 9.13 Enforcement Rollout Planning
+
+The `mod_enforcement_rollout` module ranks every application found in the traffic dataset by its readiness score for moving to full enforcement mode in the PCE.
+
+**Scoring formula:**
+
+```
+score = (allowed_flows / total_flows) - (potentially_blocked_flows / total_flows)
+```
+
+A high score means most flows are already covered by allow rules (high numerator) and few flows would be disrupted by enabling default-deny (low denominator). A score near 1.0 indicates the application is ready for enforcement with minimal operational risk.
+
+**Output per application:**
+
+| Field | Description |
+|---|---|
+| `app` | Application label value |
+| `priority` | Rank order (1 = most ready) |
+| `why_now` | Human-readable rationale for this ranking |
+| `expected_default_deny_impact` | Number of `potentially_blocked` flows that would be dropped |
+| `required_allow_rules` | Inferred list of port/source pairs that need allow rules before enforcement |
+| `risk_reduction` | Estimated reduction in lateral-movement exposure after enforcement |
+
+Use the priority list to build an enforcement roadmap: start with priority-1 apps (already fully covered), work down to lower-priority apps that need additional allow rules.
 
 ---
 
@@ -1068,6 +1255,79 @@ Example `config.json` fragment:
 }
 ```
 
+### 11.6 PCE Cache
+
+The `pce_cache` block controls the local SQLite cache that stores events and traffic flows for fast offline analysis.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `pce_cache.enabled` | bool | `false` | Enable background ingestion from the PCE |
+| `pce_cache.db_path` | string | `data/pce_cache.sqlite` | Path to the SQLite database file (relative to project root or absolute) |
+| `pce_cache.events_retention_days` | int | `90` | Keep audit events for this many days |
+| `pce_cache.traffic_raw_retention_days` | int | `7` | Keep raw per-flow records for this many days |
+| `pce_cache.traffic_agg_retention_days` | int | `90` | Keep hourly-aggregated traffic for this many days |
+| `pce_cache.events_poll_interval_seconds` | int | `300` | How often (in seconds) the events poller fetches new events from the PCE |
+| `pce_cache.traffic_poll_interval_seconds` | int | `3600` | How often (in seconds) the traffic poller runs an async query |
+| `pce_cache.rate_limit_per_minute` | int | `400` | Maximum PCE API calls per minute (max 500) |
+
+**Enabling the cache:**
+
+```json
+{
+    "pce_cache": {
+        "enabled": true,
+        "db_path": "data/pce_cache.sqlite",
+        "events_retention_days": 90,
+        "traffic_raw_retention_days": 7,
+        "traffic_agg_retention_days": 90,
+        "events_poll_interval_seconds": 300,
+        "traffic_poll_interval_seconds": 3600,
+        "rate_limit_per_minute": 400
+    }
+}
+```
+
+> **SIEM dependency:** The SIEM forwarder requires the PCE cache to be enabled. Traffic and event data is ingested into `pce_cache.sqlite` first, then dispatched to SIEM destinations from the `siem_dispatch` table.
+
+> **Disk sizing:** Raw traffic rows are kept for only 7 days by default. For a typical PCE with 200,000 flows/day, expect approximately 1 GB per 7-day window. Aggregated traffic (hourly summaries) uses ~5 % of raw storage.
+
+### 11.7 Alert Channels Reference
+
+| Channel | Config keys | Auth requirement |
+|---|---|---|
+| Email (SMTP) | `smtp.host`, `smtp.port`, `smtp.user`, `smtp.password`, `smtp.enable_tls` | Depends on server; `smtp.enable_auth: false` for unauthenticated relay |
+| LINE Messaging API | `alerts.line_channel_access_token`, `alerts.line_target_id` | LINE Developer Console: Channel Access Token + User/Group ID |
+| Webhook | `alerts.webhook_url` | Caller provides full URL including any auth token |
+
+Activate a channel by adding its identifier to `alerts.active`:
+
+```json
+{
+    "alerts": {
+        "active": ["mail", "line", "webhook"]
+    }
+}
+```
+
+Channels not listed in `alerts.active` are silently skipped even if their credentials are populated.
+
+**Alert body fields** (included in every alert regardless of channel):
+
+| Field | Description |
+|---|---|
+| `rule_name` | Name of the triggered rule |
+| `rule_type` | `event`, `traffic`, `bandwidth`, or `volume` |
+| `trigger_value` | The measured value that caused the alert |
+| `threshold` | The configured threshold that was exceeded |
+| `timestamp` | UTC ISO-8601 timestamp of the triggering event |
+| `pce_url` | Active PCE profile URL for context |
+
+> **Login failure alerts** include the source IP and username from the PCE audit event, enabling rapid triage without needing to query the PCE Console separately.
+
+> **Cooldown:** Each rule has a configurable cooldown period (in minutes). Alerts will not re-fire for the same rule until the cooldown expires, preventing alert storms from repeated identical events.
+
+> **Test alert:** Use CLI option **1. Alert Rules → 6. Send Test Alert** or `illumio-ops` Web GUI → **Actions → Test Alert** to verify your alert channel is configured and reachable before relying on it in production.
+
 ---
 
 ## 12. Troubleshooting
@@ -1088,6 +1348,12 @@ Example `config.json` fragment:
 | `PDF export is not available in this build` | Offline bundle excludes reportlab (pure Python; no WeasyPrint/Pango/Cairo/GTK required) | Use `--format html` or `--format xlsx` instead |
 | After upgrade: old config loaded | `config.json` preserved as-is | Compare with `config.json.example` and add any new fields |
 | Windows: `nssm.exe not found` | NSSM not in PATH or bundle deploy\ | Add `nssm.exe` to PATH or place it in the bundle `deploy\` folder |
+| `Cache database not configured` | `pce_cache.enabled` is false or `db_path` is wrong | Set `pce_cache.enabled: true` and verify the `db_path` is writable |
+| SIEM test event fails with `Destination not found` | Destination name mismatch or `enabled: false` | Check `siem.destinations[].name` matches the argument; ensure `enabled: true` |
+| `mod_change_impact` shows `skipped: no_previous_snapshot` | First report run or snapshot pruned | Generate a second report after the first; snapshots persist for `report.snapshot_retention_days` days |
+| `config validate` exits non-zero with pydantic errors | Unknown key or wrong type in `config.json` | Fix the reported field; compare against `config.json.example` for reference |
+| Web GUI login fails after uninstall + reinstall | `web_gui.password_hash` from old config preserved | The hash is valid — the password has not changed. Log in with your previous password. |
+| `--purge` accidentally removes config | Ran `uninstall.sh --purge` | The `--purge` flag is documented as destructive; restore from backup. Without `--purge`, config is always preserved. |
 
 ---
 
