@@ -1157,6 +1157,19 @@ Add to `config/config.json`:
 }
 ```
 
+## Global `siem` Config Block
+
+The top-level `siem` section in `config.json` controls the forwarder runtime:
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `siem.enabled` | bool | `false` | Enable the SIEM forwarder |
+| `siem.destinations` | list | `[]` | List of destination objects (see schema below) |
+| `siem.dlq_max_per_dest` | int | `10000` | Maximum dead-letter queue depth per destination before oldest rows are evicted |
+| `siem.dispatch_tick_seconds` | int | `5` | How often (in seconds) the dispatcher checks for pending rows |
+
+**Operator commands:** `illumio-ops siem test <name>` (send synthetic event), `illumio-ops siem flush <name>` (force dispatch all pending rows), `illumio-ops siem status` (show per-destination pending/failed counts).
+
 ## Destination Config Schema
 
 | Field | Type | Default | Description |
