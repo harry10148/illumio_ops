@@ -1079,7 +1079,7 @@ The `mod_change_impact` module compares KPIs from the current report to the most
 |---|---|
 | `improved` | More KPIs improved than regressed |
 | `regressed` | More KPIs regressed than improved |
-| `neutral` | Equal count of improved and regressed KPIs (or no previous snapshot) |
+| `neutral` | Equal count of improved and regressed KPIs |
 
 When no previous snapshot exists (first report run), the module returns `skipped: true` with `reason: no_previous_snapshot`.
 
@@ -1436,7 +1436,7 @@ The top-level `siem` section in `config.json` controls the forwarder runtime:
 | `siem.dlq_max_per_dest` | int | `10000` | Maximum dead-letter queue depth per destination before oldest rows are evicted |
 | `siem.dispatch_tick_seconds` | int | `5` | How often (in seconds) the dispatcher checks for pending rows |
 
-**Operator commands:** `illumio-ops siem test <name>` (send synthetic event), `illumio-ops siem flush <name>` (force dispatch all pending rows), `illumio-ops siem status` (show per-destination pending/failed counts).
+**Operator commands:** `illumio-ops siem test <name>` (send synthetic event), `illumio-ops siem status` (show per-destination dispatch counts), `illumio-ops siem replay --dest <name>` (requeue DLQ entries), `illumio-ops siem dlq --dest <name>` (list dead-lettered events), `illumio-ops siem purge --dest <name>` (remove DLQ entries older than N days).
 
 ## Destination Config Schema
 
