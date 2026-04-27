@@ -69,6 +69,15 @@ def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
     port_coverage = _compute_port_coverage(df, top_n=top_n)
     results['port_coverage'] = port_coverage
 
+    # Draft policy decision cross-tab (only when column is present)
+    if "draft_policy_decision" in df.columns:
+        results["draft_breakdown"] = (
+            df.groupby(["policy_decision", "draft_policy_decision"])
+            .size()
+            .unstack(fill_value=0)
+            .to_dict()
+        )
+
     # Summary table
     summary = pd.DataFrame([
         {
