@@ -96,6 +96,9 @@ class ReportSettings(_Base):
     include_raw_data: bool = False
     max_top_n: int = Field(default=20, ge=1, le=100)
     api_query: ReportApiQuery = Field(default_factory=ReportApiQuery)
+    snapshot_retention_days: int = Field(default=90, ge=1, le=3650)
+    threat_intel_csv_path: Optional[str] = None
+    draft_actions_enabled: bool = True
 
 class LoggingSettings(_Base):
     level: str = "INFO"
