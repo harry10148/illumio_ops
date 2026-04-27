@@ -115,5 +115,23 @@
     "destinations": [],
     "dlq_max_per_dest": 10000,
     "dispatch_tick_seconds": 5
+  },
+  "web_gui": {
+    "username": "illumio",
+    "password_hash": "argon2:$argon2id$v=19$m=65536,t=3,p=4$aQ+N6jDiLEHLRpm78VgOmA$H6UiJKMTN4dT9Ho3bNU3mm8RYuj4RH0k0g+9XcqAmfE",
+    "password_salt": "",
+    "secret_key": "change-me-in-production",
+    "allowed_ips": [
+      "10.0.0.0/8",
+      "127.0.0.1"
+    ],
+    "tls": {
+      "enabled": false,
+      "cert_file": "",
+      "key_file": "",
+      "self_signed": true,
+      "auto_renew": true,
+      "auto_renew_days": 30
+    }
   }
 }
