@@ -701,8 +701,6 @@ config.json
 
 # 7. PCE Cache
 
-# PCE Cache
-
 ## What It Is
 
 The PCE cache is an optional local SQLite database that stores a rolling window of PCE audit events and traffic flows. It acts as a shared buffer between:
@@ -842,7 +840,7 @@ Shows the configured retention policy as a table of TTL values:
 |---|---|
 | `events_retention_days` | 90 |
 | `traffic_raw_retention_days` | 7 |
-| `traffic_agg_retention_days` | 365 |
+| `traffic_agg_retention_days` | 90 |
 
 ### `illumio-ops cache backfill`
 
