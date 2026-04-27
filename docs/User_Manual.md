@@ -408,6 +408,27 @@ python illumio_ops.py --report --source csv --file traffic_export.csv --format a
 python illumio_ops.py --gui --port 8080
 ```
 
+#### `illumio-ops` click subcommands
+
+The package also ships the `illumio-ops` entry-point CLI with the following subcommands:
+
+| Subcommand | Synopsis | Example |
+|---|---|---|
+| `cache` | Manage the local PCE cache: backfill, status, retention | `illumio-ops cache backfill --source events --since 2026-01-01` |
+| `monitor` | Run a single monitoring cycle (non-daemon) | `illumio-ops monitor` |
+| `gui` | Start the standalone Web GUI | `illumio-ops gui --port 8080` |
+| `report` | Generate a report from the CLI | `illumio-ops report --type traffic --format html` |
+| `rule` | Inspect configured monitoring rules | `illumio-ops rule list --type traffic` |
+| `siem` | Manage SIEM destinations: test, flush, status | `illumio-ops siem test splunk-hec` |
+| `workload` | Fetch and display PCE workloads | `illumio-ops workload list --env prod --limit 100` |
+| `config` | Validate or display `config.json` | `illumio-ops config validate` |
+| `status` | Show daemon / scheduler / config status | `illumio-ops status` |
+| `version` | Print the installed version | `illumio-ops version` |
+
+> **Daemon mode note:** Use `--monitor-gui` to start the scheduler and Web GUI together (Persistent Mode, preferred for production). Use `--monitor` alone for a headless scheduler with no GUI.
+
+> **SIEM operator commands:** `illumio-ops siem test`, `illumio-ops siem flush`, `illumio-ops siem status`.
+
 ---
 
 ## 3. Rule Types & Configuration
