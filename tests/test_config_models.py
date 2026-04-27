@@ -109,3 +109,21 @@ def test_siem_forwarder_settings_defaults():
     assert cfg.enabled is False
     assert cfg.destinations == []
     assert cfg.dispatch_tick_seconds == 5
+
+
+def test_report_snapshot_retention_default():
+    from src.config_models import ReportSettings
+    r = ReportSettings()
+    assert r.snapshot_retention_days == 90
+    assert r.draft_actions_enabled is True
+    assert r.threat_intel_csv_path is None
+
+
+def test_report_snapshot_retention_validates_range():
+    import pytest
+    from pydantic import ValidationError
+    from src.config_models import ReportSettings
+    with pytest.raises(ValidationError):
+        ReportSettings(snapshot_retention_days=0)
+    with pytest.raises(ValidationError):
+        ReportSettings(snapshot_retention_days=3651)

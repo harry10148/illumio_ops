@@ -412,10 +412,17 @@ class HtmlExporter:
         )
 
         # Pre-compute nested blocks to avoid f-string quote conflicts
+        _raw_kpis = mod12.get('kpis', [])
+        if isinstance(_raw_kpis, dict):
+            # New-style: dict of kpi_name -> numeric value (from _security_risk_kpis)
+            _kpi_items = [{"label": k.replace("_", " ").title(), "value": v}
+                          for k, v in _raw_kpis.items() if not isinstance(v, dict)]
+        else:
+            _kpi_items = list(_raw_kpis)
         kpi_cards = ''.join(
             '<div class="kpi-card"><div class="kpi-label">' + str(k['label']) + '</div>'
             '<div class="kpi-value">' + str(k['value']) + '</div></div>'
-            for k in mod12.get('kpis', [])
+            for k in _kpi_items
         )
         trend_html = self._trend_deltas_html()
         key_findings_html = ''.join(
@@ -592,6 +599,26 @@ class HtmlExporter:
                            render_section_guidance('mod15', profile=profile, detail_level=detail_level) + self._mod15_html(),
                            'rpt_tr_sec_lateral_intro', 'Focus on paths, Services, and sources tied to lateral movement to surface spread risk.') + '\n'
              if visible_in('mod15_lateral_movement', profile, detail_level) else '') +
+            (self._section('draft_actions', 'rpt_mod_draft_actions_title', 'Draft Actions',
+                           render_section_guidance('mod_draft_actions', profile, detail_level) + self._mod_draft_actions_html(),
+                           '', '') + '\n'
+             if visible_in('mod_draft_actions', profile, detail_level) else '') +
+            (self._section('enforcement_rollout', 'rpt_mod_enf_rollout_title', 'Enforcement Rollout Plan',
+                           render_section_guidance('mod_enforcement_rollout', profile, detail_level) + self._mod_enforcement_rollout_html(),
+                           '', '') + '\n'
+             if visible_in('mod_enforcement_rollout', profile, detail_level) else '') +
+            (self._section('ringfence', 'rpt_mod_ringfence_title', 'Application Ringfence',
+                           render_section_guidance('mod_ringfence', profile, detail_level) + self._mod_ringfence_html(),
+                           '', '') + '\n'
+             if visible_in('mod_ringfence', profile, detail_level) else '') +
+            (self._section('change_impact', 'rpt_mod_change_impact_title', 'Change Impact',
+                           render_section_guidance('mod_change_impact', profile, detail_level) + self._mod_change_impact_html(),
+                           '', '') + '\n'
+             if visible_in('mod_change_impact', profile, detail_level) else '') +
+            (self._section('exfiltration', 'rpt_mod_exfil_title', 'Exfiltration & Threat Intel',
+                           render_section_guidance('mod_exfiltration_intel', profile, detail_level) + self._mod_exfil_html(),
+                           '', '') + '\n'
+             if visible_in('mod_exfiltration_intel', profile, detail_level) else '') +
             '<section id="findings" class="card">'
             '<h2><span data-i18n="rpt_tr_sec_findings">Security Findings</span> (' + n_findings + ')</h2>'
             + self._findings_html() +
@@ -1199,3 +1226,111 @@ class HtmlExporter:
         if app_chains is not None and not app_chains.empty:
             html += '<h4 data-i18n="rpt_tr_app_chains">Lateral Movement App Chains (BFS Paths)</h4>' + _df_to_html(app_chains)
         return html
+
+    def _mod_draft_actions_html(self) -> str:
+        m = self._r.get('mod_draft_actions', {})
+        if m.get('skipped'):
+            return f'<p class="note">{t("rpt_no_draft_data", default="No draft_policy_decision data available.")}</p>'
+        parts = []
+        od = m.get('override_deny', {})
+        if od.get('count', 0):
+            parts.append(f'<h4>Override Deny ({od["count"]} flows)</h4>')
+            for rem in od.get('remediation', []):
+                parts.append(f'<p>{t(rem["description_key"], default=rem.get("action_code",""))}</p>')
+            pairs = od.get('top_pairs', [])
+            if pairs:
+                parts.append('<table><tr><th>Src</th><th>Dst</th><th>Port</th><th>Flows</th></tr>')
+                for p in pairs[:10]:
+                    parts.append(f'<tr><td>{p.get("src","")}</td><td>{p.get("dst","")}</td><td>{p.get("port","")}</td><td>{p.get("flows","")}</td></tr>')
+                parts.append('</table>')
+        pod = m.get('potentially_blocked_by_override_deny', {})
+        if pod.get('count', 0):
+            parts.append(f'<h4>Potentially Blocked by Override Deny ({pod["count"]} flows)</h4>')
+        aab = m.get('allowed_across_boundary', {})
+        if aab.get('count', 0):
+            parts.append(f'<h4>Allowed Across Boundary ({aab["count"]} flows)</h4>')
+        if not parts:
+            parts.append('<p>No Override Deny or Allowed Across Boundary flows detected.</p>')
+        return ''.join(parts)
+
+    def _mod_enforcement_rollout_html(self) -> str:
+        m = self._r.get('mod_enforcement_rollout', {})
+        if m.get('skipped'):
+            return '<p class="note">No app labels available for rollout ranking.</p>'
+        rows = m.get('ranked', [])
+        if not rows:
+            return '<p class="note">No apps to rank.</p>'
+        html = '<table><tr><th>#</th><th>App</th><th>Why Now</th><th>PB Impact</th><th>Allow Rules Needed</th><th>Risk Reduction</th></tr>'
+        for r in rows:
+            html += (f'<tr><td>{r.get("priority","")}</td><td>{r.get("app","")}</td>'
+                     f'<td>{r.get("why_now","").replace("_"," ")}</td>'
+                     f'<td>{r.get("expected_default_deny_impact","")}</td>'
+                     f'<td>{r.get("required_allow_rules","")}</td>'
+                     f'<td>{r.get("risk_reduction","")}</td></tr>')
+        html += '</table>'
+        return html
+
+    def _mod_ringfence_html(self) -> str:
+        m = self._r.get('mod_ringfence', {})
+        if m.get('skipped'):
+            return '<p class="note">No app labels available for ringfence analysis.</p>'
+        top_apps = m.get('top_apps', [])
+        if not top_apps:
+            return '<p class="note">No apps found.</p>'
+        html = '<h4>Top Apps by Flow Volume</h4><table><tr><th>App</th><th>Flows</th></tr>'
+        for a in top_apps[:10]:
+            app_name = a.get('app', a.get('index', ''))
+            flows = a.get('flows', a.get(0, ''))
+            html += f'<tr><td>{app_name}</td><td>{flows}</td></tr>'
+        html += '</table>'
+        return html
+
+    def _mod_change_impact_html(self) -> str:
+        from src.report.snapshot_store import read_latest
+        from src.report.analysis.mod_change_impact import compare
+        mod12 = self._r.get('mod12', {})
+        current_kpis = mod12.get('kpis', {})
+        if not isinstance(current_kpis, dict) or not current_kpis:
+            return '<p class="note">No KPI data available for change comparison.</p>'
+        previous = read_latest('traffic', profile=self._profile)
+        impact = compare(current_kpis=current_kpis, previous=previous)
+        if impact.get('skipped'):
+            return f'<p class="note">{t("rpt_change_impact_no_previous", default="No previous snapshot — change impact will appear on the next report run.")}</p>'
+        verdict = impact.get('overall_verdict', 'unchanged')
+        verdict_color = {'improved': '#22C55E', 'regressed': '#EF4444', 'mixed': '#EAB308'}.get(verdict, '#6B7280')
+        html = (f'<p><b>Overall:</b> <span style="color:{verdict_color};font-weight:700">{verdict.upper()}</span>'
+                f' (vs {(impact.get("previous_snapshot_at") or "")[:10]})</p>')
+        deltas = impact.get('deltas', {})
+        if deltas:
+            html += '<table><tr><th>KPI</th><th>Previous</th><th>Current</th><th>Delta</th><th>Direction</th></tr>'
+            dir_color = {'improved': '#22C55E', 'regressed': '#EF4444', 'unchanged': '#6B7280', 'neutral': '#6B7280'}
+            for kpi, d in deltas.items():
+                col = dir_color.get(d['direction'], '#6B7280')
+                html += (f'<tr><td>{kpi}</td><td>{d["previous"]}</td><td>{d["current"]}</td>'
+                         f'<td>{d["delta"]:+}</td>'
+                         f'<td style="color:{col};font-weight:600">{d["direction"]}</td></tr>')
+            html += '</table>'
+        return html
+
+    def _mod_exfil_html(self) -> str:
+        m = self._r.get('mod_exfiltration_intel', {})
+        if m.get('skipped'):
+            return '<p class="note">No managed/unmanaged labels available for exfiltration analysis.</p>'
+        parts = [f'<p>Managed→Unmanaged flows: <b>{m.get("managed_to_unmanaged_count", 0)}</b></p>']
+        high_vol = m.get('high_volume_exfil', [])
+        if high_vol:
+            parts.append('<h4>High-Volume Flows (≥1 GB)</h4>')
+            parts.append('<table><tr><th>Src</th><th>Dst</th><th>Port</th><th>Bytes</th><th>Flows</th></tr>')
+            for r in high_vol:
+                parts.append(f'<tr><td>{r.get("src","")}</td><td>{r.get("dst","")}</td>'
+                             f'<td>{r.get("port","")}</td><td>{r.get("bytes",""):,}</td>'
+                             f'<td>{r.get("flows","")}</td></tr>')
+            parts.append('</table>')
+        matches = m.get('threat_intel_matches', [])
+        if matches:
+            parts.append('<h4>Threat Intel Matches</h4>')
+            parts.append('<table><tr><th>Src</th><th>Dst</th><th>Port</th><th>Reason</th></tr>')
+            for r in matches:
+                parts.append(f'<tr><td>{r["src"]}</td><td>{r["dst"]}</td><td>{r["port"]}</td><td>{r["reason"]}</td></tr>')
+            parts.append('</table>')
+        return ''.join(parts)
