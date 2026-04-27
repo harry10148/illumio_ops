@@ -2058,5 +2058,7 @@
   "rpt_guidance_mod15_signals": "跨越多個環境的長路徑鏈；充滿 PB 的跳點；高風險埠口鏈（SMB/RDP）。",
   "rpt_guidance_mod15_how": "路徑長度、埠口組合和敏感標籤間的交叉代表爆炸半徑風險。",
   "rpt_guidance_mod15_actions": "透過 allow 規則或 boundary deny 切斷影響最大的跳點；隔離 crown jewel 系統。",
-  "rpt_draft_summary_chart_title": "Draft Policy Decision 分佈"
+  "rpt_draft_summary_chart_title": "Draft Policy Decision 分佈",
+  "rpt_draft_actions_remediate_override_deny": "檢查現有 allow 規則與 override-deny boundary 衝突；收緊或移除衝突規則。",
+  "rpt_draft_actions_aab_verify_intent": "確認跨 boundary 是否為預期行為；否則新增 boundary deny 或縮小規則範圍。"
 }

@@ -2058,5 +2058,7 @@
   "rpt_guidance_mod15_signals": "Long chains spanning environments; PB-heavy hops; risky-port chains (SMB/RDP).",
   "rpt_guidance_mod15_how": "Path length, port mix, and crossings between sensitive labels indicate blast-radius risk.",
   "rpt_guidance_mod15_actions": "Cut the highest-impact hops via allow rules or boundary deny; isolate crown jewels.",
-  "rpt_draft_summary_chart_title": "Draft Policy Decision Breakdown"
+  "rpt_draft_summary_chart_title": "Draft Policy Decision Breakdown",
+  "rpt_draft_actions_remediate_override_deny": "Review the active allow rule and the override-deny boundary; tighten or remove conflict.",
+  "rpt_draft_actions_aab_verify_intent": "Confirm boundary crossing was intentional; otherwise add boundary deny or scope rule."
 }
