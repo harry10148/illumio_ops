@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from src.i18n import t, get_language
+from src.report.rules_engine import ruleset_needs_draft_pd, DRAFT_PD_RULES
 from src.report.report_metadata import (
     attack_summary_counts,
     build_attack_summary_brief,
@@ -233,6 +234,9 @@ class ReportGenerator:
 
         start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         end_dt = datetime.datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        if ruleset_needs_draft_pd(DRAFT_PD_RULES):
+            filters = dict(filters or {})
+            filters["requires_draft_pd"] = True
         traffic = self._fetch_traffic(start_dt, end_dt, filters)
         records = traffic["raw"]
 

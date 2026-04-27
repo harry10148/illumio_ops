@@ -235,6 +235,15 @@ DRAFT_PD_RULES: list = [
 ]
 
 
+def ruleset_needs_draft_pd(ruleset) -> bool:
+    """Return True if any rule in ruleset requires draft_policy_decision data."""
+    for r in ruleset:
+        obj = r() if isinstance(r, type) else r
+        if getattr(obj, "needs_draft_pd", lambda: False)():
+            return True
+    return False
+
+
 # ─── Rules Engine ────────────────────────────────────────────────────────────
 
 class RulesEngine:
