@@ -90,7 +90,7 @@ def test_policy_usage_executive_summary_contains_attack_sections():
         assert key in mod00
 
 
-def test_audit_html_renders_attack_summary_block():
+def test_audit_html_renders_without_attack_summary_block():
     results = {
         "mod00": {
             "generated_at": "2026-04-10 00:00:00",
@@ -109,11 +109,11 @@ def test_audit_html_renders_attack_summary_block():
         "mod03": {"error": "No data"},
     }
     html = AuditHtmlExporter(results, df=pd.DataFrame(), date_range=("2026-04-01", "2026-04-10"))._build()
-    assert "Attack Summary" in html
-    assert "Boundary Breaches" in html
+    # Audit report intentionally omits attack summary
+    assert "Attack Summary" not in html
 
 
-def test_policy_usage_html_renders_attack_summary_block():
+def test_policy_usage_html_renders_draft_pd_section():
     results = {
         "mod00": {
             "generated_at": "2026-04-10 00:00:00",
@@ -121,19 +121,38 @@ def test_policy_usage_html_renders_attack_summary_block():
             "attention_items": [],
             "execution_stats": {},
             "execution_notes": [],
-            "boundary_breaches": [],
-            "suspicious_pivot_behavior": [{"severity": "HIGH", "finding": "High-risk port hit concentration.", "action": "Review hit ports."}],
-            "blast_radius": [],
-            "blind_spots": [],
-            "action_matrix": [{"action_code": "INVESTIGATE_HIGH_RISK_PORT_HITS", "action": "Investigate ports."}],
         },
         "mod01": {"total_rules": 20, "hit_count": 8, "unused_count": 12, "hit_rate_pct": 40.0, "summary_df": pd.DataFrame()},
         "mod02": {"hit_df": pd.DataFrame(), "top_ports_df": pd.DataFrame(), "record_count": 0},
         "mod03": {"unused_df": pd.DataFrame(), "record_count": 0, "caveat": ""},
+        "mod05": {
+            "total": 5,
+            "visibility_risk": {
+                "total": 3,
+                "by_subtype": {"potentially_blocked_by_boundary": 3},
+                "top_pairs": pd.DataFrame([
+                    {"Src": "web-01", "Dst": "db-01", "Port": 5432,
+                     "Draft Decision": "potentially_blocked_by_boundary", "Connections": 3},
+                ]),
+            },
+            "draft_conflicts": {
+                "total": 2,
+                "by_subtype": {"blocked_by_override_deny": 2},
+                "top_pairs": pd.DataFrame(),
+            },
+            "draft_coverage": {
+                "total": 0,
+                "by_subtype": {},
+                "top_pairs": pd.DataFrame(),
+            },
+        },
     }
     html = PolicyUsageHtmlExporter(results, df=pd.DataFrame(), date_range=("2026-04-01", "2026-04-10"), lookback_days=30)._build()
-    assert "Attack Summary" in html
-    assert "Action Matrix" in html
+    # Policy usage intentionally omits attack summary
+    assert "Attack Summary" not in html
+    # Draft PD section present
+    assert "Draft Policy" in html
+    assert "potentially_blocked_by_boundary" in html or "Boundary" in html
 
 
 def test_dashboard_summaries_include_attack_sections():

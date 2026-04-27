@@ -171,6 +171,7 @@ class PolicyUsageHtmlExporter:
             f'<a href="#hit-rules">{_s("rpt_pu_nav_hit")}</a>'
             f'<a href="#unused-rules">{_s("rpt_pu_nav_unused")}</a>'
             f'<a href="#deny-rules">{_s("rpt_pu_nav_deny")}</a>'
+            f'<a href="#draft-pd">{_s("rpt_pu_nav_draft_pd")}</a>'
             "</nav>"
         )
 
@@ -217,6 +218,8 @@ class PolicyUsageHtmlExporter:
             )
             + "\n"
             if visible_in('pu_mod04_deny_effectiveness', profile, detail_level) else '')
+            + self._section("draft-pd", "rpt_pu_sec_draft_pd", self._mod05_html())
+            + "\n"
             + f'<footer>{_s("rpt_pu_footer")} &middot; {today_str}</footer>'
         )
         html_lang = "zh-TW" if self._lang == "zh_TW" else "en"
@@ -259,6 +262,68 @@ class PolicyUsageHtmlExporter:
                 "</div>"
             )
         html += "</div>"
+        return html
+
+    def _mod05_html(self) -> str:
+        _s = self._s
+        m = self._r.get("mod05", {})
+        intro = f'<p class="section-intro">{_s("rpt_pu_draft_pd_intro")}</p>'
+        if m.get("skipped") or m.get("total", 0) == 0:
+            return intro + f'<p class="note">{_s("rpt_pu_draft_pd_empty")}</p>'
+
+        html = intro
+
+        vis = m.get("visibility_risk", {})
+        if vis.get("total", 0):
+            by_sub = vis["by_subtype"]
+            html += (
+                f'<h4>{_s("rpt_pu_draft_vis_heading")}</h4>'
+                '<div class="summary-pill-row">'
+                f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pu_draft_pd_by_boundary")}</span>'
+                f'<span class="summary-pill-value">{by_sub.get("potentially_blocked_by_boundary", 0):,}</span></div>'
+                f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pu_draft_pd_by_override")}</span>'
+                f'<span class="summary-pill-value">{by_sub.get("potentially_blocked_by_override_deny", 0):,}</span></div>'
+                '</div>'
+            )
+            tp = vis.get("top_pairs")
+            if tp is not None and not tp.empty:
+                html += (f'<h4>{_s("rpt_pu_draft_pd_top_pairs")}</h4>'
+                         + _df_to_html(tp, no_data_key="rpt_no_records", lang=self._lang))
+
+        conf = m.get("draft_conflicts", {})
+        if conf.get("total", 0):
+            by_sub = conf["by_subtype"]
+            html += (
+                f'<h4>{_s("rpt_pu_draft_conflict_heading")}</h4>'
+                '<div class="summary-pill-row">'
+                f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pu_draft_blocked_override")}</span>'
+                f'<span class="summary-pill-value">{by_sub.get("blocked_by_override_deny", 0):,}</span></div>'
+                f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pu_draft_allowed_boundary")}</span>'
+                f'<span class="summary-pill-value">{by_sub.get("allowed_across_boundary", 0):,}</span></div>'
+                '</div>'
+            )
+            tp = conf.get("top_pairs")
+            if tp is not None and not tp.empty:
+                html += (f'<h4>{_s("rpt_pu_draft_pd_top_pairs")}</h4>'
+                         + _df_to_html(tp, no_data_key="rpt_no_records", lang=self._lang))
+
+        cov = m.get("draft_coverage", {})
+        if cov.get("total", 0):
+            by_sub = cov["by_subtype"]
+            html += (
+                f'<h4>{_s("rpt_pu_draft_coverage_heading")}</h4>'
+                '<div class="summary-pill-row">'
+                f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pu_draft_new_allowed")}</span>'
+                f'<span class="summary-pill-value">{by_sub.get("allowed", 0):,}</span></div>'
+                f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pu_draft_blocked_boundary")}</span>'
+                f'<span class="summary-pill-value">{by_sub.get("blocked_by_boundary", 0):,}</span></div>'
+                '</div>'
+            )
+            tp = cov.get("top_pairs")
+            if tp is not None and not tp.empty:
+                html += (f'<h4>{_s("rpt_pu_draft_pd_top_pairs")}</h4>'
+                         + _df_to_html(tp, no_data_key="rpt_no_records", lang=self._lang))
+
         return html
 
     def _kpi_html(self, kpis: list) -> str:

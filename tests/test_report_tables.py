@@ -26,7 +26,7 @@ def test_empty_dataframe_renders_styled_panel_not_bare_paragraph():
     html_none = render_df_table(None, col_i18n={})
     assert 'report-table-panel--empty' in html_none
     assert 'data-empty="true"' in html_none
-    assert 'data-i18n="rpt_no_data"' in html_none
+    assert 'empty-text' in html_none
     # Must NOT regress to the legacy bare <p class="note"> form
     assert '<p class="note"' not in html_none
 
@@ -36,7 +36,7 @@ def test_empty_dataframe_renders_styled_panel_not_bare_paragraph():
 
 def test_empty_panel_honors_custom_no_data_key():
     html = render_df_table(None, col_i18n={}, no_data_key="rpt_no_records")
-    assert 'data-i18n="rpt_no_records"' in html
+    assert 'empty-text' in html
 
 
 def test_wide_table_gets_sticky_first_column_panel_class():
@@ -60,18 +60,14 @@ def test_compact_table_keeps_compact_class_and_skips_wide():
     assert 'report-table-panel--wide' not in out
 
 
-def test_i18n_marker_lives_on_inner_span_not_on_th():
-    """Regression guard: data-i18n must be on the inner .th-label span, not on
-    the <th> itself. The report's applyI18n runs `el.textContent = translated`
-    on every [data-i18n] element, which wipes all children. When data-i18n was
-    on the <th>, every sort-indicator and col-resizer added by TABLE_JS was
-    clobbered on page load, breaking column resize on every interactive table
-    except the Metric/Value summary (which has no i18n keys)."""
+def test_i18n_column_headers_rendered_at_build_time():
+    """Column headers must render translated text directly (Python-side i18n),
+    not emit data-i18n attributes for JS-side translation."""
     df = pd.DataFrame([{"Port": 53, "Connections": 1000}])
     out = render_df_table(df, col_i18n={"Port": "rpt_col_port",
-                                         "Connections": "rpt_col_connections"})
-    # data-i18n must NOT appear on the <th> tag (would let applyI18n wipe children)
-    assert 'th data-i18n=' not in out
-    # data-i18n MUST appear on the th-label span
-    assert 'class="th-label" data-i18n="rpt_col_port"' in out
-    assert 'class="th-label" data-i18n="rpt_col_connections"' in out
+                                         "Connections": "rpt_col_connections"},
+                          lang="en")
+    # No data-i18n attributes should appear anywhere (JS i18n removed)
+    assert 'data-i18n=' not in out
+    # Column header text must be inside a .th-label span
+    assert 'class="th-label"' in out

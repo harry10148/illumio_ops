@@ -40,8 +40,7 @@ def _norm_col(name) -> str:
     """Tolerant column-name match: case-insensitive, whitespace/dash collapsed."""
     return str(name).strip().lower().replace(" ", "_").replace("-", "_")
 
-def _df_to_html(df, no_data_key: str = "rpt_no_data", show_risk: bool = False) -> str:
-    # Empty-state rendering is delegated to render_df_table for consistent panel chrome.
+def _df_to_html(df, no_data_key: str = "rpt_no_data", show_risk: bool = False, lang: str = "en") -> str:
     event_type_col = None
     if show_risk and df is not None and not (hasattr(df, "empty") and df.empty):
         for c in df.columns:
@@ -77,6 +76,7 @@ def _df_to_html(df, no_data_key: str = "rpt_no_data", show_risk: bool = False) -
         no_data_key=no_data_key,
         render_cell=_render_cell,
         row_attrs=_row_attrs,
+        lang=lang,
     )
 
 class AuditHtmlExporter:
@@ -102,6 +102,7 @@ class AuditHtmlExporter:
     def _attention_section(self, attention_items: list) -> str:
         if not attention_items:
             return ""
+        _s = self._s
         items_html = ""
         for item in attention_items:
             risk = item.get("risk", "INFO")
@@ -123,7 +124,7 @@ class AuditHtmlExporter:
                 f'</div>'
                 f'<div class="audit-attn-summary">{summary}</div>'
                 f'<div class="audit-attn-meta">'
-                f'<strong data-i18n="rpt_au_actor">Actor:</strong> {actors_str}'
+                f'<strong>{_s("rpt_au_actor")}</strong> {actors_str}'
                 + (f' &nbsp;|&nbsp; <strong>IP:</strong> {src_ips_str}' if src_ips_str else '')
                 + '</div>'
                 + (
@@ -133,12 +134,12 @@ class AuditHtmlExporter:
                     + '</div>'
                     if targets_str or resources_str else ''
                 )
-                + f'<div class="audit-attn-rec"><strong data-i18n="rpt_au_rec">Recommendation:</strong> {rec}</div>'
+                + f'<div class="audit-attn-rec"><strong>{_s("rpt_au_rec")}</strong> {rec}</div>'
                 f'</div>'
             )
         return (
             '<div style="margin-bottom:20px">'
-            '<h2 data-i18n="rpt_au_attention_title" style="color:var(--red)">Attention Required</h2>'
+            f'<h2 style="color:var(--red)">{_s("rpt_au_attention_title")}</h2>'
             + items_html
             + '</div>'
         )
@@ -157,15 +158,19 @@ class AuditHtmlExporter:
         profile = profile or self._profile
         detail_level = _REPORT_DETAIL_LEVEL
         self._chart_tracker = FirstChartTracker()
+        _sl = self._lang
+        _s = lambda k: STRINGS[k].get(_sl) or STRINGS[k]["en"]
+        self._s = _s
+
         mod00 = self._r.get("mod00", {})
         nav_html = (
             "<nav>"
             '<div class="nav-brand">Illumio PCE Ops</div>'
-            '<a href="#summary"><span data-i18n="rpt_au_nav_summary">Executive Summary</span></a>'
-            '<a href="#health"><span data-i18n="rpt_au_nav_health">System Health</span></a>'
-            '<a href="#users"><span data-i18n="rpt_au_nav_users">User Activity</span></a>'
-            '<a href="#policy"><span data-i18n="rpt_au_nav_policy">Policy Changes</span></a>'
-            '<a href="#correlation"><span data-i18n="rpt_au_nav_correlation">Event Correlation</span></a>'
+            f'<a href="#summary">{_s("rpt_au_nav_summary")}</a>'
+            f'<a href="#health">{_s("rpt_au_nav_health")}</a>'
+            f'<a href="#users">{_s("rpt_au_nav_users")}</a>'
+            f'<a href="#policy">{_s("rpt_au_nav_policy")}</a>'
+            f'<a href="#correlation">{_s("rpt_au_nav_correlation")}</a>'
             "</nav>"
         )
         kpi_cards = "".join(
@@ -176,13 +181,13 @@ class AuditHtmlExporter:
         date_str = " ~ ".join(self._date_range) if any(self._date_range) else ""
         today_str = str(datetime.date.today())
         period_part = (
-            ' &nbsp;|&nbsp; <span data-i18n="rpt_period">Period:</span> ' + date_str if date_str else ""
+            ' &nbsp;|&nbsp; ' + _s("rpt_period") + ' ' + date_str if date_str else ""
         )
         summary_pills = (
             '<div class="summary-pill-row">'
-            f'<div class="summary-pill"><span class="summary-pill-label">{STRINGS["rpt_pill_period"]["en"]}</span><span class="summary-pill-value">{date_str or "N/A"}</span></div>'
-            f'<div class="summary-pill"><span class="summary-pill-label">{STRINGS["rpt_pill_attention"]["en"]}</span><span class="summary-pill-value">{human_number(len(mod00.get("attention_items", [])))}</span></div>'
-            f'<div class="summary-pill"><span class="summary-pill-label">{STRINGS["rpt_pill_focus"]["en"]}</span><span class="summary-pill-value">{STRINGS["rpt_focus_audit"]["en"]}</span></div>'
+            f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pill_period")}</span><span class="summary-pill-value">{date_str or "N/A"}</span></div>'
+            f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pill_attention")}</span><span class="summary-pill-value">{human_number(len(mod00.get("attention_items", [])))}</span></div>'
+            f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pill_focus")}</span><span class="summary-pill-value">{_s("rpt_focus_audit")}</span></div>'
             "</div>"
         )
 
@@ -191,11 +196,11 @@ class AuditHtmlExporter:
                 "cache": "rpt_data_source_cache",
                 "api": "rpt_data_source_api",
             }.get(self._data_source, "rpt_data_source_mixed")
-            ds_label = STRINGS[ds_key]["en"]
+            ds_label = _s(ds_key)
             ds_color = {"cache": "#22C55E", "api": "#60A5FA"}.get(self._data_source, "#EAB308")
             data_source_pill = (
                 f'<div class="summary-pill" style="border-left: 3px solid {ds_color};">'
-                f'<span class="summary-pill-label" data-i18n="{ds_key}">{ds_label}</span>'
+                f'<span class="summary-pill-label">{ds_label}</span>'
                 f'</div>'
             )
             summary_pills = summary_pills.replace("</div>", data_source_pill + "</div>", 1)
@@ -203,34 +208,32 @@ class AuditHtmlExporter:
         body = (
             render_section_guidance("audit_mod00_executive", profile="security_risk", detail_level="full")
             + '<section id="summary" class="card report-hero">'
-            '<div class="report-hero-top"><div class="report-kicker" data-i18n="rpt_kicker_audit">Audit & Event Report</div>'
-            '<h1 data-i18n="rpt_au_title">Illumio Audit &amp; System Events Report</h1>'
-            '<p class="report-subtitle">'
-            '<span data-i18n="rpt_generated">Generated:</span> ' + mod00.get("generated_at", "") + period_part + "</p></div>"
+            '<div class="report-hero-top">'
+            f'<div class="report-kicker">{_s("rpt_kicker_audit")}</div>'
+            f'<h1>{_s("rpt_au_title")}</h1>'
+            f'<p class="report-subtitle">{_s("rpt_generated")} '
+            + mod00.get("generated_at", "") + period_part + "</p></div>"
             + summary_pills
             + self._attention_section(mod00.get("attention_items", []))
-            + '<h2 data-i18n="rpt_key_metrics">Key Metrics</h2>'
+            + f'<h2>{_s("rpt_key_metrics")}</h2>'
             + '<div class="kpi-grid">' + kpi_cards + "</div>"
             + self._trend_deltas_html()
             + self._severity_dist_html(mod00)
-            + '<h2 data-i18n="rpt_au_top_events">Top Event Types</h2>'
+            + f'<h2>{_s("rpt_au_top_events")}</h2>'
             + _chart_html(mod00.get("chart_spec"), include_js=self._chart_tracker.consume())
-            + _df_to_html(mod00.get("top_events_overall"))
+            + _df_to_html(mod00.get("top_events_overall"), lang=_sl)
             + "</section>\n"
-            + self._section("health", "rpt_au_sec_health", "1 System Health &amp; Agent", self._mod01_html())
+            + self._section("health", "rpt_au_sec_health", self._mod01_html())
             + "\n"
-            + self._section("users", "rpt_au_sec_users", "2 User Activity &amp; Authentication", self._mod02_html())
+            + self._section("users", "rpt_au_sec_users", self._mod02_html())
             + "\n"
-            + (self._section("policy", "rpt_au_sec_policy", "3 Policy Modifications", self._mod03_html())
+            + (self._section("policy", "rpt_au_sec_policy", self._mod03_html())
                + "\n"
                if visible_in('audit_mod03_policy', profile, detail_level) else '')
-            + (self._section("correlation", "rpt_au_sec_correlation", "4 Event Correlation", self._mod04_html())
+            + (self._section("correlation", "rpt_au_sec_correlation", self._mod04_html())
                + "\n"
                if visible_in('audit_mod04_correlation', profile, detail_level) else '')
-            + '<footer><span data-i18n="rpt_au_footer">Illumio PCE Ops Audit Report</span>'
-            + " &middot; "
-            + today_str
-            + "</footer>"
+            + f'<footer>{_s("rpt_au_footer")} &middot; {today_str}</footer>'
         )
         return (
             f'<!DOCTYPE html><html lang="{"zh-TW" if self._lang == "zh_TW" else "en"}"><head>\n'
@@ -247,70 +250,15 @@ class AuditHtmlExporter:
             + "</body></html>"
         )
 
-    def _section(self, id_: str, i18n_key: str, title: str, content: str, intro: str = "") -> str:
-        intro_html = f'<p class="section-intro">{intro}</p>' if intro else ""
-        return f'<section id="{id_}" class="card"><h2 data-i18n="{i18n_key}">{title}</h2>{intro_html}{content}</section>'
+    def _section(self, id_: str, i18n_key: str, content: str) -> str:
+        return f'<section id="{id_}" class="card"><h2>{self._s(i18n_key)}</h2>{content}</section>'
 
     def _trend_deltas_html(self) -> str:
-        """Render trend deltas via shared chip-bearing renderer."""
         return _trend_deltas_section(self._r.get("_trend_deltas"))
 
-    def _subnote(self, i18n_key: str, en_text: str) -> str:
-        """Render a small annotation paragraph.
-
-        Emits ``data-i18n`` so applyI18n() swaps textContent on language toggle,
-        and includes the English fallback as initial text for the no-JS path.
-        """
-        return (
-            f'<p class="note" style="font-size:12px;" '
-            f'data-i18n="{i18n_key}">{en_text}</p>'
-        )
-
-    def _attack_summary_html(self, mod00: dict) -> str:
-        def _rows(section_items):
-            if not section_items:
-                return '<p class="note">No data</p>'
-            return "".join(
-                "<p style='margin-bottom:8px'><span class='badge badge-"
-                + str(item.get("severity", "INFO"))
-                + "'>"
-                + str(item.get("severity", "INFO"))
-                + "</span>&nbsp;"
-                + str(item.get("finding", ""))
-                + (("<br><span class='zh-only' style='color:#718096;font-size:12px;'>"
-                    + str(item.get("finding_zh", ""))
-                    + "</span>") if item.get("finding_zh") else "")
-                + " <em style='color:#718096'>&rarr; "
-                + str(item.get("action", ""))
-                + "</em>"
-                + (("<br><span class='zh-only' style='color:#718096;font-size:12px;'><em>&rarr; "
-                    + str(item.get("action_zh", ""))
-                    + "</em></span>") if item.get("action_zh") else "")
-                + "</p>"
-                for item in section_items[:3]
-            )
-
-        action_matrix = mod00.get("action_matrix", []) or []
-        action_html = "".join(
-            "<p style='margin-bottom:8px'><b>"
-            + str(item.get("action_code", ""))
-            + "</b>: "
-            + str(item.get("action", ""))
-            + (("<br><span class='zh-only' style='color:#718096;font-size:12px;'>"
-                + str(item.get("action_zh", ""))
-                + "</span>") if item.get("action_zh") else "")
-            + "</p>"
-            for item in action_matrix[:3]
-        ) or '<p class="note">No data</p>'
-
-        return (
-            '<h2 data-i18n="rpt_tr_attack_summary">Attack Summary</h2>'
-            '<h3 data-i18n="rpt_tr_boundary_breaches">Boundary Breaches</h3>' + _rows(mod00.get("boundary_breaches", []))
-            + '<h3 data-i18n="rpt_tr_suspicious_pivot_behavior">Suspicious Pivot Behavior</h3>' + _rows(mod00.get("suspicious_pivot_behavior", []))
-            + '<h3 data-i18n="rpt_tr_blast_radius">Blast Radius</h3>' + _rows(mod00.get("blast_radius", []))
-            + '<h3 data-i18n="rpt_tr_blind_spots">Blind Spots</h3>' + _rows(mod00.get("blind_spots", []))
-            + '<h3 data-i18n="rpt_tr_action_matrix">Action Matrix</h3>' + action_html
-        )
+    def _subnote(self, i18n_key: str, en_text: str = "") -> str:
+        text = self._s(i18n_key) if i18n_key else en_text
+        return f'<p class="note" style="font-size:12px;">{text}</p>'
 
     def _severity_dist_html(self, mod00: dict) -> str:
         sev_df = mod00.get("severity_distribution")
@@ -330,157 +278,19 @@ class AuditHtmlExporter:
         except Exception:
             pass
         return (
-            '<h2 data-i18n="rpt_au_severity_dist">Severity Distribution</h2>'
+            f'<h2>{self._s("rpt_au_severity_dist")}</h2>'
             + chart_html
-            + _df_to_html(sev_df)
+            + _df_to_html(sev_df, lang=self._lang)
         )
 
-    def _mod01_html(self) -> str:
-        m = self._r.get("mod01", {})
-        if "error" in m:
-            return f'<p class="note">{m["error"]}</p>'
-
-        html_parts = [render_section_guidance("audit_mod01_health", profile="security_risk", detail_level="full")]
-
-        sec_count = m.get("security_concern_count", 0)
-        conn_count = m.get("connectivity_event_count", 0)
-        html = (
-            self._subnote("rpt_au_mod01_intro", "This section covers platform health, agent connectivity issues, and host-level security events. Cross-reference actor, target, source IP, and parser notes to decide if an event needs deeper investigation.")
-            + '<p><span data-i18n="rpt_au_total_health">Total Health Events:</span> <b>'
-            + str(m.get("total_health_events", 0))
-            + "</b> &nbsp;|&nbsp; "
-            + '<span data-i18n="rpt_au_security_concerns">Security Concerns:</span> <b style="color:'
-            + ("#c0392b" if sec_count > 0 else "#313638")
-            + '">'
-            + str(sec_count)
-            + "</b> &nbsp;|&nbsp; "
-            + '<span data-i18n="rpt_au_connectivity_issues">Agent Connectivity:</span> <b>'
-            + str(conn_count)
-            + "</b></p>"
-        )
-        html += (
-            '<div class="bp-box" data-i18n-html="rpt_au_bp_health">'
-            "<b>Illumio Best Practice:</b> Monitor system_health events for severity changes "
-            "(Warning / Error / Fatal). Investigate agent.tampering and agent.suspend events immediately. "
-            "Track missed heartbeats and offline checks to catch workloads that silently fall out of policy."
-            "</div>"
-        )
-
-        sec_df = m.get("security_concerns")
-        if sec_df is not None and not sec_df.empty:
-            html += (
-                '<h3 data-i18n="rpt_au_sec_concern_title">Security Concern Events</h3>'
-                '<p class="note note-warn" data-i18n="rpt_au_sec_concern_desc">'
-                "agent.tampering, agent.suspend, and agent.clone_detected events may indicate "
-                "compromised workloads or unauthorized changes. Investigate immediately.</p>"
-                + _df_to_html(sec_df, show_risk=True)
-            )
-
-        conn_df = m.get("connectivity_events")
-        if conn_df is not None and not conn_df.empty:
-            html += (
-                self._subnote("rpt_au_connectivity_subnote", "Connectivity events list agents that stopped sending heartbeats, were removed from Policy, or need re-pairing. Use target and resource columns to quickly identify the affected Workload.")
-                + '<h3 data-i18n="rpt_au_connectivity_title">Agent Connectivity Events</h3>'
-                + _df_to_html(conn_df, show_risk=True)
-            )
-
-        html += '<h3 data-i18n="rpt_au_severity_breakdown">Severity Breakdown</h3>' + _df_to_html(m.get("severity_breakdown"))
-        html += '<h3 data-i18n="rpt_au_summary_type">Summary by Event Type</h3>' + _df_to_html(m.get("summary"))
-        html += '<h3 data-i18n="rpt_au_recent">Recent Events (up to 50)</h3>' + _df_to_html(m.get("recent"), show_risk=True)
-        return "".join(html_parts) + html
-
-    def _mod02_html(self) -> str:
-        m = self._r.get("mod02", {})
-        if "error" in m:
-            return f'<p class="note">{m["error"]}</p>'
-
-        html_parts = [render_section_guidance("audit_mod02_users", profile="security_risk", detail_level="full")]
-
-        failed = m.get("failed_logins", 0)
-        unique_ips = m.get("unique_src_ips", 0)
-        html = (
-            self._subnote("rpt_au_mod02_intro", "User activity analysis focuses on parsed principal and action. The report prefers the affected user account as the primary identity, falling back to the actor field when the target cannot be resolved.")
-            + '<p><span data-i18n="rpt_au_total_user">Total User Events:</span> <b>'
-            + str(m.get("total_user_events", 0))
-            + "</b> &nbsp;|&nbsp; "
-            + '<span data-i18n="rpt_au_failed_logins">Failed Logins:</span> <b style="color:'
-            + ("#c0392b" if failed > 0 else "#313638")
-            + '">'
-            + str(failed)
-            + "</b>"
-        )
-        if unique_ips > 0:
-            html += (
-                ' &nbsp;|&nbsp; <span data-i18n="rpt_au_unique_src_ips">Unique Admin IPs:</span> <b>'
-                + str(unique_ips)
-                + "</b>"
-            )
-        html += "</p>"
-        html += (
-            '<div class="bp-box" data-i18n-html="rpt_au_bp_users">'
-            "<b>Illumio Best Practice:</b> Monitor login failures for patterns indicating "
-            "brute-force or credential stuffing attacks. Investigate repeated failures from "
-            "the same user or sudden spikes in authentication events."
-            "</div>"
-        )
-
-        failed_detail = m.get("failed_login_detail")
-        if failed_detail is not None and not (hasattr(failed_detail, "empty") and failed_detail.empty):
-            html += (
-                self._subnote("rpt_au_failed_detail_subnote", "Failed login records include the parsed target user, source IP, supplied username, and action path. Cross-check by user or source IP to spot repeated-failure patterns.")
-                + '<h3 data-i18n="rpt_au_failed_detail">Failed Login Details</h3>'
-                '<p class="note note-warn" data-i18n="rpt_au_failed_detail_desc">'
-                "Enriched with source IP and notification context. "
-                "Check for brute-force patterns or suspicious source IPs.</p>"
-                + _df_to_html(failed_detail, show_risk=True)
-            )
-
-        per_user = m.get("per_user")
-        if per_user is not None and not (hasattr(per_user, "empty") and per_user.empty):
-            html += (
-                '<h3 data-i18n="rpt_au_per_user">Activity by User</h3>'
-                + _chart_html(m.get("chart_spec"), include_js=self._chart_tracker.consume())
-                + _df_to_html(per_user)
-            )
-
-        html += '<h3 data-i18n="rpt_au_summary_type">Summary by Event Type</h3>' + _df_to_html(m.get("summary"))
-        html += '<h3 data-i18n="rpt_au_recent">Recent Events (up to 50)</h3>' + _df_to_html(m.get("recent"), show_risk=True)
-        return "".join(html_parts) + html
-
-    @staticmethod
-    def _lifecycle_concept_box() -> str:
-        return (
-            "<div style='margin-bottom:16px; border:1px solid #CBD5E0; border-radius:8px; overflow:hidden;'>"
-            "<div style='padding:10px 14px; background:#EBF4FF; font-weight:700; "
-            "font-size:13px; color:#2B6CB0;' "
-            "data-i18n='rpt_au_lifecycle_title'>Illumio Policy Lifecycle: Draft vs Provision</div>"
-            "<div style='display:grid; grid-template-columns:1fr 1fr; gap:0; border-top:1px solid #CBD5E0;'>"
-            "<div style='padding:14px 16px; border-right:1px solid #CBD5E0; background:#FEFCE8;'>"
-            "<div style='font-weight:700; font-size:12px; color:#92400E; margin-bottom:8px;' "
-            "data-i18n='rpt_au_lifecycle_draft_title'>1 Draft Changes (Not Yet Enforced)</div>"
-            "<div style='font-size:12px; color:#374151; line-height:1.7;' data-i18n-html='rpt_au_lifecycle_draft_body'>"
-            "Draft events such as <code>rule_set.*</code> and <code>sec_rule.*</code> only represent policy edits. "
-            "<b>No firewall rules are pushed yet.</b> Review broad scopes carefully before the next provision."
-            "</div></div>"
-            "<div style='padding:14px 16px; background:#F0FDF4;'>"
-            "<div style='font-weight:700; font-size:12px; color:#065F46; margin-bottom:8px;' "
-            "data-i18n='rpt_au_lifecycle_prov_title'>2 Provision (Policy Goes Live)</div>"
-            "<div style='font-size:12px; color:#374151; line-height:1.7;' data-i18n-html='rpt_au_lifecycle_prov_body'>"
-            "A <code>sec_policy.create</code> event means draft changes were packaged into a new policy version and pushed to workloads. "
-            "Use <code>workloads_affected</code> to verify rollout impact."
-            "</div></div></div></div>"
-        )
-
-    @staticmethod
-    def _high_impact_provisions_html(items: list, threshold: int) -> str:
+    def _high_impact_provisions_html(self, items: list, threshold: int) -> str:
         if not items:
             return ""
+        _s = self._s
         html = (
             f"<div style='margin-bottom:14px; padding:12px 16px; background:#FEF2F2; border:1px solid #FCA5A5; border-radius:8px;'>"
-            f"<div style='font-weight:700; font-size:13px; color:#991B1B; margin-bottom:6px;' data-i18n='rpt_au_high_impact_title'>High-Impact Provisions</div>"
-            f"<p style='font-size:12px; color:#7F1D1D; margin:0 0 10px 0;' data-i18n='rpt_au_high_impact_desc'>"
-            f"The following provision events affected an unusually large number of workloads (threshold: {threshold}+). "
-            f"Verify these were intended large-scale policy changes.</p>"
+            f"<div style='font-weight:700; font-size:13px; color:#991B1B; margin-bottom:6px;'>{_s('rpt_au_high_impact_title')}</div>"
+            f"<p style='font-size:12px; color:#7F1D1D; margin:0 0 10px 0;'>{_s('rpt_au_high_impact_desc')} (threshold: {threshold}+)</p>"
         )
         for item in items:
             wa = item.get("workloads_affected", 0)
@@ -494,7 +304,7 @@ class AuditHtmlExporter:
                 f"<div style='display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding:8px 10px; background:#FFF5F5; "
                 f"border-radius:6px; margin-bottom:6px; border-left:4px solid #EF4444;'>"
                 f"<span style='font-size:20px; font-weight:900; color:#DC2626;'>{wa:,}</span>"
-                f"<span style='font-size:11px; color:#991B1B;' data-i18n='rpt_au_workloads_affected'>Workloads Affected</span>"
+                f"<span style='font-size:11px; color:#991B1B;'>{_s('rpt_au_workloads_affected')}</span>"
                 f"<code style='font-size:11px; background:#FEE2E2; padding:2px 6px; border-radius:3px; color:#7F1D1D;'>{et}</code>"
                 f"<span style='font-size:11px; color:#6B7280;'>{ts}</span>"
                 f"<span style='font-size:11px; color:#6B7280;'>by <b>{actor}</b></span>"
@@ -506,11 +316,98 @@ class AuditHtmlExporter:
         html += "</div>"
         return html
 
+    def _mod01_html(self) -> str:
+        m = self._r.get("mod01", {})
+        if "error" in m:
+            return f'<p class="note">{m["error"]}</p>'
+
+        _s = self._s
+        _lang = self._lang
+        html_parts = [render_section_guidance("audit_mod01_health", profile="security_risk", detail_level="full")]
+
+        sec_count = m.get("security_concern_count", 0)
+        conn_count = m.get("connectivity_event_count", 0)
+        html = (
+            self._subnote("rpt_au_mod01_intro")
+            + f'<p>{_s("rpt_au_total_health")} <b>{m.get("total_health_events", 0)}</b>'
+            + ' &nbsp;|&nbsp; '
+            + f'{_s("rpt_au_security_concerns")} <b style="color:{"#c0392b" if sec_count > 0 else "#313638"}">{sec_count}</b>'
+            + ' &nbsp;|&nbsp; '
+            + f'{_s("rpt_au_connectivity_issues")} <b>{conn_count}</b></p>'
+        )
+        html += f'<div class="bp-box">{_s("rpt_au_bp_health")}</div>'
+
+        sec_df = m.get("security_concerns")
+        if sec_df is not None and not sec_df.empty:
+            html += (
+                f'<h3>{_s("rpt_au_sec_concern_title")}</h3>'
+                f'<p class="note note-warn">{_s("rpt_au_sec_concern_desc")}</p>'
+                + _df_to_html(sec_df, show_risk=True, lang=_lang)
+            )
+
+        conn_df = m.get("connectivity_events")
+        if conn_df is not None and not conn_df.empty:
+            html += (
+                self._subnote("rpt_au_connectivity_subnote")
+                + f'<h3>{_s("rpt_au_connectivity_title")}</h3>'
+                + _df_to_html(conn_df, show_risk=True, lang=_lang)
+            )
+
+        html += f'<h3>{_s("rpt_au_severity_breakdown")}</h3>' + _df_to_html(m.get("severity_breakdown"), lang=_lang)
+        html += f'<h3>{_s("rpt_au_summary_type")}</h3>' + _df_to_html(m.get("summary"), lang=_lang)
+        html += f'<h3>{_s("rpt_au_recent")}</h3>' + _df_to_html(m.get("recent"), show_risk=True, lang=_lang)
+        return "".join(html_parts) + html
+
+    def _mod02_html(self) -> str:
+        m = self._r.get("mod02", {})
+        if "error" in m:
+            return f'<p class="note">{m["error"]}</p>'
+
+        _s = self._s
+        _lang = self._lang
+        html_parts = [render_section_guidance("audit_mod02_users", profile="security_risk", detail_level="full")]
+
+        failed = m.get("failed_logins", 0)
+        unique_ips = m.get("unique_src_ips", 0)
+        html = (
+            self._subnote("rpt_au_mod02_intro")
+            + f'<p>{_s("rpt_au_total_user")} <b>{m.get("total_user_events", 0)}</b>'
+            + ' &nbsp;|&nbsp; '
+            + f'{_s("rpt_au_failed_logins")} <b style="color:{"#c0392b" if failed > 0 else "#313638"}">{failed}</b>'
+        )
+        if unique_ips > 0:
+            html += f' &nbsp;|&nbsp; {_s("rpt_au_unique_src_ips")} <b>{unique_ips}</b>'
+        html += "</p>"
+        html += f'<div class="bp-box">{_s("rpt_au_bp_users")}</div>'
+
+        failed_detail = m.get("failed_login_detail")
+        if failed_detail is not None and not (hasattr(failed_detail, "empty") and failed_detail.empty):
+            html += (
+                self._subnote("rpt_au_failed_detail_subnote")
+                + f'<h3>{_s("rpt_au_failed_detail")}</h3>'
+                + f'<p class="note note-warn">{_s("rpt_au_failed_detail_desc")}</p>'
+                + _df_to_html(failed_detail, show_risk=True, lang=_lang)
+            )
+
+        per_user = m.get("per_user")
+        if per_user is not None and not (hasattr(per_user, "empty") and per_user.empty):
+            html += (
+                f'<h3>{_s("rpt_au_per_user")}</h3>'
+                + _chart_html(m.get("chart_spec"), include_js=self._chart_tracker.consume())
+                + _df_to_html(per_user, lang=_lang)
+            )
+
+        html += f'<h3>{_s("rpt_au_summary_type")}</h3>' + _df_to_html(m.get("summary"), lang=_lang)
+        html += f'<h3>{_s("rpt_au_recent")}</h3>' + _df_to_html(m.get("recent"), show_risk=True, lang=_lang)
+        return "".join(html_parts) + html
+
     def _mod03_html(self) -> str:
         m = self._r.get("mod03", {})
         if "error" in m:
             return f'<p class="note">{m["error"]}</p>'
 
+        _s = self._s
+        _lang = self._lang
         html_parts = [render_section_guidance("audit_mod03_policy", profile="security_risk", detail_level="full")]
 
         prov_count = m.get("provision_count", 0)
@@ -520,75 +417,50 @@ class AuditHtmlExporter:
         high_impact = m.get("high_impact_provisions", [])
 
         html = (
-            self._subnote("rpt_au_mod03_intro", "Policy events now expose the parsed actor, target, resource, action, and change summary together, making it easier to separate Draft edits from Provision operations that actually affect Workloads.")
-            + '<p><span data-i18n="rpt_au_total_policy">Total Policy Events:</span> <b>'
-            + str(m.get("total_policy_events", 0))
-            + "</b> &nbsp;|&nbsp; "
-            + '<span data-i18n="rpt_au_provisions">Provisions:</span> <b>'
-            + str(prov_count)
-            + "</b> &nbsp;|&nbsp; "
-            + '<span data-i18n="rpt_au_rule_changes">Rule Changes (Draft):</span> <b>'
-            + str(rule_count)
-            + "</b> &nbsp;|&nbsp; "
-            + '<span data-i18n="rpt_au_provision_impact_stat">Total Workloads Affected (all provisions):</span> <b style="color:'
-            + ("#c0392b" if total_wa > threshold else "#313638")
-            + '">'
-            + (f"{total_wa:,}" if total_wa else "0")
-            + "</b></p>"
+            self._subnote("rpt_au_mod03_intro")
+            + f'<p>{_s("rpt_au_total_policy")} <b>{m.get("total_policy_events", 0)}</b>'
+            + ' &nbsp;|&nbsp; '
+            + f'{_s("rpt_au_provisions")} <b>{prov_count}</b>'
+            + ' &nbsp;|&nbsp; '
+            + f'{_s("rpt_au_rule_changes")} <b>{rule_count}</b>'
+            + ' &nbsp;|&nbsp; '
+            + f'{_s("rpt_au_provision_impact_stat")} <b style="color:{"#c0392b" if total_wa > threshold else "#313638"}">{f"{total_wa:,}" if total_wa else "0"}</b></p>'
         )
-        html += self._lifecycle_concept_box()
-        html += (
-            '<div class="bp-box" data-i18n-html="rpt_au_bp_policy">'
-            "<b>Illumio Best Practice:</b> Review rule_set and sec_rule changes for overly broad scopes. "
-            "When sec_policy.create events occur, check workloads_affected and change_detail to confirm rollout impact."
-            "</div>"
-        )
-        html += (
-            '<div class="bp-box" data-i18n-html="rpt_au_change_detail_note">'
-            "<b>Change Tracking:</b> The <code>change_detail</code> column summarizes parsed before/after values, commit metadata, and impacted objects."
-            "</div>"
-        )
+        html += f'<div class="bp-box">{_s("rpt_au_bp_policy")}</div>'
+        html += f'<div class="bp-box">{_s("rpt_au_change_detail_note")}</div>'
         html += self._high_impact_provisions_html(high_impact, threshold)
 
         provisions = m.get("provisions")
         if provisions is not None and not (hasattr(provisions, "empty") and provisions.empty):
             html += (
-                self._subnote("rpt_au_provision_subnote", "Provision records show deployment impact directly. Cross-reference workloads affected, actor, source IP, resource name, and change detail to confirm that large Policy changes are expected.")
-                + '<h3 data-i18n="rpt_au_provision_title">Policy Provision Events</h3>'
-                '<p class="note note-warn" data-i18n="rpt_au_provision_desc">'
-                "Policy provisions push draft changes to active enforcement. "
-                "Review for unintended scope or excessive workload impact.</p>"
-                '<p class="note" style="font-size:.82rem" data-i18n-html="rpt_au_provision_change_detail_note">'
-                "The <b>change_detail</b> summary shows commit messages, versions, and counts of changed and affected resources for Provision events."
-                "</p>"
-                + _df_to_html(provisions, show_risk=True)
+                self._subnote("rpt_au_provision_subnote")
+                + f'<h3>{_s("rpt_au_provision_title")}</h3>'
+                + f'<p class="note note-warn">{_s("rpt_au_provision_desc")}</p>'
+                + f'<p class="note" style="font-size:.82rem">{_s("rpt_au_provision_change_detail_note")}</p>'
+                + _df_to_html(provisions, show_risk=True, lang=_lang)
             )
 
         draft_events = m.get("draft_events")
         if draft_events is not None and not (hasattr(draft_events, "empty") and draft_events.empty):
             html += (
-                self._subnote("rpt_au_draft_subnote", "Draft changes are edits that have not been provisioned yet. Before the next Provision, review target, resource, action, and change detail to confirm scope.")
-                + '<h3 data-i18n="rpt_au_draft_section">Draft Rule Changes</h3>'
-                '<p class="note" data-i18n="rpt_au_draft_desc">'
-                "These events represent policy edits in draft state. No enforcement changes have "
-                "occurred yet; they only take effect after Provision.</p>"
-                '<p class="note" style="font-size:.82rem" data-i18n-html="rpt_au_draft_change_detail_note">'
-                "The <b>change_detail</b> summary aggregates field-level before/after differences for Draft edits, so auditors can verify scope and intent without opening raw JSON."
-                "</p>"
-                + _df_to_html(draft_events, show_risk=True)
+                self._subnote("rpt_au_draft_subnote")
+                + f'<h3>{_s("rpt_au_draft_section")}</h3>'
+                + f'<p class="note">{_s("rpt_au_draft_desc")}</p>'
+                + f'<p class="note" style="font-size:.82rem">{_s("rpt_au_draft_change_detail_note")}</p>'
+                + _df_to_html(draft_events, show_risk=True, lang=_lang)
             )
 
         per_user = m.get("per_user")
         if per_user is not None and not (hasattr(per_user, "empty") and per_user.empty):
             html += (
-                self._subnote("rpt_au_per_user_policy_subnote", "This table aggregates Policy activity by parsed actor, separating admin operations, system tasks, and actions initiated by the Agent itself.")
-                + '<h3 data-i18n="rpt_au_per_user_policy">Changes by User</h3>'
+                self._subnote("rpt_au_per_user_policy_subnote")
+                + f'<h3>{_s("rpt_au_per_user_policy")}</h3>'
                 + _chart_html(m.get("chart_spec"), include_js=self._chart_tracker.consume())
-                + _df_to_html(per_user)
+                + _df_to_html(per_user, lang=_lang)
             )
 
-        html += '<h3 data-i18n="rpt_au_summary_type">Summary by Event Type</h3>' + _df_to_html(m.get("summary"))
-        html += '<h3 data-i18n="rpt_au_recent">All Policy Events (up to 50)</h3>' + _df_to_html(m.get("recent"), show_risk=True)
+        html += f'<h3>{_s("rpt_au_summary_type")}</h3>' + _df_to_html(m.get("summary"), lang=_lang)
+        html += f'<h3>{_s("rpt_au_recent")}</h3>' + _df_to_html(m.get("recent"), show_risk=True, lang=_lang)
         return "".join(html_parts) + html
 
     def _mod04_html(self) -> str:
@@ -596,6 +468,8 @@ class AuditHtmlExporter:
         if "error" in m:
             return f'<p class="note">{m["error"]}</p>'
 
+        _s = self._s
+        _lang = self._lang
         html_parts = [render_section_guidance("audit_mod04_correlation", profile="security_risk", detail_level="full")]
 
         total_corr = m.get("total_correlations", 0)
@@ -603,53 +477,43 @@ class AuditHtmlExporter:
         total_oh = m.get("total_off_hours", 0)
         window = m.get("window_minutes", 30)
 
-        # Correlation window is dynamic; put the number between two
-        # translatable spans so applyI18n swaps prefix/suffix without touching
-        # the value.
         html = (
-            self._subnote("rpt_au_mod04_intro", "This section analyses temporal correlation between events, detecting typical attack-chain patterns such as Policy changes after auth failures, brute-force attempts, and high-risk off-hours operations.")
+            self._subnote("rpt_au_mod04_intro")
             + (
-                '<p class="note" style="font-size:12px;">'
-                '<span data-i18n="rpt_au_mod04_window_prefix">Correlation window:</span> '
-                f'<b>{window}</b> '
-                '<span data-i18n="rpt_au_mod04_window_suffix">minutes</span>'
-                '</p>'
+                f'<p class="note" style="font-size:12px;">'
+                f'{_s("rpt_au_mod04_window_prefix")} <b>{window}</b> {_s("rpt_au_mod04_window_suffix")}'
+                f'</p>'
             )
-            + f'<p><span data-i18n="rpt_au_corr_summary">Correlated Sequences:</span> <b>{total_corr}</b>'
-            + f' &nbsp;|&nbsp; <span data-i18n="rpt_au_brute_force">Brute Force Detections:</span> <b>{total_bf}</b>'
-            + f' &nbsp;|&nbsp; <span data-i18n="rpt_au_off_hours">Off-Hours Operations:</span> <b>{total_oh}</b></p>'
+            + f'<p>{_s("rpt_au_corr_summary")} <b>{total_corr}</b>'
+            + f' &nbsp;|&nbsp; {_s("rpt_au_brute_force")} <b>{total_bf}</b>'
+            + f' &nbsp;|&nbsp; {_s("rpt_au_off_hours")} <b>{total_oh}</b></p>'
         )
 
         corr_df = m.get("correlated_sequences")
         if corr_df is not None and hasattr(corr_df, "empty") and not corr_df.empty:
             html += (
-                '<h3 data-i18n="rpt_au_corr_sequences">Correlated Attack Sequences</h3>'
-                '<p class="note note-warn" data-i18n="rpt_au_corr_desc">'
-                "Events from the same actor or IP that form suspicious temporal patterns. "
-                "Auth Failure → Policy Change is a strong indicator of credential compromise.</p>"
-                + _df_to_html(corr_df)
+                f'<h3>{_s("rpt_au_corr_sequences")}</h3>'
+                f'<p class="note note-warn">{_s("rpt_au_corr_desc")}</p>'
+                + _df_to_html(corr_df, lang=_lang)
             )
 
         bf_df = m.get("brute_force_detections")
         if bf_df is not None and hasattr(bf_df, "empty") and not bf_df.empty:
             html += (
-                '<h3 data-i18n="rpt_au_brute_section">Brute Force Detections</h3>'
-                f'<p class="note" data-i18n="rpt_au_brute_desc">'
-                f"Source IPs with ≥5 authentication failures within {window} minutes.</p>"
-                + _df_to_html(bf_df)
+                f'<h3>{_s("rpt_au_brute_section")}</h3>'
+                f'<p class="note">{_s("rpt_au_brute_desc")}</p>'
+                + _df_to_html(bf_df, lang=_lang)
             )
 
         oh_df = m.get("off_hours_operations")
         if oh_df is not None and hasattr(oh_df, "empty") and not oh_df.empty:
             html += (
-                '<h3 data-i18n="rpt_au_offhours_section">Off-Hours High-Risk Operations</h3>'
-                '<p class="note" data-i18n="rpt_au_offhours_desc">'
-                "High-risk policy changes outside business hours (08:00–19:00 UTC). "
-                "These warrant verification with the actor.</p>"
-                + _df_to_html(oh_df)
+                f'<h3>{_s("rpt_au_offhours_section")}</h3>'
+                f'<p class="note">{_s("rpt_au_offhours_desc")}</p>'
+                + _df_to_html(oh_df, lang=_lang)
             )
 
         if total_corr == 0 and total_bf == 0 and total_oh == 0:
-            html += '<p class="note" data-i18n="rpt_au_no_correlation">No suspicious temporal patterns detected.</p>'
+            html += f'<p class="note">{_s("rpt_au_no_correlation")}</p>'
 
         return "".join(html_parts) + html

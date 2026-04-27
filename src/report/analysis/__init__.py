@@ -50,7 +50,6 @@ TRAFFIC_MODULES: list[tuple[str, str, str, Callable]] = [
     ('mod14', 'src.report.analysis.mod14_infrastructure',       'infrastructure_scoring',        _call_df_n),
     ('mod15', 'src.report.analysis.mod15_lateral_movement',     'lateral_movement_risk',         _call_df_n),
     ('mod_draft_summary', 'src.report.analysis.mod_draft_summary', 'analyze',               _call_df),
-    ('mod_draft_actions',       'src.report.analysis.mod_draft_actions',       'analyze', _call_df),
     ('mod_enforcement_rollout', 'src.report.analysis.mod_enforcement_rollout', 'analyze', _call_df),
     ('mod_ringfence',           'src.report.analysis.mod_ringfence',           'analyze', _call_df),
     ('mod_exfiltration_intel',  'src.report.analysis.mod_exfiltration_intel',  'analyze', _call_df),

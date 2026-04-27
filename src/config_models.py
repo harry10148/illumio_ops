@@ -123,6 +123,9 @@ class WebGuiTls(_Base):
     auto_renew_days: int = Field(default=30, ge=1)
 
 class WebGuiSettings(_Base):
+    # extra="ignore" so legacy plain-text `password` keys in config.json are
+    # silently dropped rather than causing validation failure.
+    model_config = ConfigDict(extra="ignore")
     username: str = "illumio"
     password_hash: str = ""
     password_salt: str = ""

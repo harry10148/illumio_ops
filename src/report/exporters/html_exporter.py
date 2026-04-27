@@ -186,17 +186,16 @@ def _trend_chip(direction: str, delta: float, delta_pct: float | None, metric: s
         f'</span>'
     )
 
-def _trend_deltas_section(deltas: list | None) -> str:
+def _trend_deltas_section(deltas: list | None, lang: str = "en") -> str:
     """Heading + chip-bearing table; or a friendly first-run note when empty."""
-    heading = '<h3 data-i18n="rpt_tr_trend_heading">Trend vs Previous Report</h3>'
+    _s = lambda k: STRINGS[k].get(lang) or STRINGS[k]["en"]
+    heading = f'<h3>{_s("rpt_tr_trend_heading")}</h3>'
     if not deltas:
         return (
             heading
             + '<div class="trend-empty-note" data-trend-empty="true">'
             '<span class="trend-empty-dot" aria-hidden="true"></span>'
-            '<span data-i18n="rpt_tr_trend_empty">'
-            'No previous snapshot — trend will appear from the next report onward.'
-            '</span>'
+            f'<span>{_s("rpt_tr_trend_empty")}</span>'
             '</div>'
         )
 
@@ -229,6 +228,7 @@ def _trend_deltas_section(deltas: list | None) -> str:
         df,
         col_i18n=_COL_I18N,
         render_cell=_render_cell,
+        lang=lang,
     )
 
 # Rule descriptions: human-readable explanation of what each built-in rule checks
@@ -311,7 +311,7 @@ def _fmt_int_cell(val) -> str:
     return f'{f:,.1f}'
 
 def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
-                no_data_key: str = "rpt_no_data") -> str:
+                no_data_key: str = "rpt_no_data", lang: str = "en") -> str:
     # Empty-case rendering is handled inside render_df_table() so the panel
     # chrome stays consistent across data-bearing and empty sections.
 
@@ -345,6 +345,7 @@ def _df_to_html(df: pd.DataFrame | None, severity_col: str | None = None,
         col_i18n=_COL_I18N,
         no_data_key=no_data_key,
         render_cell=_render_cell,
+        lang=lang,
     )
 
 class HtmlExporter:
@@ -377,6 +378,9 @@ class HtmlExporter:
         profile = profile or self._profile
         detail_level = _REPORT_DETAIL_LEVEL
         self._chart_tracker = FirstChartTracker()
+        _sl = self._lang
+        _s = lambda k: STRINGS[k].get(_sl) or STRINGS[k]["en"]
+        self._s = _s
         mod12 = self._r.get('mod12', {})
         findings = self._r.get('findings', [])
         n_findings = str(len(findings))
@@ -403,14 +407,12 @@ class HtmlExporter:
             kf.get('finding', '') + ' <em style="color:#718096">&rarr; ' +
             kf.get('action', '') + '</em></p>'
             for kf in mod12.get('key_findings', [])
-        ) or '<p class="note" data-i18n="rpt_no_findings">No key findings.</p>'
+        ) or f'<p class="note">{_s("rpt_no_findings")}</p>'
         attack_summary_html = self._attack_summary_html(mod12) if profile == 'security_risk' else ''
 
         generated_at = mod12.get('generated_at', '')
         today_str = str(datetime.date.today())
         total_flows = self._r.get('mod01', {}).get('total_flows', 0)
-        _sl = self._lang
-        _s = lambda k: STRINGS[k].get(_sl) or STRINGS[k]["en"]
         summary_pills = (
             '<div class="summary-pill-row">'
             f'<div class="summary-pill"><span class="summary-pill-label">{_s("rpt_pill_flows")}</span><span class="summary-pill-value">{human_number(total_flows)}</span></div>'
@@ -424,20 +426,17 @@ class HtmlExporter:
                 "cache": "rpt_data_source_cache",
                 "api": "rpt_data_source_api",
             }.get(self._data_source, "rpt_data_source_mixed")
-            ds_label = STRINGS[ds_key]["en"]
+            ds_label = _s(ds_key)
             ds_color = {"cache": "#22C55E", "api": "#60A5FA"}.get(self._data_source, "#EAB308")
             data_source_pill = (
                 f'<div class="summary-pill" style="border-left: 3px solid {ds_color};">'
-                f'<span class="summary-pill-label" data-i18n="{ds_key}">{ds_label}</span>'
+                f'<span class="summary-pill-label">{ds_label}</span>'
                 f'</div>'
             )
             summary_pills = summary_pills.replace('</div>', data_source_pill + '</div>', 1)
 
         if self._compute_draft:
-            draft_pill = (
-                f'<span class="report-draft-pill" data-i18n="rpt_hdr_draft_enabled">'
-                f'{t("rpt_hdr_draft_enabled")}</span>'
-            )
+            draft_pill = f'<span class="report-draft-pill">{t("rpt_hdr_draft_enabled")}</span>'
             summary_pills = summary_pills.replace('</div>', draft_pill + '</div>', 1)
 
         # Maturity score gauge
@@ -473,8 +472,8 @@ class HtmlExporter:
             'background:var(--card-bg);border:1px solid var(--border);border-radius:12px">'
             f'<div style="text-align:center;min-width:100px">'
             f'<div style="font-size:48px;font-weight:700;color:{m_grade_color};line-height:1">{m_grade}</div>'
-            f'<div style="font-size:14px;color:var(--slate-50);margin-top:4px" data-i18n="rpt_tr_maturity_score">'
-            f'Maturity: {m_score}/100</div></div>'
+            f'<div style="font-size:14px;color:var(--slate-50);margin-top:4px">'
+            f'{_s("rpt_tr_maturity_score")}: {m_score}/100</div></div>'
             f'<div style="flex:1">{maturity_bars}</div></div>'
         )
 
@@ -507,7 +506,8 @@ class HtmlExporter:
 
         # Build profile-aware nav after all block flags are known
         def _nav_link(anchor: str, i18n_key: str, fallback: str, badge: str = '') -> str:
-            return (f'<a href="#{anchor}"><span data-i18n="{i18n_key}">{fallback}</span>'
+            label = _s(i18n_key) if i18n_key in STRINGS else fallback
+            return (f'<a href="#{anchor}">{label}'
                     + (f'<span class="nav-badge">{badge}</span>' if badge else '') + '</a>')
 
         if profile == 'security_risk':
@@ -522,8 +522,6 @@ class HtmlExporter:
                 _nav_link('readiness', 'rpt_tr_nav_readiness', '13 Enforcement Readiness'),
                 _nav_link('infrastructure', 'rpt_tr_nav_infrastructure', '14 Infrastructure Scoring'),
                 _nav_link('lateral', 'rpt_tr_nav_lateral', '15 Lateral Movement'),
-                (_nav_link('draft_actions', 'rpt_tr_nav_draft_actions', 'Draft Actions')
-                 if visible_in('mod_draft_actions', profile, detail_level) else ''),
                 (_nav_link('enforcement_rollout', 'rpt_tr_nav_enf_rollout', 'Enforcement Rollout')
                  if visible_in('mod_enforcement_rollout', profile, detail_level) else ''),
                 (_nav_link('exfiltration', 'rpt_tr_nav_exfiltration', 'Exfiltration Intel')
@@ -541,8 +539,6 @@ class HtmlExporter:
                 _nav_link('distribution', 'rpt_tr_nav_distribution', '9 Traffic Distribution'),
                 _nav_link('bandwidth', 'rpt_tr_nav_bandwidth', '11 Bandwidth & Volume'),
                 _nav_link('readiness', 'rpt_tr_nav_readiness', '13 Enforcement Readiness'),
-                (_nav_link('draft_actions', 'rpt_tr_nav_draft_actions', 'Draft Actions')
-                 if visible_in('mod_draft_actions', profile, detail_level) else ''),
                 (_nav_link('ringfence', 'rpt_tr_nav_ringfence', 'Application Ringfence')
                  if visible_in('mod_ringfence', profile, detail_level) else ''),
                 (_nav_link('change_impact', 'rpt_tr_nav_change_impact', 'Change Impact')
@@ -552,24 +548,22 @@ class HtmlExporter:
 
         body = (
             '<section id="summary" class="card report-hero">'
-            '<div class="report-hero-top"><div class="report-kicker" data-i18n="rpt_kicker_traffic">Traffic Analytics Report</div>'
+            '<div class="report-hero-top">'
+            f'<div class="report-kicker">{_s("rpt_kicker_traffic")}</div>'
             + (
-                f'<div class="report-profile-badge report-profile-badge--security" '
-                f'data-i18n="rpt_kicker_security_risk">{_s("rpt_kicker_security_risk")}</div>'
+                f'<div class="report-profile-badge report-profile-badge--security">{_s("rpt_kicker_security_risk")}</div>'
                 if profile == 'security_risk' else
-                f'<div class="report-profile-badge report-profile-badge--inventory" '
-                f'data-i18n="rpt_kicker_network_inventory">{_s("rpt_kicker_network_inventory")}</div>'
+                f'<div class="report-profile-badge report-profile-badge--inventory">{_s("rpt_kicker_network_inventory")}</div>'
             ) +
-            '<h1 data-i18n="rpt_tr_title">Illumio Traffic Flow Report</h1>'
-            '<p class="report-subtitle">'
-            '<span data-i18n="rpt_generated">Generated:</span> ' + generated_at + '</p></div>'
+            f'<h1>{_s("rpt_tr_title")}</h1>'
+            f'<p class="report-subtitle">{_s("rpt_generated")} ' + generated_at + '</p></div>'
             + summary_pills +
-            '<h2 data-i18n="rpt_tr_maturity_heading">Microsegmentation Maturity</h2>'
+            f'<h2>{_s("rpt_tr_maturity_heading")}</h2>'
             + maturity_html +
-            '<h2 data-i18n="rpt_key_metrics">Key Metrics</h2>'
+            f'<h2>{_s("rpt_key_metrics")}</h2>'
             '<div class="kpi-grid">' + kpi_cards + '</div>'
             + trend_html +
-            '<h2 data-i18n="rpt_key_findings">Key Findings</h2>' + key_findings_html +
+            f'<h2>{_s("rpt_key_findings")}</h2>' + key_findings_html +
             attack_summary_html +
             '</section>\n' +
             self._section('overview', 'rpt_tr_sec_overview', 'Traffic Overview',
@@ -619,10 +613,6 @@ class HtmlExporter:
                            render_section_guidance('mod15', profile=profile, detail_level=detail_level) + self._mod15_html(),
                            'rpt_tr_sec_lateral_intro', 'Focus on paths, Services, and sources tied to lateral movement to surface spread risk.') + '\n'
              if visible_in('mod15_lateral_movement', profile, detail_level) else '') +
-            (self._section('draft_actions', 'rpt_mod_draft_actions_title', 'Draft Actions',
-                           render_section_guidance('mod_draft_actions', profile, detail_level) + self._mod_draft_actions_html(),
-                           '', '') + '\n'
-             if visible_in('mod_draft_actions', profile, detail_level) else '') +
             (self._section('enforcement_rollout', 'rpt_mod_enf_rollout_title', 'Enforcement Rollout Plan',
                            render_section_guidance('mod_enforcement_rollout', profile, detail_level) + self._mod_enforcement_rollout_html(),
                            '', '') + '\n'
@@ -641,12 +631,11 @@ class HtmlExporter:
              if visible_in('mod_exfiltration_intel', profile, detail_level) else '') +
             ((
             '<section id="findings" class="card">'
-            '<h2><span data-i18n="rpt_tr_sec_findings">Security Findings</span> (' + n_findings + ')</h2>'
+            f'<h2>{_s("rpt_tr_sec_findings")} ({n_findings})</h2>'
             + self._findings_html() +
             '</section>\n'
             ) if profile == 'security_risk' else '') +
-            '<footer><span data-i18n="rpt_tr_footer">Illumio PCE Ops — Traffic Flow Report</span>'
-            ' &middot; ' + today_str + '</footer>'
+            f'<footer>{_s("rpt_tr_footer")} &middot; {today_str}</footer>'
         )
         html_lang = "zh-TW" if self._lang == "zh_TW" else "en"
         return (
@@ -666,40 +655,29 @@ class HtmlExporter:
         intro_key: str = '',
         intro_en: str = '',
     ) -> str:
-        """Emit a report section with translatable h2 title and intro.
-
-        Both the title and intro paragraphs carry ``data-i18n``; applyI18n()
-        swaps textContent on language toggle. Initial render uses English so
-        the no-JS path reads correctly.
-        """
-        intro_html = (
-            f'<p class="section-intro" data-i18n="{intro_key}">{intro_en}</p>'
-            if intro_key else ''
-        )
+        h2_text = self._s(i18n_key)
+        if h2_text == i18n_key:
+            h2_text = title
+        intro_html = ''
+        if intro_key:
+            intro_text = self._s(intro_key)
+            if intro_text == intro_key:
+                intro_text = intro_en
+            intro_html = f'<p class="section-intro">{intro_text}</p>'
         return (
             f'<section id="{id_}" class="card">'
-            f'<h2 data-i18n="{i18n_key}">{title}</h2>'
+            f'<h2>{h2_text}</h2>'
             f'{intro_html}{content}</section>'
         )
 
     def _trend_deltas_html(self) -> str:
-        """Render trend deltas via the shared table renderer + chip cells.
+        return _trend_deltas_section(self._r.get("_trend_deltas"), lang=self._lang)
 
-        When no prior snapshot exists, emits a soft 'first-run' note instead
-        of being silently empty (so the section feels intentional, not broken).
-        """
-        return _trend_deltas_section(self._r.get("_trend_deltas"))
-
-    def _subnote(self, i18n_key: str, en_text: str) -> str:
-        """Render a small annotation paragraph with i18n support.
-
-        Emits ``data-i18n`` so applyI18n() swaps textContent on language toggle,
-        and includes the English fallback as initial text for the no-JS path.
-        """
-        return (
-            f'<p class="note" style="font-size:12px;" '
-            f'data-i18n="{i18n_key}">{en_text}</p>'
-        )
+    def _subnote(self, i18n_key: str, en_text: str = "") -> str:
+        text = self._s(i18n_key)
+        if text == i18n_key:
+            text = en_text
+        return f'<p class="note" style="font-size:12px;">{text}</p>'
 
     def _attack_summary_html(self, mod12: dict) -> str:
         def _rows(section_items):
@@ -722,13 +700,14 @@ class HtmlExporter:
             for item in action_matrix[:3]
         ) or '<p class="note">No data</p>'
 
+        _s = self._s
         return (
-            '<h2 data-i18n="rpt_tr_attack_summary">Attack Summary</h2>'
-            '<h3 data-i18n="rpt_tr_boundary_breaches">Boundary Breaches</h3>' + _rows(mod12.get('boundary_breaches', [])) +
-            '<h3 data-i18n="rpt_tr_suspicious_pivot_behavior">Suspicious Pivot Behavior</h3>' + _rows(mod12.get('suspicious_pivot_behavior', [])) +
-            '<h3 data-i18n="rpt_tr_blast_radius">Blast Radius</h3>' + _rows(mod12.get('blast_radius', [])) +
-            '<h3 data-i18n="rpt_tr_blind_spots">Blind Spots</h3>' + _rows(mod12.get('blind_spots', [])) +
-            '<h3 data-i18n="rpt_tr_action_matrix">Action Matrix</h3>' + action_html
+            f'<h2>{_s("rpt_tr_attack_summary")}</h2>'
+            f'<h3>{_s("rpt_tr_boundary_breaches")}</h3>' + _rows(mod12.get('boundary_breaches', [])) +
+            f'<h3>{_s("rpt_tr_suspicious_pivot_behavior")}</h3>' + _rows(mod12.get('suspicious_pivot_behavior', [])) +
+            f'<h3>{_s("rpt_tr_blast_radius")}</h3>' + _rows(mod12.get('blast_radius', [])) +
+            f'<h3>{_s("rpt_tr_blind_spots")}</h3>' + _rows(mod12.get('blind_spots', [])) +
+            f'<h3>{_s("rpt_tr_action_matrix")}</h3>' + action_html
         )
 
     def _mod01_summary_table(self, mod01: dict) -> str:
@@ -776,22 +755,24 @@ class HtmlExporter:
         )
 
     def _mod01_html(self):
+        _s = self._s
         m = self._r.get('mod01', {})
         return (
-            self._subnote('rpt_tr_mod01_intro', 'This summary frames traffic scale, Policy coverage, and observation period so the rest of the report has context.')
+            self._subnote('rpt_tr_mod01_intro')
             + self._mod01_summary_table(m)
-            + self._subnote('rpt_tr_top_ports_subnote', 'Top Ports shows which Services dominate the environment and helps spot unexpected activity.')
-            + '<h3 data-i18n="rpt_tr_top_ports">Top Ports</h3>'
-            + _df_to_html(m.get('top_ports'))
+            + self._subnote('rpt_tr_top_ports_subnote')
+            + f'<h3>{_s("rpt_tr_top_ports")}</h3>'
+            + _df_to_html(m.get('top_ports'), lang=self._lang)
         )
 
     def _mod02_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod02', {})
-        out = self._subnote('rpt_tr_mod02_intro', 'Start with the decision breakdown to see how much traffic is Allowed vs Blocked vs Potentially Blocked.') + _df_to_html(m.get('summary')) + _render_chart_for_html(m.get('chart_spec'), include_js=self._chart_tracker.consume())
-        # Per-port coverage table
+        out = self._subnote('rpt_tr_mod02_intro') + _df_to_html(m.get('summary'), lang=_lang) + _render_chart_for_html(m.get('chart_spec'), include_js=self._chart_tracker.consume())
         pc = m.get('port_coverage')
         if pc is not None and hasattr(pc, 'empty') and not pc.empty:
-            out += self._subnote('rpt_tr_port_coverage_subnote', 'Per-Port Coverage surfaces which Services already have solid Policy and which still have gaps.') + '<h3 data-i18n="rpt_tr_port_coverage">Per-Port Coverage</h3>' + _df_to_html(pc)
+            out += self._subnote('rpt_tr_port_coverage_subnote') + f'<h3>{_s("rpt_tr_port_coverage")}</h3>' + _df_to_html(pc, lang=_lang)
         for d in ('allowed', 'blocked', 'potentially_blocked'):
             dm = m.get(d, {})
             if not isinstance(dm, dict) or dm.get('count', 0) == 0:
@@ -809,12 +790,12 @@ class HtmlExporter:
                 f' &nbsp;·&nbsp; ↓ Inbound: {inb} &nbsp;·&nbsp; ↑ Outbound: {outb}</h3>'
             )
             out += self._three_col_tables(
-                '<h4 data-i18n="rpt_tr_top_app_flows">Top App Flows</h4>',
-                _df_to_html(dm.get('top_app_flows')),
+                f'<h4>{_s("rpt_tr_top_app_flows")}</h4>',
+                _df_to_html(dm.get('top_app_flows'), lang=_lang),
                 f'<h4>Top Inbound Ports ({status})</h4>',
-                _df_to_html(dm.get('top_inbound_ports')),
+                _df_to_html(dm.get('top_inbound_ports'), lang=_lang),
                 f'<h4>Top Outbound Ports ({status})</h4>',
-                _df_to_html(dm.get('top_outbound_ports')),
+                _df_to_html(dm.get('top_outbound_ports'), lang=_lang),
             )
         return out
 
@@ -835,159 +816,169 @@ class HtmlExporter:
             + '</div>'
         )
 
+        _s = self._s
+        _lang = self._lang
         stats = (
             '<div class="coverage-grid">'
-            + _cov_stat('<span data-i18n="rpt_tr_enforced_coverage">Enforced Coverage</span>', str(enforced_cov) + '%')
-            + _cov_stat(f'<span data-i18n="rpt_pb_label">{t("rpt_pb_label")}</span>', str(staged_cov) + '%')
-            + _cov_stat('<span data-i18n="rpt_tr_true_gap">True Gap</span>', str(true_gap) + '%')
-            + (_cov_stat('<span data-i18n="rpt_tr_inbound_coverage">Inbound Coverage</span>', str(inb_cov) + '%') if inb_cov is not None else '')
-            + (_cov_stat('<span data-i18n="rpt_tr_outbound_coverage">Outbound Coverage</span>', str(outb_cov) + '%') if outb_cov is not None else '')
-            + _cov_stat('<span data-i18n="rpt_col_uncovered_flows">Uncovered Flows</span>', str(m.get('total_uncovered', 0)))
+            + _cov_stat(_s('rpt_tr_enforced_coverage'), str(enforced_cov) + '%')
+            + _cov_stat(t('rpt_pb_label'), str(staged_cov) + '%')
+            + _cov_stat(_s('rpt_tr_true_gap'), str(true_gap) + '%')
+            + (_cov_stat(_s('rpt_tr_inbound_coverage'), str(inb_cov) + '%') if inb_cov is not None else '')
+            + (_cov_stat(_s('rpt_tr_outbound_coverage'), str(outb_cov) + '%') if outb_cov is not None else '')
+            + _cov_stat(_s('rpt_col_uncovered_flows'), str(m.get('total_uncovered', 0)))
             + '</div>'
             + bar_html
-            + (f'<p class="note" data-i18n-html="rpt_pb_explainer">{t("rpt_pb_explainer")}</p>' if staged_cov > 0 else '')
+            + (f'<p class="note">{t("rpt_pb_explainer")}</p>' if staged_cov > 0 else '')
         )
         out = (
             stats
-            + self._subnote('rpt_tr_top_uncovered_subnote', 'Top uncovered flows highlight where Policy most urgently needs filling, usually by volume or sensitivity.')
-            + '<h3 data-i18n="rpt_tr_top_uncovered">Top Uncovered Flows</h3>'
-            + _df_to_html(m.get('top_flows'))
+            + self._subnote('rpt_tr_top_uncovered_subnote')
+            + f'<h3>{_s("rpt_tr_top_uncovered")}</h3>'
+            + _df_to_html(m.get('top_flows'), lang=_lang)
         )
         up = m.get('uncovered_ports')
         if up is not None and hasattr(up, 'empty') and not up.empty:
-            out += self._subnote('rpt_tr_port_gaps_subnote', 'The Port gap ranking helps you inventory gaps by Service and turn them directly into a remediation list.') + '<h3 data-i18n="rpt_tr_port_gaps">Port Gap Ranking</h3>' + _df_to_html(up)
+            out += self._subnote('rpt_tr_port_gaps_subnote') + f'<h3>{_s("rpt_tr_port_gaps")}</h3>' + _df_to_html(up, lang=_lang)
         us = m.get('uncovered_services')
         if us is not None and hasattr(us, 'empty') and not us.empty:
-            out += self._subnote('rpt_tr_service_gaps_subnote', 'Uncovered Services tie apps and Ports together, making a better input for future Policy design.') + '<h3 data-i18n="rpt_tr_service_gaps">Uncovered Services (App + Port)</h3>' + _df_to_html(us)
-        out += '<h3 data-i18n="rpt_tr_by_rec">By Recommendation Category</h3>' + _df_to_html(m.get('by_recommendation'))
+            out += self._subnote('rpt_tr_service_gaps_subnote') + f'<h3>{_s("rpt_tr_service_gaps")}</h3>' + _df_to_html(us, lang=_lang)
+        out += f'<h3>{_s("rpt_tr_by_rec")}</h3>' + _df_to_html(m.get('by_recommendation'), lang=_lang)
         return out
 
     def _mod04_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod04', {})
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
 
-        out = ('<p><span data-i18n="rpt_tr_risk_flows">Total risk flows:</span> <b>'
-               + str(m.get('risk_flows_total', 0)) + '</b></p>')
+        out = f'<p>{_s("rpt_tr_risk_flows")} <b>{m.get("risk_flows_total", 0)}</b></p>'
 
-        # Part E — Investigation targets (allowed traffic on critical/high ports)
         part_e = m.get('part_e_investigation')
         if part_e is not None and hasattr(part_e, 'empty') and not part_e.empty:
             out += (
                 '<div style="background:#fff3cd;border-left:4px solid var(--gold);'
                 'padding:12px 16px;margin:12px 0;border-radius:4px">'
-                '<b><span data-i18n="rpt_tr_investigation_title">⚠ Hosts Requiring Investigation</span></b><br>'
-                '<span style="font-size:12px" data-i18n="rpt_tr_investigation_desc">'
-                'The following destination hosts have Allowed traffic on critical or high-risk Ports. Verify whether this is expected, or block the traffic.'
-                '</span>'
+                f'<b>{_s("rpt_tr_investigation_title")}</b><br>'
+                f'<span style="font-size:12px">{_s("rpt_tr_investigation_desc")}</span>'
                 '</div>'
-                + _df_to_html(part_e, 'Risk Level')
+                + _df_to_html(part_e, 'Risk Level', lang=_lang)
             )
         else:
             out += (
                 '<div style="background:#d4edda;border-left:4px solid var(--green-80);'
                 'padding:12px 16px;margin:12px 0;border-radius:4px">'
-                '<b data-i18n="rpt_tr_no_investigation">✅ No Allowed traffic on critical/high-risk Ports detected.</b>'
+                f'<b>{_s("rpt_tr_no_investigation")}</b>'
                 '</div>'
             )
 
         out += (
-            '<h3 data-i18n="rpt_tr_risk_summary">Risk Level Summary</h3>'
-            + _df_to_html(m.get('part_a_summary'), 'Risk Level') +
-            '<h3 data-i18n="rpt_tr_per_port">Per-Port Detail</h3>'
-            + _df_to_html(m.get('part_b_per_port'), 'Risk Level') +
-            '<h3 data-i18n="rpt_tr_host_exposure">Host Exposure Ranking</h3>'
-            + '<p class="note" style="font-size:11px" data-i18n="rpt_tr_host_exposure_note">'
-            'Destination hosts ranked by number of risk-Port touches, across all decisions including blocks.</p>'
-            + _df_to_html(m.get('part_d_host_exposure'))
+            f'<h3>{_s("rpt_tr_risk_summary")}</h3>'
+            + _df_to_html(m.get('part_a_summary'), 'Risk Level', lang=_lang) +
+            f'<h3>{_s("rpt_tr_per_port")}</h3>'
+            + _df_to_html(m.get('part_b_per_port'), 'Risk Level', lang=_lang) +
+            f'<h3>{_s("rpt_tr_host_exposure")}</h3>'
+            + f'<p class="note" style="font-size:11px">{_s("rpt_tr_host_exposure_note")}</p>'
+            + _df_to_html(m.get('part_d_host_exposure'), lang=_lang)
         )
         return out
 
     def _mod05_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod05', {})
         if not isinstance(m, dict) or m.get('total_lateral_flows', 0) == 0:
-            return '<p class="note" data-i18n="rpt_no_lateral">No lateral movement traffic found.</p>'
+            return f'<p class="note">{_s("rpt_no_lateral")}</p>'
         return (
-            self._subnote('rpt_tr_remote_services_subnote', 'Service-level activity in remote-management scenarios shows which protocols are most used for ops or remote sessions.')
-            + _df_to_html(m.get('by_service'))
-            + self._subnote('rpt_tr_remote_talkers_subnote', 'Top Talkers surfaces the most active sources or destinations so you can cross-check against known admin nodes.')
-            + '<h3 data-i18n="rpt_tr_top_talkers">Top Talkers</h3>'
-            + _df_to_html(m.get('top_talkers'))
+            self._subnote('rpt_tr_remote_services_subnote')
+            + _df_to_html(m.get('by_service'), lang=_lang)
+            + self._subnote('rpt_tr_remote_talkers_subnote')
+            + f'<h3>{_s("rpt_tr_top_talkers")}</h3>'
+            + _df_to_html(m.get('top_talkers'), lang=_lang)
         )
 
     def _mod06_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod06', {})
         if m.get('note'):
             return f'<p class="note">{m["note"]}</p>'
         out = ''
         if m.get('user_data_available'):
-            out += self._subnote('rpt_tr_top_users_subnote', 'Top Users identifies which accounts appear most often in this traffic, helping confirm whether behaviour matches existing patterns.') + '<h3 data-i18n="rpt_tr_top_users">Top Users</h3>' + _df_to_html(m.get('top_users'))
+            out += self._subnote('rpt_tr_top_users_subnote') + f'<h3>{_s("rpt_tr_top_users")}</h3>' + _df_to_html(m.get('top_users'), lang=_lang)
         if m.get('process_data_available'):
-            out += self._subnote('rpt_tr_top_processes_subnote', 'Top Processes narrows down the binaries that initiated connections, separating normal services from background processes worth investigating.') + '<h3 data-i18n="rpt_tr_top_processes">Top Processes</h3>' + _df_to_html(m.get('top_processes'))
-        return out or '<p class="note" data-i18n="rpt_no_user_proc">No user/process data.</p>'
+            out += self._subnote('rpt_tr_top_processes_subnote') + f'<h3>{_s("rpt_tr_top_processes")}</h3>' + _df_to_html(m.get('top_processes'), lang=_lang)
+        return out or f'<p class="note">{_s("rpt_no_user_proc")}</p>'
 
     def _mod07_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod07', {})
         out = ''
         for key, data in m.get('matrices', {}).items():
-            out += '<h3><span data-i18n="rpt_tr_label_key">Label Key:</span> ' + key.upper() + '</h3>'
+            out += f'<h3>{_s("rpt_tr_label_key")} {key.upper()}</h3>'
             if 'note' in data:
                 out += f'<p class="note">{data["note"]}</p>'
             else:
-                kv = (f'<span data-i18n="rpt_tr_same_value">Same-value:</span> {data.get("same_value_flows",0)} · '
-                      f'<span data-i18n="rpt_tr_cross_value">Cross-value:</span> {data.get("cross_value_flows",0)}')
-                out += f'<p>{kv}</p>{_df_to_html(data.get("top_cross_pairs"))}'
+                kv = (f'{_s("rpt_tr_same_value")} {data.get("same_value_flows",0)} · '
+                      f'{_s("rpt_tr_cross_value")} {data.get("cross_value_flows",0)}')
+                out += f'<p>{kv}</p>{_df_to_html(data.get("top_cross_pairs"), lang=_lang)}'
         out += _render_chart_for_html(m.get('chart_spec'), include_js=self._chart_tracker.consume())
-        return out or '<p class="note" data-i18n="rpt_no_matrix">No label matrix data.</p>'
+        return out or f'<p class="note">{_s("rpt_no_matrix")}</p>'
 
     def _mod08_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod08', {})
         out = (
             '<div class="coverage-grid">'
-            + _cov_stat('<span data-i18n="rpt_tr_unmanaged_flow_stat">Unmanaged Flows</span>', str(m.get('unmanaged_flow_count', 0)) + ' (' + str(m.get('unmanaged_pct', 0)) + '%)')
-            + _cov_stat('<span data-i18n="rpt_tr_unique_unmanaged_src">Unique Unmanaged Src</span>', str(m.get('unique_unmanaged_src', 0)))
-            + _cov_stat('<span data-i18n="rpt_tr_unique_unmanaged_dst">Unique Unmanaged Dst</span>', str(m.get('unique_unmanaged_dst', 0)))
+            + _cov_stat(_s('rpt_tr_unmanaged_flow_stat'), str(m.get('unmanaged_flow_count', 0)) + ' (' + str(m.get('unmanaged_pct', 0)) + '%)')
+            + _cov_stat(_s('rpt_tr_unique_unmanaged_src'), str(m.get('unique_unmanaged_src', 0)))
+            + _cov_stat(_s('rpt_tr_unique_unmanaged_dst'), str(m.get('unique_unmanaged_dst', 0)))
             + '</div>'
-            + self._subnote('rpt_tr_unmanaged_subnote', 'Start with the scale of unmanaged traffic, then drill into which sources are most active and which managed Services they target.')
-            + '<h3 data-i18n="rpt_tr_top_unmanaged">Top Unmanaged Sources</h3>'
-            + _df_to_html(m.get('top_unmanaged_src'))
+            + self._subnote('rpt_tr_unmanaged_subnote')
+            + f'<h3>{_s("rpt_tr_top_unmanaged")}</h3>'
+            + _df_to_html(m.get('top_unmanaged_src'), lang=_lang)
         )
         pa = m.get('per_dst_app')
         if pa is not None and hasattr(pa, 'empty') and not pa.empty:
-            out += '<h3 data-i18n="rpt_tr_managed_apps_unmanaged">Managed Apps Receiving Unmanaged Traffic</h3>' + _df_to_html(pa)
+            out += f'<h3>{_s("rpt_tr_managed_apps_unmanaged")}</h3>' + _df_to_html(pa, lang=_lang)
         pp = m.get('per_port_proto')
         if pp is not None and hasattr(pp, 'empty') and not pp.empty:
-            out += '<h3 data-i18n="rpt_tr_exposed_ports_proto">Exposed Ports / Protocols</h3>' + _df_to_html(pp)
+            out += f'<h3>{_s("rpt_tr_exposed_ports_proto")}</h3>' + _df_to_html(pp, lang=_lang)
         sp = m.get('src_port_detail')
         if sp is not None and hasattr(sp, 'empty') and not sp.empty:
-            out += '<h3 data-i18n="rpt_tr_unmanaged_src_port">Unmanaged Source × Port Detail</h3>' + _df_to_html(sp)
+            out += f'<h3>{_s("rpt_tr_unmanaged_src_port")}</h3>' + _df_to_html(sp, lang=_lang)
         mh = m.get('managed_hosts_targeted_by_unmanaged')
         if mh is not None and hasattr(mh, 'empty') and not mh.empty:
-            out += '<h3 data-i18n="rpt_tr_managed_targeted">Managed Hosts Targeted by Unmanaged Sources</h3>' + _df_to_html(mh)
+            out += f'<h3>{_s("rpt_tr_managed_targeted")}</h3>' + _df_to_html(mh, lang=_lang)
         return out
 
     def _mod09_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod09', {})
         return (
-            self._subnote('rpt_tr_distribution_subnote', 'Distribution tables are mainly for shape — good for spotting concentration around a single Service or sudden spikes in a protocol.')
-            + '<h3 data-i18n="rpt_tr_port_dist">Port Distribution</h3>'
-            + _df_to_html(m.get('port_distribution')) +
-            '<h3 data-i18n="rpt_tr_proto_dist">Protocol Distribution</h3>'
-            + _df_to_html(m.get('proto_distribution'))
+            self._subnote('rpt_tr_distribution_subnote')
+            + f'<h3>{_s("rpt_tr_port_dist")}</h3>'
+            + _df_to_html(m.get('port_distribution'), lang=_lang) +
+            f'<h3>{_s("rpt_tr_proto_dist")}</h3>'
+            + _df_to_html(m.get('proto_distribution'), lang=_lang)
         )
 
     def _mod10_html(self):
+        _s = self._s
+        _lang = self._lang
         m = self._r.get('mod10', {})
         if m.get('note'):
             return f'<p class="note">{m["note"]}</p>'
         return (
-            self._subnote('rpt_tr_allowed_flows_subnote', 'Focus on explicitly Allowed top flows and verify they are required business paths.')
-            + _df_to_html(m.get('top_app_flows'))
+            self._subnote('rpt_tr_allowed_flows_subnote')
+            + _df_to_html(m.get('top_app_flows'), lang=_lang)
             + _render_chart_for_html(m.get('chart_spec'), include_js=self._chart_tracker.consume())
-            + self._subnote('rpt_tr_audit_flags_subnote', 'Audit Flags lists traffic that is Allowed but still worth a human review.')
-            + '<h3><span data-i18n="rpt_tr_audit_flags">Audit Flags</span> (' +
-            str(m.get('audit_flag_count', 0)) + ')</h3>'
-            + _df_to_html(m.get('audit_flags'))
+            + self._subnote('rpt_tr_audit_flags_subnote')
+            + f'<h3>{_s("rpt_tr_audit_flags")} ({m.get("audit_flag_count", 0)})</h3>'
+            + _df_to_html(m.get('audit_flags'), lang=_lang)
         )
 
     def _mod11_html(self):
@@ -999,28 +990,24 @@ class HtmlExporter:
         avg_bw = m.get('avg_bandwidth_mbps')
         p95_bw = m.get('p95_bandwidth_mbps')
 
+        _s = self._s
+        _lang = self._lang
         out = '<div class="coverage-grid">'
-        out += _cov_stat('<span data-i18n="rpt_tr_total_volume">Total Volume</span>',
-                         _fmt_bytes(m.get('total_bytes', 0)))
+        out += _cov_stat(_s('rpt_tr_total_volume'), _fmt_bytes(m.get('total_bytes', 0)))
         if max_bw is not None:
-            out += _cov_stat('<span data-i18n="rpt_tr_max_bw">Max Bandwidth</span>',
-                             _fmt_bw(max_bw))
+            out += _cov_stat(_s('rpt_tr_max_bw'), _fmt_bw(max_bw))
         if avg_bw is not None:
-            out += _cov_stat('<span data-i18n="rpt_tr_avg_bw">Avg Bandwidth</span>',
-                             _fmt_bw(avg_bw))
+            out += _cov_stat(_s('rpt_tr_avg_bw'), _fmt_bw(avg_bw))
         if p95_bw is not None:
-            out += _cov_stat('<span data-i18n="rpt_tr_p95_bw">P95 Bandwidth</span>',
-                             _fmt_bw(p95_bw))
+            out += _cov_stat(_s('rpt_tr_p95_bw'), _fmt_bw(p95_bw))
         out += '</div>'
 
-        out += self._subnote('rpt_tr_bandwidth_subnote', 'Start from total volume and peak bandwidth to size overall data movement, then drill into which flows to inspect first.')
-        out += ('<h3 data-i18n="rpt_tr_top_by_bytes">Top by Total Bytes</h3>'
-                + _df_to_html(m.get('top_by_bytes')))
+        out += self._subnote('rpt_tr_bandwidth_subnote')
+        out += f'<h3>{_s("rpt_tr_top_by_bytes")}</h3>' + _df_to_html(m.get('top_by_bytes'), lang=_lang)
 
         tb = m.get('top_bandwidth')
         if tb is not None and hasattr(tb, 'empty') and not tb.empty:
-            out += ('<h3 data-i18n="rpt_tr_top_by_bw">Top by Bandwidth (Mbps)</h3>'
-                    + _df_to_html(tb))
+            out += f'<h3>{_s("rpt_tr_top_by_bw")}</h3>' + _df_to_html(tb, lang=_lang)
 
         anom = m.get('byte_ratio_anomalies')
         if anom is not None and hasattr(anom, 'empty') and not anom.empty:
@@ -1029,22 +1016,19 @@ class HtmlExporter:
                           f'P95 ≥ {_fmt_bytes(threshold)}/conn</span>'
                           if threshold else '')
             out += (
-                f'<h3><span data-i18n="rpt_tr_anomalies">Anomalies (High Bytes/Conn)</span>'
-                f'{thresh_str}</h3>'
-                '<p class="note" style="font-size:11px" data-i18n="rpt_tr_anomalies_note">'
-                'Flows whose bytes-per-connection exceed P95 (only where connection count &gt; 1); candidates for large transfers or exfiltration.'
-                '</p>'
-                + _df_to_html(anom)
+                f'<h3>{_s("rpt_tr_anomalies")}{thresh_str}</h3>'
+                f'<p class="note" style="font-size:11px">{_s("rpt_tr_anomalies_note")}</p>'
+                + _df_to_html(anom, lang=_lang)
             )
 
         return out
 
     def _findings_html(self):
         from src.report.exporters.report_i18n import STRINGS as _S
+        _s = self._s
         findings = self._r.get('findings', [])
         if not findings:
-            en_msg = _S.get('rpt_no_findings_detail', {}).get('en', '')
-            return f'<p class="note" data-i18n="rpt_no_findings_detail">{en_msg}</p>'
+            return f'<p class="note">{_s("rpt_no_findings_detail")}</p>'
 
         from collections import Counter, defaultdict
         counts = Counter(f.severity for f in findings)
@@ -1075,38 +1059,39 @@ class HtmlExporter:
             desc_key = f'rpt_cat_{cat_key}_desc'
             cat_name_en = _S.get(name_key, {}).get('en', cat)
             cat_desc_en = _S.get(desc_key, {}).get('en', '')
+            cat_name = _s(name_key) if name_key in _S else cat_name_en
+            cat_desc = _s(desc_key) if desc_key in _S else cat_desc_en
             cards_html += (
                 f'<div class="cat-group">'
-                f'<h3 style="margin-bottom:6px;" data-i18n="{name_key}">{cat_name_en}</h3>'
-                f'<p style="font-size:12px;color:var(--slate-50);margin-bottom:14px;"'
-                f' data-i18n="{desc_key}">{cat_desc_en}</p>'
+                f'<h3 style="margin-bottom:6px;">{cat_name}</h3>'
+                f'<p style="font-size:12px;color:var(--slate-50);margin-bottom:14px;">{cat_desc}</p>'
             )
             for f in cat_findings:
                 _rule_title, rule_how = _RULE_DESCRIPTIONS.get(f.rule_id, (f.rule_name, ''))
                 evidence_html = _format_evidence(f.evidence)
+                rule_name_key = f'rpt_rule_{f.rule_id}_name'
+                rule_name = _s(rule_name_key) if rule_name_key in _S else f.rule_name
                 cards_html += (
                     f'<div class="finding-card sev-{f.severity}">'
                     f'<div class="finding-header">'
                     f'<span class="badge badge-{f.severity}">{f.severity}</span>'
                     f'<span class="finding-rule-id">{f.rule_id}</span>'
-                    f'<span class="finding-title" data-i18n="rpt_rule_{f.rule_id}_name">{f.rule_name}</span>'
+                    f'<span class="finding-title">{rule_name}</span>'
                     f'</div>'
                 )
                 if rule_how:
                     how_key = f'rpt_rule_{f.rule_id}_how'
-                    how_en = _S.get(how_key, {}).get('en', rule_how)
-                    check_label_en = _S.get('rpt_rule_check_label', {}).get('en', 'What this rule checks:')
+                    how_text = _s(how_key) if how_key in _S else rule_how
                     cards_html += (
                         f'<p style="font-size:11px;color:var(--slate-50);margin-bottom:8px;">'
-                        f'<b data-i18n="rpt_rule_check_label">{check_label_en}</b>'
-                        f' <span data-i18n="{how_key}">{how_en}</span></p>'
+                        f'<b>{_s("rpt_rule_check_label")}</b>'
+                        f' <span>{how_text}</span></p>'
                     )
-                rec_label_en = _S.get('rpt_recommendation_label', {}).get('en', 'Recommendation:')
                 cards_html += (
                     f'<p class="finding-desc">{f.description}</p>'
                     + evidence_html
                     + f'<div class="finding-rec">'
-                    f'<b data-i18n="rpt_recommendation_label">{rec_label_en}</b> '
+                    f'<b>{_s("rpt_recommendation_label")}</b> '
                     f'{f.recommendation}</div>'
                     f'</div>'
                 )
@@ -1143,8 +1128,9 @@ class HtmlExporter:
                 bars.append(
                     f'<div style="width:{pct}%;background:{color};min-width:40px" title="{label}: {count}">{count}</div>'
                 )
+            _s_local = self._s
             dist_html = (
-                '<h4 data-i18n="rpt_tr_enforcement_dist">Enforcement Mode Distribution</h4>'
+                f'<h4>{_s_local("rpt_tr_enforcement_dist")}</h4>'
                 '<div style="display:flex;height:32px;border-radius:6px;overflow:hidden;margin:8px 0 16px 0;'
                 'font-size:12px;font-weight:600;color:#fff;text-align:center;line-height:32px">'
                 + ''.join(bars)
@@ -1162,145 +1148,147 @@ class HtmlExporter:
         _factor_legend = (
             '<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;'
             'padding:12px 16px;margin-bottom:12px;font-size:13px;line-height:1.6">'
-            '<b data-i18n="rpt_tr_col_legend">Column guide</b>'
+            '<b>Column guide</b>'
             '<ul style="margin:6px 0 0 0;padding-left:18px">'
-            '<li><b data-i18n="rpt_tr_col_factor">Factor</b> — <span data-i18n="rpt_tr_col_factor_desc">the aspect of enforcement readiness being measured</span></li>'
-            '<li><b data-i18n="rpt_tr_col_weight">Weight</b> — <span data-i18n="rpt_tr_col_weight_desc">how much this factor contributes to the 100-point total score (e.g. 35 = 35%)</span></li>'
-            '<li><b data-i18n="rpt_tr_col_ratio">Ratio %</b> — <span data-i18n="rpt_tr_col_ratio_desc">the underlying measurement (e.g. 60% of flows are policy-covered)</span></li>'
-            '<li><b data-i18n="rpt_tr_col_score">Score</b> — <span data-i18n="rpt_tr_col_score_desc">points earned for this factor (= Weight × Ratio ÷ 100); all factors sum to the total</span></li>'
+            '<li><b>Factor</b> — the aspect of enforcement readiness being measured</li>'
+            '<li><b>Weight</b> — how much this factor contributes to the 100-point total score (e.g. 35 = 35%)</li>'
+            '<li><b>Ratio %</b> — the underlying measurement (e.g. 60% of flows are policy-covered)</li>'
+            '<li><b>Score</b> — points earned for this factor (= Weight × Ratio ÷ 100); all factors sum to the total</li>'
             '</ul>'
             '<table style="margin-top:10px;font-size:12px;border-collapse:collapse;width:100%">'
             '<tr style="border-bottom:1px solid var(--border)">'
-            '<th style="text-align:left;padding:4px 8px" data-i18n="rpt_tr_col_factor">Factor</th>'
-            '<th style="text-align:left;padding:4px 8px" data-i18n="rpt_tr_col_factor_meaning">What it measures</th>'
+            '<th style="text-align:left;padding:4px 8px">Factor</th>'
+            '<th style="text-align:left;padding:4px 8px">What it measures</th>'
             '</tr>'
             '<tr><td style="padding:4px 8px">Policy Coverage</td>'
-            '<td style="padding:4px 8px" data-i18n="rpt_tr_mod13_factor_policy">% of flows matched by an allow policy (higher = fewer unprotected paths)</td></tr>'
+            '<td style="padding:4px 8px">% of flows matched by an allow policy (higher = fewer unprotected paths)</td></tr>'
             '<tr style="background:var(--row-alt)"><td style="padding:4px 8px">Ringfence Maturity</td>'
-            '<td style="padding:4px 8px" data-i18n="rpt_tr_mod13_factor_ringfence">% of apps with app-boundary ringfence policies in place</td></tr>'
+            '<td style="padding:4px 8px">% of apps with app-boundary ringfence policies in place</td></tr>'
             '<tr><td style="padding:4px 8px">Enforcement Mode</td>'
-            '<td style="padding:4px 8px" data-i18n="rpt_tr_mod13_factor_enforcement">% of workloads in selective or full enforcement (not visibility-only or idle)</td></tr>'
+            '<td style="padding:4px 8px">% of workloads in selective or full enforcement (not visibility-only or idle)</td></tr>'
             '<tr style="background:var(--row-alt)"><td style="padding:4px 8px">Staged Readiness</td>'
-            '<td style="padding:4px 8px" data-i18n="rpt_tr_mod13_factor_staged">% of staged flows (rules written, not yet enforced) that are already covered; shows how much of the backlog is resolved</td></tr>'
+            '<td style="padding:4px 8px">% of staged flows (rules written, not yet enforced) that are already covered; shows how much of the backlog is resolved</td></tr>'
             '<tr><td style="padding:4px 8px">Remote-App Coverage</td>'
-            '<td style="padding:4px 8px" data-i18n="rpt_tr_mod13_factor_remote">% of remote-access flows (RDP/SSH/VNC) that have a matching allow policy</td></tr>'
+            '<td style="padding:4px 8px">% of remote-access flows (RDP/SSH/VNC) that have a matching allow policy</td></tr>'
             '</table>'
             '</div>'
         )
+        _s = self._s
+        _lang = self._lang
         html = (
-            self._subnote('rpt_tr_readiness_subnote', 'The readiness score estimates how ready the environment is to tighten Enforcement; a higher score usually means tighter convergence.') +
+            self._subnote('rpt_tr_readiness_subnote') +
             f'<div style="display:flex;align-items:center;gap:24px;margin-bottom:16px;">'
             f'<div style="font-size:48px;font-weight:700;color:{grade_color};">{grade}</div>'
             f'<div style="flex:1;">'
-            f'<div style="font-size:13px;color:var(--slate-50);margin-bottom:4px;"><span data-i18n="rpt_tr_readiness_score">Enforcement Readiness Score:</span> <b>{score}/100</b></div>'
+            f'<div style="font-size:13px;color:var(--slate-50);margin-bottom:4px;">{_s("rpt_tr_readiness_score")} <b>{score}/100</b></div>'
             f'{score_bar}'
             f'</div></div>'
             + dist_html
-            + '<h4 data-i18n="rpt_tr_score_breakdown">Score Breakdown by Factor</h4>'
+            + f'<h4>{_s("rpt_tr_score_breakdown")}</h4>'
             + _factor_legend
-            + _df_to_html(factor_table)
+            + _df_to_html(
+                factor_table.rename(columns={"Factor": "Factor", "Weight": "Weight", "Score": "Score", "Ratio %": "Ratio %"}) if factor_table is not None else factor_table,
+                lang=_lang,
+            )
         )
         if app_env_scores is not None and not app_env_scores.empty:
-            html += '<h4>App(env) Readiness Ranking</h4>' + _df_to_html(app_env_scores)
+            _aes = app_env_scores.rename(columns={
+                "app_env_key": "App (Env)",
+                "readiness_score": "Readiness Score",
+                "policy_coverage_ratio": "Policy Coverage %",
+                "ringfence_maturity_ratio": "Ringfence Maturity %",
+                "enforcement_mode_ratio": "Enforcement Mode %",
+                "staged_readiness_ratio": "Staged Readiness %",
+                "remote_app_coverage_ratio": "Remote-App Coverage %",
+                "flow_count": "Flows",
+                "connection_count": "Connections",
+                "grade": "Grade",
+            })
+            html += f'<h4>{_s("rpt_tr_app_env_readiness")}</h4>' + _df_to_html(_aes, lang=_lang)
         if recommendations is not None and not recommendations.empty:
-            html += '<h4 data-i18n="rpt_tr_remediation_rec">Remediation Recommendations</h4>' + _df_to_html(recommendations)
+            _rec = recommendations.rename(columns={
+                "Priority": "Priority",
+                "App (Env)": "App (Env)",
+                "Issue": "Issue",
+                "Action": "Action",
+                "Action Code": "Action Code",
+            })
+            html += f'<h4>{_s("rpt_tr_remediation_rec")}</h4>' + _df_to_html(_rec, lang=_lang)
         return html
 
     def _mod14_html(self):
         m = self._r.get('mod14', {})
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
+        _s = self._s
+        _lang = self._lang
         html = (
-            f'<p><span data-i18n="rpt_tr_apps_analysed">Applications analysed:</span> <b>{m.get("total_apps", 0)}</b> · '
-            f'<span data-i18n="rpt_tr_comm_edges">Communication edges:</span> <b>{m.get("total_edges", 0)}</b></p>'
+            f'<p>{_s("rpt_tr_apps_analysed")} <b>{m.get("total_apps", 0)}</b> · '
+            f'{_s("rpt_tr_comm_edges")} <b>{m.get("total_edges", 0)}</b></p>'
         )
         role_summary = m.get('role_summary')
         if role_summary is not None and not role_summary.empty:
-            html += '<h4 data-i18n="rpt_tr_role_distribution">Role Distribution</h4>' + _df_to_html(role_summary)
+            html += f'<h4>{_s("rpt_tr_role_distribution")}</h4>' + _df_to_html(role_summary, lang=_lang)
         hub_apps = m.get('hub_apps')
         if hub_apps is not None and not hub_apps.empty:
-            html += '<h4 data-i18n="rpt_tr_hub_apps">Hub Applications (High Blast Radius)</h4>' + _df_to_html(hub_apps)
+            html += f'<h4>{_s("rpt_tr_hub_apps")}</h4>' + _df_to_html(hub_apps, lang=_lang)
         top_apps = m.get('top_apps')
         if top_apps is not None and not top_apps.empty:
-            html += '<h4 data-i18n="rpt_tr_top_apps_infra">Top Applications by Infrastructure Score</h4>' + _df_to_html(top_apps)
+            html += f'<h4>{_s("rpt_tr_top_apps_infra")}</h4>' + _df_to_html(top_apps, lang=_lang)
         top_edges = m.get('top_edges')
         if top_edges is not None and not top_edges.empty:
-            html += '<h4 data-i18n="rpt_tr_top_comm_paths">Top Communication Paths (by Volume)</h4>' + _df_to_html(top_edges)
+            html += f'<h4>{_s("rpt_tr_top_comm_paths")}</h4>' + _df_to_html(top_edges, lang=_lang)
         return html
 
     def _mod15_html(self):
         m = self._r.get('mod15', {})
         if 'error' in m:
             return f'<p class="note">{m["error"]}</p>'
+        _s = self._s
+        _lang = self._lang
         total = m.get('total_lateral_flows', 0)
         pct = m.get('lateral_pct', 0)
-        html = (self._subnote('rpt_tr_lateral_intro', 'Covers all lateral-movement analysis including IP-level host connection patterns and App(Env)-level graph risk scoring.') + _render_chart_for_html(m.get('chart_spec'), include_js=self._chart_tracker.consume()) + f'<p><span data-i18n="rpt_tr_lateral_flows">Lateral movement port flows:</span> '
-                f'<b>{total:,}</b> ({pct}% <span data-i18n="rpt_tr_lateral_pct">of all flows</span>)</p>')
+        html = (self._subnote('rpt_tr_lateral_intro', 'Covers all lateral-movement analysis including IP-level host connection patterns and App(Env)-level graph risk scoring.') + _render_chart_for_html(m.get('chart_spec'), include_js=self._chart_tracker.consume()) + f'<p>{_s("rpt_tr_lateral_flows")} '
+                f'<b>{total:,}</b> ({pct}% {_s("rpt_tr_lateral_pct")})</p>')
         service_summary = m.get('service_summary')
         if service_summary is not None and not service_summary.empty:
-            html += '<h4 data-i18n="rpt_tr_lateral_by_service">Lateral Port Activity by Service</h4>' + _df_to_html(service_summary)
+            html += f'<h4>{_s("rpt_tr_lateral_by_service")}</h4>' + _df_to_html(service_summary, lang=_lang)
 
         # IP-level analysis (consolidated from former mod05)
         ip_talkers = m.get('ip_top_talkers')
         if ip_talkers is not None and not ip_talkers.empty:
             html += (
                 self._subnote('rpt_tr_lateral_talkers_subnote', 'IP Top Talkers finds the hosts most active in lateral traffic, handy for checking whether they match known admin nodes.')
-                + '<h4 data-i18n="rpt_tr_ip_top_talkers">IP Top Talkers (Host-Level)</h4>'
-                + _df_to_html(ip_talkers)
+                + f'<h4>{_s("rpt_tr_ip_top_talkers")}</h4>'
+                + _df_to_html(ip_talkers, lang=_lang)
             )
         ip_pairs = m.get('ip_top_pairs')
         if ip_pairs is not None and not ip_pairs.empty:
-            html += '<h4 data-i18n="rpt_tr_ip_top_pairs">Top Host Pairs</h4>' + _df_to_html(ip_pairs)
+            html += f'<h4>{_s("rpt_tr_ip_top_pairs")}</h4>' + _df_to_html(ip_pairs, lang=_lang)
 
         # App(Env)-level graph analysis
         fan_out = m.get('fan_out_sources')
         if fan_out is not None and not fan_out.empty:
-            html += '<h4 data-i18n="rpt_tr_fan_out">Fan-out Sources (Potential Scanner / Worm)</h4>' + _df_to_html(fan_out)
+            html += f'<h4>{_s("rpt_tr_fan_out")}</h4>' + _df_to_html(fan_out, lang=_lang)
         allowed_lateral = m.get('allowed_lateral_flows')
         if allowed_lateral is not None and not allowed_lateral.empty:
-            html += '<h4 data-i18n="rpt_tr_allowed_lateral">Explicitly Allowed Lateral Flows (Highest Risk)</h4>' + _df_to_html(allowed_lateral)
+            html += f'<h4>{_s("rpt_tr_allowed_lateral")}</h4>' + _df_to_html(allowed_lateral, lang=_lang)
         source_risk = m.get('source_risk_scores')
         if source_risk is not None and not source_risk.empty:
-            html += '<h4 data-i18n="rpt_tr_top_risk_sources">Top High-Risk Sources</h4>' + _df_to_html(source_risk)
+            html += f'<h4>{_s("rpt_tr_top_risk_sources")}</h4>' + _df_to_html(source_risk, lang=_lang)
         bridge_nodes = m.get('bridge_nodes')
         if bridge_nodes is not None and not bridge_nodes.empty:
-            html += '<h4>Bridge Nodes (Articulation)</h4>' + _df_to_html(bridge_nodes)
+            html += '<h4>Bridge Nodes (Articulation)</h4>' + _df_to_html(bridge_nodes, lang=_lang)
         reachable_nodes = m.get('top_reachable_nodes')
         if reachable_nodes is not None and not reachable_nodes.empty:
-            html += '<h4>Top Reachable Nodes</h4>' + _df_to_html(reachable_nodes)
+            html += '<h4>Top Reachable Nodes</h4>' + _df_to_html(reachable_nodes, lang=_lang)
         attack_paths = m.get('attack_paths')
         if attack_paths is not None and not attack_paths.empty:
-            html += '<h4>Attack Paths (Depth-Bounded)</h4>' + _df_to_html(attack_paths)
+            html += '<h4>Attack Paths (Depth-Bounded)</h4>' + _df_to_html(attack_paths, lang=_lang)
         app_chains = m.get('app_chains')
         if app_chains is not None and not app_chains.empty:
-            html += '<h4 data-i18n="rpt_tr_app_chains">Lateral Movement App Chains (BFS Paths)</h4>' + _df_to_html(app_chains)
+            html += f'<h4>{_s("rpt_tr_app_chains")}</h4>' + _df_to_html(app_chains, lang=_lang)
         return html
-
-    def _mod_draft_actions_html(self) -> str:
-        m = self._r.get('mod_draft_actions', {})
-        if m.get('skipped'):
-            return f'<p class="note">{t("rpt_no_draft_data", default="No draft_policy_decision data available.")}</p>'
-        parts = []
-        od = m.get('override_deny', {})
-        if od.get('count', 0):
-            parts.append(f'<h4>Override Deny ({od["count"]} flows)</h4>')
-            for rem in od.get('remediation', []):
-                parts.append(f'<p>{t(rem["description_key"], default=rem.get("action_code",""))}</p>')
-            pairs = od.get('top_pairs', [])
-            if pairs:
-                parts.append('<table><tr><th>Src</th><th>Dst</th><th>Port</th><th>Flows</th></tr>')
-                for p in pairs[:10]:
-                    parts.append(f'<tr><td>{p.get("src","")}</td><td>{p.get("dst","")}</td><td>{p.get("port","")}</td><td>{p.get("flows","")}</td></tr>')
-                parts.append('</table>')
-        pod = m.get('potentially_blocked_by_override_deny', {})
-        if pod.get('count', 0):
-            parts.append(f'<h4>Potentially Blocked by Override Deny ({pod["count"]} flows)</h4>')
-        aab = m.get('allowed_across_boundary', {})
-        if aab.get('count', 0):
-            parts.append(f'<h4>Allowed Across Boundary ({aab["count"]} flows)</h4>')
-        if not parts:
-            parts.append('<p>No Override Deny or Allowed Across Boundary flows detected.</p>')
-        return ''.join(parts)
 
     def _mod_enforcement_rollout_html(self) -> str:
         m = self._r.get('mod_enforcement_rollout', {})

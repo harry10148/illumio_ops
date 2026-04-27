@@ -491,6 +491,36 @@ class PolicyUsageGenerator:
             parsed[label] = int(match.group(2))
         return parsed
 
+    def _fetch_draft_pd_analysis(self, start_date: str, end_date: str) -> dict:
+        """Query PCE for flows with potentially-blocking draft policy decisions.
+
+        Uses compute_draft=True so the PCE recomputes draft decisions.
+        Fetches visibility-mode flows and filters client-side for the two
+        blocking subtypes: potentially_blocked_by_boundary and
+        potentially_blocked_by_override_deny.
+        """
+        if not self.api:
+            return {"skipped": True, "reason": "no api client"}
+        from src.report.analysis.policy_usage.pu_mod05_draft_pd import pu_draft_pd_summary
+        try:
+            payload = {
+                "start_date": start_date,
+                "end_date": end_date,
+                "policy_decisions": ["allowed", "potentially_blocked"],
+                "max_results": 1000,
+                "query_name": "PolicyUsage_DraftPD_Query",
+                "sources": {"include": [], "exclude": []},
+                "destinations": {"include": [], "exclude": []},
+                "services": {"include": [], "exclude": []},
+            }
+            rows = list(self.api._traffic._submit_and_stream_async_query(
+                payload, compute_draft=True
+            ))
+            return pu_draft_pd_summary(rows)
+        except Exception as exc:
+            logger.warning("Draft PD analysis failed (non-fatal): {}", exc)
+            return {"skipped": True, "reason": str(exc)}
+
     def _run_pipeline(
         self,
         flat_rules: list,
@@ -514,6 +544,7 @@ class PolicyUsageGenerator:
         results['mod02'] = pu_hit_detail(flat_rules, ruleset_map, hit_counts, execution_stats or {}, self.api)
         results['mod03'] = pu_unused_detail(flat_rules, ruleset_map, hit_hrefs, execution_stats or {}, self.api)
         results['mod04'] = pu_deny_effectiveness(flat_rules, hit_counts, ruleset_map)
+        results['mod05'] = self._fetch_draft_pd_analysis(start_date, end_date)
         results['meta'] = {'execution_stats': execution_stats or {}}
         results['mod00'] = pu_executive_summary(results, lookback_days)
 

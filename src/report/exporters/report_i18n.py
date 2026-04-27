@@ -151,6 +151,7 @@ STRINGS: _StringMap = _StringMap({
     "rpt_tr_readiness_score": _entry("Enforcement Readiness Score:", "Enforcement 就緒度分數："),
     "rpt_tr_enforcement_dist": _entry("Enforcement Mode Distribution", "Enforcement Mode 分佈"),
     "rpt_tr_score_breakdown": _entry("Score Breakdown by Factor", "分數構成"),
+    "rpt_tr_app_env_readiness": _entry("App (Env) Readiness Ranking", "App（環境）就緒度排名"),
     "rpt_tr_remediation_rec": _entry("Remediation Recommendations", "修復建議"),
     "rpt_tr_apps_analysed": _entry("Applications analysed:", "分析的 Applications："),
     "rpt_tr_comm_edges": _entry("Communication edges:", "通訊邊數："),
@@ -511,6 +512,63 @@ STRINGS: _StringMap = _StringMap({
     "rpt_pu_nav_hit": _entry("Hit Rules", "已命中 Rules"),
     "rpt_pu_nav_unused": _entry("Unused Rules", "未使用 Rules"),
     "rpt_pu_nav_deny": _entry("Deny Effectiveness", "Deny 有效性"),
+    "rpt_pu_nav_draft_pd": _entry("Draft Policy Risk", "草稿 Policy 風險"),
+    "rpt_pu_sec_draft_pd": _entry("Draft Policy Decision Risk", "草稿 Policy 判定風險"),
+    "rpt_pu_draft_pd_intro": _entry(
+        "Comprehensive view of draft policy decision impacts: flows at risk of being "
+        "blocked in stricter enforcement modes, draft policy anomalies such as Override "
+        "Deny conflicts and Allowed Across Boundary patterns, and flows currently "
+        "unruled that now have a decision in draft. Review these before switching to "
+        "Selective enforcement.",
+        "草稿 Policy 判定綜合檢視：在更嚴格 Enforcement 模式下預計會被阻擋的流量、"
+        "草稿 Policy 異常（Override Deny 衝突與 Allowed Across Boundary），"
+        "以及目前未被規則涵蓋但草稿已新增判定的流量。在切換 Enforcement 前，請先確認這些流量是否符合預期。",
+    ),
+    "rpt_pu_draft_pd_empty": _entry(
+        "No potentially-blocking draft decisions detected in the queried period. "
+        "This may mean all visibility-mode workloads are already policy-covered, "
+        "or that draft policy decision data is unavailable for this PCE.",
+        "查詢期間未偵測到預計會被阻擋的草稿 Policy 判定。"
+        "這可能表示所有可視化模式 Workload 的流量都已被 Policy 覆蓋，"
+        "或此 PCE 版本不支援草稿 Policy 判定資料。",
+    ),
+    "rpt_pu_draft_pd_by_boundary": _entry(
+        "Potentially Blocked by Boundary",
+        "Potentially Blocked by Boundary（邊界規則）",
+    ),
+    "rpt_pu_draft_pd_by_override": _entry(
+        "Potentially Blocked by Override Deny",
+        "Potentially Blocked by Override Deny",
+    ),
+    "rpt_pu_draft_pd_top_pairs": _entry("Top At-Risk Flow Pairs", "高風險流量配對（Top 20）"),
+    "rpt_pu_draft_vis_heading": _entry(
+        "Enforcement Risk (Visibility Mode)",
+        "Enforcement 風險（可視化模式）",
+    ),
+    "rpt_pu_draft_conflict_heading": _entry(
+        "Draft Policy Conflicts",
+        "草稿 Policy 衝突",
+    ),
+    "rpt_pu_draft_coverage_heading": _entry(
+        "Newly Covered in Draft",
+        "草稿新增涵蓋",
+    ),
+    "rpt_pu_draft_blocked_override": _entry(
+        "Blocked by Override Deny",
+        "Blocked by Override Deny",
+    ),
+    "rpt_pu_draft_allowed_boundary": _entry(
+        "Allowed Across Boundary",
+        "Allowed Across Boundary",
+    ),
+    "rpt_pu_draft_new_allowed": _entry(
+        "Draft Allowed",
+        "Draft Allowed",
+    ),
+    "rpt_pu_draft_blocked_boundary": _entry(
+        "Blocked by Boundary (Draft)",
+        "Blocked by Boundary（草稿）",
+    ),
     "rpt_pu_sec_overview": _entry("Policy Usage Overview", "Policy 使用總覽"),
     "rpt_pu_sec_hit": _entry("Hit Rules Detail", "已命中 Rules 明細"),
     "rpt_pu_sec_unused": _entry("Unused Rules Detail", "未使用 Rules 明細"),
@@ -730,6 +788,25 @@ for suffix, pair in {
     "dst_role": ("Dst Role", "目的 Role"),
     "src_loc": ("Src Loc", "來源位置"),
     "dst_loc": ("Dst Loc", "目的位置"),
+    # mod13 Enforcement Readiness display columns
+    "app_env": ("App (Env)", "App（環境）"),
+    "readiness_score": ("Readiness Score", "就緒度分數"),
+    "policy_coverage_pct": ("Policy Coverage %", "Policy 覆蓋率 %"),
+    "ringfence_maturity_pct": ("Ringfence Maturity %", "Ringfence 成熟度 %"),
+    "enforcement_mode_pct": ("Enforcement Mode %", "Enforcement 模式 %"),
+    "staged_readiness_pct": ("Staged Readiness %", "Staged 就緒度 %"),
+    "remote_app_coverage_pct": ("Remote-App Coverage %", "遠端 App 覆蓋率 %"),
+    "grade": ("Grade", "等級"),
+    # factor_table / recommendations shared columns
+    "factor": ("Factor", "評估因素"),
+    "weight": ("Weight", "權重"),
+    "score": ("Score", "分數"),
+    "ratio_pct": ("Ratio %", "佔比 %"),
+    "priority": ("Priority", "優先級"),
+    "issue": ("Issue", "問題"),
+    "action_code": ("Action Code", "行動代碼"),
+    # draft PD section
+    "draft_decision": ("Draft Decision", "草稿判定"),
 }.items():
     STRINGS[f"rpt_col_{suffix}"] = _entry(*pair)
 
