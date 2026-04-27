@@ -9,7 +9,7 @@
 | Security Rules | [Security_Rules_Reference.md](docs/Security_Rules_Reference.md) | [Security_Rules_Reference_zh.md](docs/Security_Rules_Reference_zh.md) |
 <!-- END:doc-map -->
 
-![Version](https://img.shields.io/badge/Version-v3.2.0-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v3.20.0--report--intelligence-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-yellow?style=flat-square&logo=python&logoColor=white)
 ![API](https://img.shields.io/badge/Illumio_API-v25.2-green?style=flat-square)
 
