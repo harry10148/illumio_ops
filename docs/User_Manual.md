@@ -973,6 +973,43 @@ Controls where reports are saved and how long they are kept.
 }
 ```
 
+### 11.4 Web GUI
+
+The `web_gui` block in `config.json` controls authentication and the web server bind settings.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `web_gui.username` | string | `illumio` | Login username for the single-admin account |
+| `web_gui.password` | string | `illumio` | **Change on first login.** The GUI stores an Argon2 hash — the plain-text password in the example is only valid before first use. |
+| `web_gui.bind_host` | string | `127.0.0.1` | Bind address; set to `0.0.0.0` to expose on all interfaces (use with `allowed_ips`) |
+| `web_gui.port` | int | `5000` | Bind port; override with `--port N` on the command line |
+| `web_gui.allowed_ips` | list | `[]` | IP allowlist — empty list permits all sources |
+| `web_gui.tls.enabled` | bool | `false` | Enable HTTPS (requires `cert_file` + `key_file` or `self_signed: true`) |
+
+> **Security note:** The default credentials `illumio` / `illumio` are documented in `config.json.example`. Change them immediately after first login via Web GUI → **Settings → Web GUI Security**.
+
+### 11.5 Report Intelligence
+
+These keys live under the `report` block in `config.json` and control advanced report behaviour.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `report.snapshot_retention_days` | int | `90` | How long Change Impact (`mod_change_impact`) KPI snapshots are retained before auto-pruning |
+| `report.threat_intel_csv_path` | string | `null` | Absolute path to an optional CSV of known-bad IPs, consumed by `mod_exfiltration_intel` for threat-match enrichment |
+| `report.draft_actions_enabled` | bool | `true` | Whether `mod_draft_actions` produces per-flow remediation suggestions in the Traffic Report |
+
+Example `config.json` fragment:
+
+```json
+{
+    "report": {
+        "snapshot_retention_days": 90,
+        "threat_intel_csv_path": "/opt/illumio_ops/data/threat_intel.csv",
+        "draft_actions_enabled": true
+    }
+}
+```
+
 ---
 
 ## 12. Troubleshooting
