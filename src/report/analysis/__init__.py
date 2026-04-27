@@ -49,6 +49,7 @@ TRAFFIC_MODULES: list[tuple[str, str, str, Callable]] = [
     ('mod13', 'src.report.analysis.mod13_readiness',            'enforcement_readiness',         _call_readiness),
     ('mod14', 'src.report.analysis.mod14_infrastructure',       'infrastructure_scoring',        _call_df_n),
     ('mod15', 'src.report.analysis.mod15_lateral_movement',     'lateral_movement_risk',         _call_df_n),
+    ('mod_draft_summary', 'src.report.analysis.mod_draft_summary', 'analyze',               _call_df),
 ]
 
 # Module 12 (executive_summary) runs last and depends on all other results.

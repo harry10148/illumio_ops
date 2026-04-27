@@ -1409,6 +1409,7 @@
   "rpt_data_source_api": "Data source: live PCE API",
   "rpt_data_source_cache": "Data source: local cache",
   "rpt_data_source_mixed": "Data source: mixed (cache + API)",
+  "rpt_hdr_draft_enabled": "Draft Policy Decision: Enabled",
   "rpt_dim_enforcement": "Enforcement",
   "rpt_dim_lateral": "Lateral Movement",
   "rpt_dim_managed": "Managed Coverage",
@@ -2056,5 +2057,6 @@
   "rpt_guidance_mod15_purpose": "Show east-west paths an attacker could traverse after initial foothold.",
   "rpt_guidance_mod15_signals": "Long chains spanning environments; PB-heavy hops; risky-port chains (SMB/RDP).",
   "rpt_guidance_mod15_how": "Path length, port mix, and crossings between sensitive labels indicate blast-radius risk.",
-  "rpt_guidance_mod15_actions": "Cut the highest-impact hops via allow rules or boundary deny; isolate crown jewels."
+  "rpt_guidance_mod15_actions": "Cut the highest-impact hops via allow rules or boundary deny; isolate crown jewels.",
+  "rpt_draft_summary_chart_title": "Draft Policy Decision Breakdown"
 }
