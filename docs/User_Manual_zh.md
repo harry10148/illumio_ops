@@ -822,7 +822,7 @@ illumio_ops v3.11+ includes a native SIEM forwarder that pushes PCE audit events
 - CEF 0.1 and JSON Lines format with optional RFC5424 syslog envelope
 - Rate-limited ingestor respects the PCE 500 req/min budget
 
-**Quick start:** See [`docs/SIEM_Forwarder.md`](SIEM_Forwarder.md).
+**Quick start:** See [`User_Manual.md §5 SIEM Integration`](User_Manual.md#5-siem-integration).
 
 ---
 

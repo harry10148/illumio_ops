@@ -140,8 +140,8 @@ Reports can be generated from the Web GUI, CLI menu, or run automatically on a s
 |:---|:---|
 | **[User Manual](docs/User_Manual.md)** | Installation, execution modes, security settings, report schedules |
 | **[Security Rules Reference](docs/Security_Rules_Reference.md)** | Documentation for the 19 security finding rules (B+L series) |
-| **[Project Architecture](docs/Project_Architecture.md)** | Module design, threading model, and security implementation |
-| **[API Cookbook](docs/API_Cookbook.md)** | Scenario-based API tutorial for SIEM/SOAR integration |
+| **[Architecture](docs/Architecture.md)** | Module design, threading model, and security implementation |
+| **[API Cookbook](docs/Architecture.md#8-pce-rest-api-integration-cookbook)** | Scenario-based API tutorial for SIEM/SOAR integration |
 
 ---
 

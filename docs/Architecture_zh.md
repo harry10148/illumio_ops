@@ -1,6 +1,6 @@
 # Illumio PCE Ops — 專案架構與程式碼指南
 
-> **[English](Project_Architecture.md)** | **[繁體中文](Project_Architecture_zh.md)**
+> **[English](Architecture.md)** | **[繁體中文](Architecture_zh.md)**
 
 ---
 
@@ -648,7 +648,7 @@ deployments.
 ![Version](https://img.shields.io/badge/Version-v3.2.0-blue?style=flat-square)
 
 
-> **[English](API_Cookbook.md)** | **[繁體中文](API_Cookbook_zh.md)**
+> **[English](Architecture.md#8-pce-rest-api-integration-cookbook)** | **[繁體中文](Architecture_zh.md)**
 
 本指南專為 **SIEM/SOAR 工程師** 設計，用於撰寫 Action、Playbook 或自動化腳本時參考。每個場景列出精確的 API 呼叫、參數和可直接複製的 Python 程式碼片段。
 

@@ -1,6 +1,6 @@
 # Illumio PCE Ops — Project Architecture & Code Guide
 
-> **[English](Project_Architecture.md)** | **[繁體中文](Project_Architecture_zh.md)**
+> **[English](Architecture.md)** | **[繁體中文](Architecture_zh.md)**
 
 ---
 
@@ -965,7 +965,7 @@ deployments.
 
 # 8. PCE REST API Integration Cookbook
 
-> **[English](API_Cookbook.md)** | **[繁體中文](API_Cookbook_zh.md)**
+> **[English](Architecture.md#8-pce-rest-api-integration-cookbook)** | **[繁體中文](Architecture_zh.md)**
 
 This guide provides scenario-based API tutorials specifically designed for **SIEM/SOAR engineers** writing Actions, Playbooks, or automation scripts. Each scenario lists the exact API calls, parameters, and Python code snippets needed.
 
