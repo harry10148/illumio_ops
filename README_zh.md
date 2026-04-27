@@ -15,7 +15,7 @@
 
 > **[English](README.md)** | **[繁體中文](README_zh.md)**
 
-專為 **Illumio Core (PCE)** 設計的進階**無 Agent** 監控暨自動化平台。透過 REST API 實現即時安全事件偵測、智慧型流量分析、進階報表產生（含自動化資安發現）、排程報表寄送，以及多通道即時告警。CLI/Daemon 模式 **無需安裝任何外部套件**（僅使用 Python 標準函式庫）。
+針對 **Illumio Core (PCE)** 的進階 **agentless** 監控與自動化工具，透過 REST API 提供即時安全事件偵測、智慧流量分析、含自動化資安發現的進階報表產生、報表排程派送、以及多通道警示 — CLI/daemon 模式 **零外部相依**（僅 Python stdlib）。
 
 ---
 
@@ -23,42 +23,42 @@
 
 | 功能 | 說明 |
 |:---|:---|
-| **多樣化執行模式** | 背景守護程序 (`--monitor`)、互動式 CLI、獨立 Web GUI (`--gui`)，或**常駐監控 + UI 模式** (`--monitor-gui`) |
-| **企業級安全防護** | **PBKDF2 密碼雜湊**（260k 輪迭代）、**登入速率限制**（5 次/分鐘）、**CSRF Synchronizer Token** 防護、**IP 白名單** (CIDR/子網段) |
-| **安全事件監控** | 追蹤 PCE 稽核事件，採用時間戳記錨點，保證零重複告警 |
-| **高效能流量引擎** | 將所有規則整合為單次 API 查詢，O(1) 記憶體串流處理大型資料集 |
-| **進階報表引擎** | 15 模組流量報表（支援**批次刪除**管理）、4 模組稽核報表、政策使用報表、VEN 狀態盤點報表 — HTML + CSV |
-| **自動化資安發現** | 19 項預設規則：B 系列（勒索軟體、覆蓋率）+ L 系列（橫向移動、資料外洩） |
-| **排程報表** | 類 Cron 週期性報表（每日/每週/每月），可自動 Email 附件寄送 |
-| **規則排程器** | 依時間區間自動啟用/停用 PCE 規則；**三層 Draft 安全防護**防止意外派送 |
-| **工作負載隔離** | 透過 Quarantine Label 隔離遭入侵主機；支援 IP/CIDR/子網段搜尋 |
-| **多通道告警** | Email (SMTP)、LINE 通知、Webhook 同時發送 |
-| **國際化** | 完整英文 + 繁體中文介面覆蓋 CLI、Web GUI、報表及告警（~1400+ 翻譯鍵值） |
+| **執行模式** | 背景 daemon (`--monitor`)、互動式 CLI、獨立 Web GUI (`--gui`)，或 **常駐監控 + UI** (`--monitor-gui`) |
+| **企業級安全** | **PBKDF2 密碼雜湊**（260k 迭代）、**登入速率限制**（5/分鐘）、**CSRF synchronizer token**、**IP 白名單**（CIDR / Subnet） |
+| **安全事件監控** | 透過 anchor-based timestamp 追蹤 PCE audit 事件 — 保證零重複警示 |
+| **高效能流量引擎** | 將規則合併為單一 bulk API query；對大資料集採 O(1) memory streaming |
+| **進階報表引擎** | 15 模組的 Traffic 報表附 **Bulk-Delete** 管理；4 模組 Audit 報表、Policy Usage 報表，以及 VEN Status 庫存報表 — HTML + CSV |
+| **資安發現** | 19 條自動化規則：B 系列（勒索軟體、覆蓋率）+ L 系列（橫向移動、外洩） |
+| **報表排程** | Cron 風格的循環報表（每日/每週/每月）並自動以 Email 派送 |
+| **規則排程器** | 自動啟用/停用 PCE 規則；**三層 Draft 保護**避免誤 provision |
+| **Workload Quarantine** | 以 Quarantine label 隔離受感染 workload；支援 IP/CIDR/subnet 搜尋 |
+| **多通道警示** | Email (SMTP)、LINE Notifications、Webhook 同時派送 |
+| **多語系** | CLI、Web GUI、報表、警示完整支援英文 + 繁體中文 |
 
 ---
 
 ## SIEM 狀態（Preview）
 
 > [!WARNING]
-> 內建 SIEM Forwarder 目前定位為 **Preview**。
-> 已在使用中的部署可先維持相容運作；新環境暫不建議直接作為正式生產轉送方案，待 runtime pipeline 缺口補齊後再升級為 GA。
+> 內建 SIEM 轉送器目前處於 **Preview** 階段。
+> 既有部署可繼續沿用以維持相容性，但在 runtime pipeline 缺口補齊前，不建議新環境上線。
 
 ## 快速開始
 
 ### 1. 系統需求
 
 - **Python 3.8+**
-- **核心功能 (CLI/Daemon)**：無需安裝外部套件
-- **選用 — Web GUI**：`flask>=3.0`
-- **選用 — 報表**：`pandas`、`pyyaml`
-- **選用 — PDF 匯出**：`reportlab`（純 Python）。PDF 匯出使用 ReportLab，不需要 WeasyPrint、Pango、Cairo、GTK 或 GDK-PixBuf。PDF 輸出為英文靜態摘要版；完整在地化內容請使用 HTML 或 XLSX。
+- **核心（無需安裝）：** CLI 與 daemon 模式不需任何外部相依即可執行。
+- **選用 — Web GUI：** `flask>=3.0`
+- **選用 — 報表：** `pandas`、`pyyaml`
+- **選用 — PDF 匯出：** `reportlab`（純 Python）。PDF 匯出**不需** WeasyPrint、Pango、Cairo、GTK 或 GDK-PixBuf。PDF 內容為靜態英文摘要；HTML 與 XLSX 是完整本地化內容的建議格式。
 
 ### 2. 安裝與啟動
 
 ```bash
 git clone <repo-url>
 cd illumio_ops
-cp config/config.json.example config/config.json    # 編輯、填入 PCE 憑證
+cp config/config.json.example config/config.json    # 編輯填入 PCE 認證資訊
 
 # 互動式 CLI：
 python illumio_ops.py
@@ -66,50 +66,88 @@ python illumio_ops.py
 # Web 視覺化介面：
 python illumio_ops.py --gui
 
-# 常駐模式 (監控守護程序 + Web GUI)：
+# 常駐模式（Daemon + Web GUI）：
 python illumio_ops.py --monitor-gui --interval 5 --port 5001
 
-# 純背景 Daemon 模式：
+# 純背景 Daemon：
 python illumio_ops.py --monitor --interval 5
+
+# 新版 subcommand 風格（Phase 1+）：
+python illumio_ops.py monitor -i 5
+python illumio_ops.py status
+python illumio_ops.py version
+```
+
+### Shell Tab Completion (bash)
+
+```bash
+# 開發時手動 source
+source scripts/illumio-ops-completion.bash
+
+# 全域安裝（RPM 會自動完成）：
+sudo cp scripts/illumio-ops-completion.bash /etc/bash_completion.d/illumio-ops
 ```
 
 ### 3. 首次登入
 
-預設帳號密碼：**帳號 `illumio`** / **密碼 `illumio`**。
+預設帳密：**username `illumio`** / **password `illumio`**。
 
-1. 使用預設帳號密碼登入。
-2. 登入後**立即至 Settings 頁面修改密碼**。
-3. 建議設定 **IP 白名單**以限制存取來源。
+1. 以預設帳密登入。
+2. **立即在「設定」頁變更密碼**。
+3. 設定 **IP 白名單** 限制信任網段存取。
 
 > [!WARNING]
-> 若遺失密碼，請手動刪除 `config/config.json` 中的 `password_hash` 及 `password_salt` 欄位以重設為預設值。
+> 若忘記密碼，刪除 `config/config.json` 內的 `password_hash` 與 `password_salt` 兩個 key 即可重置為預設值。
 
 ### 4. 安全機制
 
-| 功能 | 說明 |
+| 功能 | 細節 |
 |:---|:---|
-| **密碼雜湊** | PBKDF2-HMAC-SHA256，260,000 次迭代（使用標準函式庫，無需外部套件） |
-| **登入速率限制** | 每個 IP 每 60 秒最多 5 次登入嘗試；超過後回傳 HTTP 429 |
-| **CSRF 防護** | Synchronizer Token 模式，透過 `<meta>` 標籤注入（無可被 XSS 讀取的 Cookie） |
-| **IP 白名單** | 支援單一 IP、CIDR 範圍及子網段遮罩 |
-| **SMTP 憑證** | 可設定 `ILLUMIO_SMTP_PASSWORD` 環境變數，避免在設定檔中明文儲存密碼 |
+| **密碼雜湊** | PBKDF2-HMAC-SHA256，260,000 次迭代（stdlib，不需外部相依） |
+| **速率限制** | 每 IP 每 60 秒最多 5 次登入嘗試；超量回 HTTP 429 |
+| **CSRF 保護** | Synchronizer token 模式，透過 `<meta>` tag 注入（避免 XSS-readable cookie） |
+| **IP 白名單** | 支援單一 IP、CIDR 範圍、subnet mask |
+| **SMTP 認證** | 設定 `ILLUMIO_SMTP_PASSWORD` 環境變數，避免將密碼寫入 config |
+
+### 5. Logging (loguru)
+
+日誌寫入 `logs/illumio_ops.log`，10 MB 自動 rotate、保留最近 10 個檔案。
+
+**SIEM / JSON sink** — 在 `config/config.json` 加入下列設定即可啟用結構化 JSON log：
+```json
+{
+  "logging": {
+    "json_sink": true,
+    "level": "INFO"
+  }
+}
+```
+此功能會將每行 JSON 物件寫入 `logs/illumio_ops.json.log`，可被 Splunk、Elasticsearch、Datadog 等工具直接消費。
 
 ---
 
 ## 報表引擎
 
-報表可從 Web GUI、CLI 選單手動產生，或設定排程自動執行。詳細模組介紹請參考[使用手冊](docs/User_Manual_zh.md)。
+報表可從 Web GUI、CLI 選單，或自動依排程產生。
+
+### Traffic Report — 15 個分析模組
+
+| 模組 | 說明 |
+|:---|:---|
+| Executive Summary | KPI 卡片：總流量、覆蓋率 %、top 安全發現 |
+| 1 · Traffic Overview | 總流量、policy decision 分佈、top ports |
+| 2 · Policy Decisions | 每個 decision 的 inbound/outbound 分流 + 各 port 覆蓋率 % |
+| 3 · Uncovered Flows | 沒有 allow rule 的流量；port 缺口排名；未覆蓋服務 |
+| 4 · Ransomware Exposure | **調查標的**（允許流量於 critical/high-risk ports） |
+| ... | 完整清單請見 [使用手冊](docs/User_Manual_zh.md) |
 
 ---
 
-## 文件索引
+## 文件
 
-| 文件 | 說明 |
-|:---|:---|
-| **[完整使用手冊](docs/User_Manual_zh.md)** | 安裝、執行模式、安全設定、報表排程 |
-| **[資安規則說明文件](docs/Security_Rules_Reference_zh.md)** | 19 條資安發現規則的完整說明、觸發條件與指引 |
-| **[專案架構文件](docs/Project_Architecture_zh.md)** | 模組設計、執行緒模型與安全性實作說明 |
-| **[API 整合教學](docs/API_Cookbook_zh.md)** | 按場景分類的 API 教學（SIEM/SOAR 整合） |
+- [使用手冊](docs/User_Manual_zh.md) ([English](docs/User_Manual.md)) — 安裝、設定、CLI、GUI、daemon、報表、SIEM
+- [架構文件](docs/Architecture_zh.md) ([English](docs/Architecture.md)) — Illumio 平台背景、系統概觀、模組地圖、資料流、PCE 快取、REST API 手冊
+- [安全規則參考](docs/Security_Rules_Reference_zh.md) ([English](docs/Security_Rules_Reference.md)) — B 系列、L 系列、R 系列規則目錄
 
 ---
 
@@ -117,27 +155,21 @@ python illumio_ops.py --monitor --interval 5
 
 ```text
 illumio_ops/
-├── illumio_ops.py          # 程式進入點
+├── illumio_ops.py          # 進入點
 ├── src/
-│   ├── main.py                 # CLI 參數、Daemon/GUI 執行序協調
-│   ├── api_client.py           # PCE REST API (非同步作業、原生過濾器、O(1) 串流)
-│   ├── analyzer.py             # 規則引擎（流量比對、事件分析、狀態管理）
-│   ├── gui.py                  # Flask Web GUI (~40 JSON API 端點、驗證、CSRF)
-│   ├── config.py               # ConfigManager (PBKDF2 雜湊、原子寫入)
-│   ├── reporter.py             # 多通道告警發送 (SMTP, LINE, Webhook)
-│   ├── i18n.py                 # 國際化引擎 (EN/ZH_TW, ~1400+ 翻譯鍵值)
-│   ├── events/                 # 事件處理管線（分類、正規化、去重、節流）
-│   ├── report/                 # 報表引擎（15 個流量分析模組 + 稽核 + 政策使用）
-│   └── alerts/                 # 告警外掛模組 (mail, LINE, webhook)
+│   ├── main.py                 # CLI argparse、daemon/GUI 編排
+│   ├── api_client.py           # PCE REST API（async job、native filter、O(1) streaming）
+│   ├── analyzer.py             # 規則引擎（flow matching、事件分析、狀態管理）
+│   ├── gui.py                  # Flask Web GUI（~40 個 JSON API endpoint、auth、CSRF）
+│   ├── config.py               # ConfigManager（PBKDF2 雜湊、atomic write）
+│   ├── reporter.py             # 多通道警示派送（SMTP、LINE、Webhook）
+│   ├── i18n.py                 # i18n 引擎（EN/ZH_TW，~1400+ string keys）
+│   ├── events/                 # 事件 pipeline（catalog、normalize、dedup、throttle）
+│   ├── report/                 # 報表引擎（15 個 traffic 模組 + audit + policy usage）
+│   └── alerts/                 # 警示 plugin（mail、LINE、webhook）
 ├── config/                     # config.json、report_config.yaml
-├── docs/                       # 中文/英文完整文件
-├── tests/                      # 19 個測試檔案 (116 個測試)
-├── deploy/                     # systemd (Ubuntu/RHEL) + NSSM (Windows) 服務設定
+├── docs/                       # EN + ZH_TW 文件
+├── tests/                      # 19 個測試檔（116 個 test）
+├── deploy/                     # systemd（Ubuntu/RHEL）+ NSSM（Windows）服務設定
 └── scripts/                    # 工具腳本
 ```
-
-## 文件
-
-- [使用手冊](docs/User_Manual_zh.md) ([English](docs/User_Manual.md)) — 安裝、設定、CLI、GUI、daemon、報表、SIEM
-- [架構文件](docs/Architecture_zh.md) ([English](docs/Architecture.md)) — Illumio 平台背景、系統概觀、模組地圖、資料流、PCE 快取、REST API 手冊
-- [安全規則參考](docs/Security_Rules_Reference_zh.md) ([English](docs/Security_Rules_Reference.md)) — B-Series、L-Series、R-Series 規則目錄
