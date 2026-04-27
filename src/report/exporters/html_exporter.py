@@ -1292,7 +1292,7 @@ class HtmlExporter:
         verdict = impact.get('overall_verdict', 'unchanged')
         verdict_color = {'improved': '#22C55E', 'regressed': '#EF4444', 'mixed': '#EAB308'}.get(verdict, '#6B7280')
         html = (f'<p><b>Overall:</b> <span style="color:{verdict_color};font-weight:700">{verdict.upper()}</span>'
-                f' (vs {impact.get("previous_snapshot_at","")[:10]})</p>')
+                f' (vs {(impact.get("previous_snapshot_at") or "")[:10]})</p>')
         deltas = impact.get('deltas', {})
         if deltas:
             html += '<table><tr><th>KPI</th><th>Previous</th><th>Current</th><th>Delta</th><th>Direction</th></tr>'
