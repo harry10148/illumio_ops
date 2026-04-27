@@ -760,11 +760,13 @@ Tune `traffic_raw_retention_days` first if disk pressure appears.
 
 ## Retention Tuning
 
-The retention worker runs daily and purges rows older than the configured TTL. To force a purge:
+The retention worker runs daily and purges rows older than the configured TTL. To view the current retention policy:
 
 ```bash
-# Coming in Phase 14: illumio-ops cache retention --run-now
+illumio-ops cache retention
 ```
+
+The retention worker runs automatically as an APScheduler job; there is no `--run-now` flag. To force a purge manually, restart the daemon — the retention job fires on startup.
 
 ## Monitoring
 
@@ -815,6 +817,41 @@ Generated HTML reports display a colored pill in the report header indicating th
 - **Green** — data served from local cache
 - **Blue** — data fetched from live PCE API
 - **Yellow** — mixed (partial cache + API)
+
+## Operator CLI Commands
+
+The `illumio-ops cache` subcommand group (implemented in `src/cli/cache.py`) provides all cache management operations.
+
+### `illumio-ops cache status`
+
+```
+illumio-ops cache status
+```
+
+Displays a table of row counts and last-ingested timestamps for each cache table (`events`, `traffic_raw`, `traffic_agg`). Reads directly from the SQLite DB; does not require the daemon to be running.
+
+### `illumio-ops cache retention`
+
+```
+illumio-ops cache retention
+```
+
+Shows the configured retention policy as a table of TTL values:
+
+| Setting | Default |
+|---|---|
+| `events_retention_days` | 90 |
+| `traffic_raw_retention_days` | 7 |
+| `traffic_agg_retention_days` | 365 |
+
+### `illumio-ops cache backfill`
+
+```
+illumio-ops cache backfill --source events --since YYYY-MM-DD [--until YYYY-MM-DD]
+illumio-ops cache backfill --source traffic --since YYYY-MM-DD [--until YYYY-MM-DD]
+```
+
+Populates the cache for historical date ranges by fetching from the PCE API. Writes directly to `pce_events` / `pce_traffic_flows_raw`, bypassing the normal ingestor watermark. On completion, prints rows inserted, duplicates skipped, and elapsed time. The retention worker will purge backfilled data on its next tick if it falls outside the configured retention window.
 
 ---
 
