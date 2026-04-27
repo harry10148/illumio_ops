@@ -487,6 +487,40 @@ class HtmlExporter:
             f'<div style="flex:1">{maturity_bars}</div></div>'
         )
 
+        # T6: mod06 user/process — appendix only when data available
+        _mod06 = self._r.get('mod06', {})
+        _mod06_has_data = _mod06.get('user_data_available') or _mod06.get('process_data_available')
+        _mod06_block = (render_appendix(
+            title=t('rpt_tr_sec_user'),
+            body_html=(render_section_guidance('mod06', profile=profile, detail_level=detail_level) +
+                       self._mod06_html()),
+            detail_level=detail_level,
+        ) if _mod06_has_data else '') + '\n'
+
+        # T7: mod07 — profile-aware rendering
+        if visible_in('mod07_cross_label_matrix', profile, detail_level):
+            _mod07_body = (render_section_guidance('mod07', profile=profile, detail_level=detail_level) +
+                           self._mod07_html())
+            if profile == 'security_risk':
+                _mod07_block = (
+                    self._section('matrix', 'rpt_tr_sec_matrix', '7 · Cross-Label Matrix',
+                                  _mod07_body,
+                                  'rpt_tr_sec_matrix_intro', 'Observe cross-group communication by Label dimension, useful for surfacing segments that should not interact frequently.') + '\n' +
+                    render_appendix(
+                        title=t('rpt_mod07_full_matrix'),
+                        body_html=_mod07_body,
+                        detail_level=detail_level,
+                    )
+                )
+            else:  # network_inventory — full matrix in main
+                _mod07_block = (
+                    self._section('matrix', 'rpt_tr_sec_matrix', '7 · Cross-Label Matrix',
+                                  _mod07_body,
+                                  'rpt_tr_sec_matrix_intro', 'Observe cross-group communication by Label dimension, useful for surfacing segments that should not interact frequently.') + '\n'
+                )
+        else:
+            _mod07_block = ''
+
         body = (
             '<section id="summary" class="card report-hero">'
             '<div class="report-hero-top"><div class="report-kicker" data-i18n="rpt_kicker_traffic">Traffic Analytics Report</div>'
@@ -519,13 +553,8 @@ class HtmlExporter:
              if visible_in('mod04_ransomware_exposure', profile, detail_level) else '') +
             # mod05 (Remote Access) consolidated into mod15 (Lateral Movement)
 
-            self._section('user', 'rpt_tr_sec_user', '6 \u00b7 User &amp; Process',
-                          render_section_guidance('mod06', profile=profile, detail_level=detail_level) + self._mod06_html(),
-                          'rpt_tr_sec_user_intro', 'Add user and process context to traffic to judge whether these connections match existing operational patterns.') + '\n' +
-            (self._section('matrix', 'rpt_tr_sec_matrix', '7 \u00b7 Cross-Label Matrix',
-                           render_section_guidance('mod07', profile=profile, detail_level=detail_level) + self._mod07_html(),
-                           'rpt_tr_sec_matrix_intro', 'Observe cross-group communication by Label dimension, useful for surfacing segments that should not interact frequently.') + '\n'
-             if visible_in('mod07_cross_label_matrix', profile, detail_level) else '') +
+            _mod06_block +
+            _mod07_block +
             (self._section('unmanaged', 'rpt_tr_sec_unmanaged', '8 \u00b7 Unmanaged Hosts',
                            render_section_guidance('mod08', profile=profile, detail_level=detail_level) + self._mod08_html(),
                            'rpt_tr_sec_unmanaged_intro', 'Inventory traffic involving hosts not managed by VEN; these typically sit outside the visibility and control boundary.') + '\n'
