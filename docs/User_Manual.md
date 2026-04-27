@@ -803,6 +803,8 @@ sudo systemctl enable --now illumio-ops
 
 ## 9. Traffic Reports & Security Findings
 
+> **Background — Illumio concepts used in reports:** Reports in this section use Illumio's four-dimension label system (Role, Application, Environment, Location) to group and filter traffic flows, and reference per-workload enforcement modes (Idle, Visibility Only, Selective, Full) to explain why traffic appears as "potentially blocked" rather than blocked. For definitions of label dimensions and enforcement modes see [docs/Architecture.md — Background — Illumio Platform](Architecture.md#background--illumio-platform).
+
 ### 9.1 Generating Reports
 
 Reports can be triggered from three places:

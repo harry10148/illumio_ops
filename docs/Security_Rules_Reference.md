@@ -888,6 +888,8 @@ All port numbers referenced by the security rules and analysis modules:
 
 ### compute_draft auto-enable {#compute_draft-auto-enable}
 
+> **Background — Policy lifecycle:** `compute_draft` exposes the **Draft** state of the Illumio policy lifecycle — rules that have been authored but not yet provisioned to Active. Understanding the Draft → Pending → Active sequence is prerequisite to interpreting `draft_policy_decision` values. See [docs/Architecture.md — Background.4 Policy lifecycle](Architecture.md#background4-policy-lifecycle).
+
 The `draft_policy_decision` column in a traffic flow dataset is expensive to populate: it requires the analyzer to issue a `PUT {job_href}/update_rules` call after the async query completes, which re-evaluates all historical flow records against both active and draft rules (see [§ Obtaining `draft_policy_decision`](#obtaining-draft_policy_decision)).
 
 By default, `compute_draft` is **off** — the analyzer does not request draft policy data unless the operator explicitly opts in. However, when the active ruleset contains **any rule** whose `needs_draft_pd()` method returns `True` (all R01–R05 rules qualify), the analyzer automatically forces `compute_draft=True`, even if the operator did not pass the flag.
