@@ -435,6 +435,30 @@ class ReportGenerator:
         except Exception as e:
             logger.warning(f"[ReportGenerator] Trend snapshot failed: {e}")
 
+        # Snapshot store for Change Impact (snapshot_store, separate from trend_store)
+        try:
+            from datetime import datetime, timezone
+            from src.report.snapshot_store import write_snapshot, cleanup_old
+            mod12_result = result.module_results.get('mod12', {})
+            kpis_dict = mod12_result.get('kpis', {})
+            if isinstance(kpis_dict, dict) and kpis_dict:
+                retention = self.cm.models.report.snapshot_retention_days
+                snap = {
+                    "report_type": "traffic",
+                    "profile": traffic_report_profile,
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                    "query_window": {
+                        "start": result.date_range[0] if result.date_range else None,
+                        "end": result.date_range[1] if len(result.date_range) > 1 else None,
+                    },
+                    "kpis": kpis_dict,
+                    "policy_changes_since_previous": [],
+                }
+                write_snapshot("traffic", snap)
+                cleanup_old("traffic", retention_days=retention)
+        except Exception as e:
+            logger.warning(f"[ReportGenerator] Change Impact snapshot write failed: {e}")
+
         if send_email and reporter is not None:
             html_path = next((p for p in paths if p.endswith('.html')), None)
             mod12 = result.module_results.get('mod12', {})
