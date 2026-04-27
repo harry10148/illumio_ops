@@ -1,5 +1,14 @@
 # 安全規則參考手冊
 
+<!-- BEGIN:doc-map -->
+| Document | EN | 中文 |
+|---|---|---|
+| README | [README.md](../README.md) | [README_zh.md](../README_zh.md) |
+| User Manual | [User_Manual.md](./User_Manual.md) | [User_Manual_zh.md](./User_Manual_zh.md) |
+| Architecture | [Architecture.md](./Architecture.md) | [Architecture_zh.md](./Architecture_zh.md) |
+| Security Rules | [Security_Rules_Reference.md](./Security_Rules_Reference.md) | [Security_Rules_Reference_zh.md](./Security_Rules_Reference_zh.md) |
+<!-- END:doc-map -->
+
 > **[English](Security_Rules_Reference.md)** | **[繁體中文](Security_Rules_Reference_zh.md)**
 
 本文件說明 Illumio PCE Ops 流量報表引擎內建的所有安全偵測規則。每次產生流量報表時，規則引擎會自動執行評估，結果顯示於 HTML 報表的 **Security Findings（安全發現）** 章節。

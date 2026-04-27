@@ -1,5 +1,14 @@
 # Illumio PCE Ops
 
+<!-- BEGIN:doc-map -->
+| Document | EN | 中文 |
+|---|---|---|
+| README | [README.md](README.md) | [README_zh.md](README_zh.md) |
+| User Manual | [User_Manual.md](docs/User_Manual.md) | [User_Manual_zh.md](docs/User_Manual_zh.md) |
+| Architecture | [Architecture.md](docs/Architecture.md) | [Architecture_zh.md](docs/Architecture_zh.md) |
+| Security Rules | [Security_Rules_Reference.md](docs/Security_Rules_Reference.md) | [Security_Rules_Reference_zh.md](docs/Security_Rules_Reference_zh.md) |
+<!-- END:doc-map -->
+
 ![Version](https://img.shields.io/badge/Version-v3.2.0-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.8%2B-yellow?style=flat-square&logo=python&logoColor=white)
 ![API](https://img.shields.io/badge/Illumio_API-v25.2-green?style=flat-square)
