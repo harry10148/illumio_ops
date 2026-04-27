@@ -2056,5 +2056,6 @@
   "rpt_guidance_mod15_purpose": "顯示攻擊者在取得初始立足點後，可能橫向移動的東西向路徑。",
   "rpt_guidance_mod15_signals": "跨越多個環境的長路徑鏈；充滿 PB 的跳點；高風險埠口鏈（SMB/RDP）。",
   "rpt_guidance_mod15_how": "路徑長度、埠口組合和敏感標籤間的交叉代表爆炸半徑風險。",
-  "rpt_guidance_mod15_actions": "透過 allow 規則或 boundary deny 切斷影響最大的跳點；隔離 crown jewel 系統。"
+  "rpt_guidance_mod15_actions": "透過 allow 規則或 boundary deny 切斷影響最大的跳點；隔離 crown jewel 系統。",
+  "rpt_draft_summary_chart_title": "Draft Policy Decision 分佈"
 }

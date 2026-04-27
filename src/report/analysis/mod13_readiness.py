@@ -281,7 +281,7 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
 
     total_pb_uncovered = int(app_env_scores["pb_uncovered_count"].sum())
 
-    return {
+    result = {
         "total_score": total_score,
         "ready_to_enforce_share": round(avg_policy, 4),
         "pb_uncovered_count": total_pb_uncovered,
@@ -301,4 +301,19 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
             "i18n": {"lang": get_language()},
         },
     }
+
+    if "draft_policy_decision" in df.columns:
+        result["draft_enforcement_gap"] = int(
+            df["draft_policy_decision"].str.startswith("blocked_", na=False).sum()
+        )
+
+    return result
+
+
+def analyze(flows_df: pd.DataFrame, query_context: dict | None = None) -> dict:
+    """Public alias matching the standard module interface."""
+    df = flows_df.copy()
+    if "num_connections" not in df.columns:
+        df["num_connections"] = 1
+    return enforcement_readiness(df)
 
