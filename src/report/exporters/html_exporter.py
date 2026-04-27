@@ -60,6 +60,23 @@ def render_section_guidance(module_id: str, profile: str, detail_level: str) -> 
     )
 
 
+def render_appendix(title: str, body_html: str, *, detail_level: str) -> str:
+    """Wrap body_html in a collapsible <details> block.
+    - executive: returns "" (appendix entirely hidden).
+    - standard:  collapsed by default.
+    - full:      <details open>.
+    """
+    if detail_level == "executive":
+        return ""
+    open_attr = " open" if detail_level == "full" else ""
+    return (
+        f'<details{open_attr} class="report-appendix">'
+        f'<summary><b>{t("rpt_appendix_label")}: {title}</b></summary>'
+        f'{body_html}'
+        f'</details>'
+    )
+
+
 def _render_chart_for_html(chart_spec: dict | None) -> str:
     """Emit plotly interactive div. Matplotlib PNG is PDF-only; never shown in HTML."""
     if not chart_spec:
