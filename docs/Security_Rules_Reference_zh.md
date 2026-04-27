@@ -749,3 +749,9 @@ _REMOTE_ACCESS_PORTS = {22, 3389, 5900, 5901, 5938, 23}
 ```
 
 `lateral_movement_ports`（定義於 `report_config.yaml`）：`[3389, 5900, 22, 445, 5985, 5986, 5938, 23]`
+
+## 延伸閱讀
+
+- [User Manual](./User_Manual.md) §9 Reports — 規則 finding 如何呈現於報表
+- [Architecture](./Architecture.md) Background.4 — Policy lifecycle 背景
+- [README](../README_zh.md) — 專案入口與快速上手

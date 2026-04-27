@@ -145,12 +145,9 @@ Reports can be generated from the Web GUI, CLI menu, or run automatically on a s
 
 ## Documentation
 
-| Document | Description |
-|:---|:---|
-| **[User Manual](docs/User_Manual.md)** | Installation, execution modes, security settings, report schedules |
-| **[Security Rules Reference](docs/Security_Rules_Reference.md)** | Documentation for the 19 security finding rules (B+L series) |
-| **[Architecture](docs/Architecture.md)** | Module design, threading model, and security implementation |
-| **[API Cookbook](docs/Architecture.md#8-pce-rest-api-integration-cookbook)** | Scenario-based API tutorial for SIEM/SOAR integration |
+- [User Manual](docs/User_Manual.md) ([中文](docs/User_Manual_zh.md)) — installation, configuration, CLI, GUI, daemon, reports, SIEM
+- [Architecture](docs/Architecture.md) ([中文](docs/Architecture_zh.md)) — Illumio platform background, system overview, module map, data flow, PCE cache, REST API cookbook
+- [Security Rules Reference](docs/Security_Rules_Reference.md) ([中文](docs/Security_Rules_Reference_zh.md)) — B-Series, L-Series, R-Series rule catalogues
 
 ---
 

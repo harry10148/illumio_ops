@@ -931,3 +931,9 @@ The function `ruleset_needs_draft_pd()` in `src/report/rules_engine.py` iterates
 **Cross-references:**
 - `docs/User_Manual.md §9.11` — Draft Policy Decision behaviour (end-user operator guide)
 - `docs/Architecture.md §1.4` — Policy lifecycle: provisioned vs. draft state (added in Phase C)
+
+## See also
+
+- [User Manual](./User_Manual.md) §9 Reports — How rule findings appear in reports
+- [Architecture](./Architecture.md) Background.4 — Policy lifecycle background
+- [README](../README.md) — Project entry and Quickstart

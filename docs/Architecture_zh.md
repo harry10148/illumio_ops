@@ -1401,3 +1401,9 @@ results = ana.query_flows({
 ### Raw Explorer CSV export 限制
 
 `ApiClient.export_traffic_query_csv()` 只接受能完整解析成 `native_filters` 的條件。如果某個 filter 最後仍留在 `fallback_filters` 或 `report_only_filters`，raw CSV export 會直接拒絕，而不是悄悄改變查詢語意。
+
+## 延伸閱讀
+
+- [User Manual](./User_Manual.md) — CLI / GUI / Daemon / 報表 / SIEM
+- [Security Rules Reference](./Security_Rules_Reference.md) — 規則目錄
+- [README](../README_zh.md) — 專案入口與快速上手

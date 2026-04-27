@@ -135,3 +135,9 @@ illumio_ops/
 ├── deploy/                     # systemd (Ubuntu/RHEL) + NSSM (Windows) 服務設定
 └── scripts/                    # 工具腳本
 ```
+
+## 文件
+
+- [使用手冊](docs/User_Manual_zh.md) ([English](docs/User_Manual.md)) — 安裝、設定、CLI、GUI、daemon、報表、SIEM
+- [架構文件](docs/Architecture_zh.md) ([English](docs/Architecture.md)) — Illumio 平台背景、系統概觀、模組地圖、資料流、PCE 快取、REST API 手冊
+- [安全規則參考](docs/Security_Rules_Reference_zh.md) ([English](docs/Security_Rules_Reference.md)) — B-Series、L-Series、R-Series 規則目錄

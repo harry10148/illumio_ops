@@ -1122,3 +1122,9 @@ NotebookLM 也建議每個章節採固定導讀格式：
 
 建議行動：優先修復 crown-jewel 或高風險 app 的 VEN；檢查 PCE 連線、憑證、service 狀態與 policy sync；將健康且規則完整的 workload 推進 enforcement。
 
+
+## 延伸閱讀
+
+- [Architecture](./Architecture.md) — 系統概觀、模組地圖、PCE 快取、REST API 手冊
+- [Security Rules Reference](./Security_Rules_Reference.md) — R-Series 規則與 `compute_draft` 行為
+- [README](../README_zh.md) — 專案入口與快速上手
