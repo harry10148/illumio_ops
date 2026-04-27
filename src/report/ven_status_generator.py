@@ -317,3 +317,53 @@ class VenStatusGenerator:
             'status_chart_spec': status_chart_spec,
             'os_chart_spec': os_chart_spec,
         }
+
+
+def generate_ven_xlsx(workloads_df, out_path: str, top_n: int = 1000) -> str:
+    """Generate a VEN status XLSX with workloads bucketed by status and heartbeat age."""
+    from datetime import datetime, timedelta, timezone
+    from openpyxl import Workbook
+    import pandas as pd
+
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    now = datetime.now(timezone.utc)
+
+    def _write_sheet(name, df):
+        ws = wb.create_sheet(name)
+        if df is None or not hasattr(df, "empty") or df.empty:
+            ws.append(["Note", "No workloads in this category"])
+            return
+        ws.append(list(df.columns))
+        for _, row in df.head(top_n).iterrows():
+            ws.append([str(v) for v in row])
+
+    # Parse heartbeat timestamps
+    try:
+        hb = pd.to_datetime(workloads_df["last_heartbeat"], utc=True, errors="coerce")
+        age_h = (now - hb).dt.total_seconds() / 3600
+    except Exception:
+        age_h = pd.Series([float("inf")] * len(workloads_df), index=workloads_df.index)
+
+    has_status = "ven_status" in workloads_df.columns
+
+    if has_status:
+        is_active = workloads_df["ven_status"] == "active"
+        is_offline = workloads_df["ven_status"] == "offline"
+    else:
+        is_active = pd.Series(True, index=workloads_df.index)
+        is_offline = pd.Series(False, index=workloads_df.index)
+
+    online = workloads_df[is_active & (age_h < 24)]
+    offline = workloads_df[is_offline]
+    lost_lt24 = workloads_df[is_active & (age_h >= 24) & (age_h < 48)]
+    lost_24_48 = workloads_df[is_active & (age_h >= 48)]
+
+    _write_sheet("Online", online)
+    _write_sheet("Offline", offline)
+    _write_sheet("Lost <24h", lost_lt24)
+    _write_sheet("Lost 24-48h", lost_24_48)
+
+    wb.save(out_path)
+    return out_path
