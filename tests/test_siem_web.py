@@ -4,7 +4,7 @@ import tempfile
 
 import pytest
 
-from src.config import ConfigManager, hash_password
+from src.config import ConfigManager
 
 
 @pytest.fixture
@@ -13,16 +13,13 @@ def client(tmp_path):
     fd, path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
     try:
-        salt = "testsalt"
-        pass_hash = hash_password(salt, "testpass")
         with open(path, "w") as f:
             json.dump({
                 "api": {"url": "test", "key": "test", "secret": "test", "org_id": "1"},
                 "rules": [],
                 "web_gui": {
                     "username": "admin",
-                    "password_salt": salt,
-                    "password_hash": pass_hash,
+                    "password": "testpass",
                     "allowed_ips": ["127.0.0.1"],
                     "secret_key": "test-secret",
                 },

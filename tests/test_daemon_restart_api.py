@@ -2,18 +2,16 @@ import json, os, tempfile
 from unittest.mock import MagicMock
 import pytest
 import src.gui as gui_module
-from src.config import ConfigManager, hash_password
+from src.config import ConfigManager
 
 
 @pytest.fixture
 def client(tmp_path):
     fd, path = tempfile.mkstemp(suffix=".json"); os.close(fd)
     try:
-        salt = "testsalt"
-        h = hash_password(salt, "pw")
         with open(path, "w") as f:
-            json.dump({"web_gui": {"username": "admin", "password_hash": h,
-                                    "password_salt": salt, "secret_key": "s",
+            json.dump({"web_gui": {"username": "admin", "password": "pw",
+                                    "secret_key": "s",
                                     "allowed_ips": ["127.0.0.1"]}}, f)
         cm = ConfigManager(config_file=path)
         from src.gui import _create_app

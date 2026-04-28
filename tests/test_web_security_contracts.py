@@ -1,6 +1,6 @@
 """Freeze Web GUI security contracts before migrating to Flask extensions.
 
-Phase 4 migrates to flask-wtf/flask-limiter/flask-talisman/flask-login/argon2-cffi.
+Phase 4 migrates to flask-wtf/flask-limiter/flask-talisman/flask-login.
 These tests lock down behavior that MUST survive: login success/failure,
 CSRF rejection, rate limit 429, session persistence, logout.
 """
@@ -18,8 +18,7 @@ def app_client(tmp_path, monkeypatch):
         "api": {"url": "https://pce.test", "org_id": "1", "key": "k", "secret": "s"},
         "web_gui": {
             "username": "illumio",
-            "password_hash": "",  # let _ensure_web_gui_secret default to 'illumio'
-            "password_salt": "",
+            "password": "illumio",
             "secret_key": "",
             "allowed_ips": [],
         },

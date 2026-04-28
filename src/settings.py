@@ -1,10 +1,9 @@
 import os
 import datetime
 import re
-import secrets
 from src.events.catalog import KNOWN_EVENT_TYPES
 from src.utils import Colors, safe_input, draw_panel, draw_table, get_last_input_action
-from src.config import ConfigManager, hash_password as _hash_pass
+from src.config import ConfigManager
 from src.i18n import t, set_language, get_language
 from src import __version__
 
@@ -1511,7 +1510,7 @@ def web_gui_security_menu(cm: ConfigManager):
         
         gui_cfg = cm.config.get("web_gui", {})
         username = gui_cfg.get("username", "illumio")
-        has_auth = bool(gui_cfg.get("password_hash"))
+        has_auth = bool(gui_cfg.get("password"))
         allowed_ips = gui_cfg.get("allowed_ips", [])
         
         auth_status = f"{Colors.GREEN}Configured{Colors.ENDC}" if has_auth else f"{Colors.WARNING}Default (illumio){Colors.ENDC}"
@@ -1550,9 +1549,7 @@ def web_gui_security_menu(cm: ConfigManager):
                 
             new_pass = safe_input(t("wgs_new_pass", default="New Password"), str, allow_cancel=True)
             if new_pass:
-                salt = secrets.token_hex(8)
-                cm.config["web_gui"]["password_salt"] = salt
-                cm.config["web_gui"]["password_hash"] = _hash_pass(salt, new_pass)
+                cm.config["web_gui"]["password"] = new_pass
                 print(f"\n{Colors.GREEN}Password updated.{Colors.ENDC}")
                 cm.save()
             input(f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} ")

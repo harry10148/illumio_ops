@@ -123,12 +123,11 @@ class WebGuiTls(_Base):
     auto_renew_days: int = Field(default=30, ge=1)
 
 class WebGuiSettings(_Base):
-    # extra="ignore" so legacy plain-text `password` keys in config.json are
-    # silently dropped rather than causing validation failure.
+    # extra="ignore" for forward-compat: new keys added in future config
+    # versions are silently ignored rather than causing validation failure.
     model_config = ConfigDict(extra="ignore")
     username: str = "illumio"
-    password_hash: str = ""
-    password_salt: str = ""
+    password: str = "illumio"
     secret_key: str = ""
     allowed_ips: list[str] = Field(default_factory=list)
     tls: WebGuiTls = Field(default_factory=WebGuiTls)

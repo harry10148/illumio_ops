@@ -4,7 +4,7 @@ import json
 import tempfile
 import threading
 from src.alerts.metadata import FieldMeta, PluginMeta
-from src.config import ConfigManager, hash_password as _hash_password
+from src.config import ConfigManager
 from src.gui import build_app as _create_app
 from src.i18n import get_language, get_messages, set_language
 
@@ -31,12 +31,9 @@ def app_persistent(temp_config_file):
     cm = ConfigManager(config_file=temp_config_file)
     cm.load()
     
-    salt = "testsalt"
-    pass_hash = _hash_password(salt, "testpass")
     cm.config["web_gui"] = {
         "username": "admin",
-        "password_salt": salt,
-        "password_hash": pass_hash,
+        "password": "testpass",
         "allowed_ips": ["127.0.0.1", "192.168.1.0/24"],
         "secret_key": "test-secret"
     }
@@ -806,8 +803,7 @@ def test_settings_support_dynamic_plugin_roots(monkeypatch):
                 "rules": [],
                 "web_gui": {
                     "username": "admin",
-                    "password_salt": "testsalt",
-                    "password_hash": _hash_password("testsalt", "testpass"),
+                    "password": "testpass",
                     "allowed_ips": ["127.0.0.1"],
                     "secret_key": "test-secret",
                 },
@@ -885,8 +881,7 @@ def test_event_rule_test_returns_current_vs_legacy_diff(monkeypatch):
                 ],
                 "web_gui": {
                     "username": "admin",
-                    "password_salt": "testsalt",
-                    "password_hash": _hash_password("testsalt", "testpass"),
+                    "password": "testpass",
                     "allowed_ips": ["127.0.0.1"],
                     "secret_key": "test-secret",
                 },

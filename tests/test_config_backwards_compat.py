@@ -5,7 +5,7 @@ Grep confirms these exact patterns appear in 10+ modules:
   cm.config["api"]["url"]
   cm.config.get("settings", {}).get("language", "en")
   cm.config["rules"]
-  cm.config["web_gui"]["password_hash"]
+  cm.config["web_gui"]["password"]
   etc.
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ def fresh_config(tmp_path, monkeypatch):
         "pce_profiles": [],
         "active_pce_id": None,
         "rule_scheduler": {"enabled": True, "check_interval_seconds": 300},
-        "web_gui": {"username": "illumio", "password_hash": "", "password_salt": "", "secret_key": "", "allowed_ips": []},
+        "web_gui": {"username": "illumio", "password": "illumio", "secret_key": "", "allowed_ips": []},
     }, indent=2), encoding="utf-8")
     from src.config import ConfigManager
     return ConfigManager(str(cfg_file))

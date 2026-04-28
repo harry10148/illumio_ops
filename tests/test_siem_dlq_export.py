@@ -2,7 +2,7 @@ import csv, io, json, os, tempfile
 from datetime import datetime, timezone
 
 import pytest
-from src.config import ConfigManager, hash_password
+from src.config import ConfigManager
 
 
 @pytest.fixture
@@ -35,14 +35,11 @@ def client(tmp_path):
     fd, path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
     try:
-        salt = "testsalt"
-        h = hash_password(salt, "pw")
         with open(path, "w") as f:
             json.dump({
                 "web_gui": {
                     "username": "admin",
-                    "password_hash": h,
-                    "password_salt": salt,
+                    "password": "pw",
                     "secret_key": "s",
                     "allowed_ips": ["127.0.0.1"],
                 },

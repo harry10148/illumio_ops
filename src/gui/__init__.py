@@ -27,7 +27,7 @@ except ImportError:
     HAS_FLASK = False
     FLASK_IMPORT_ERROR = str(sys.exc_info()[1])
 
-from src.config import ConfigManager, hash_password_argon2, verify_and_upgrade_password, verify_password
+from src.config import ConfigManager
 from src.i18n import t, get_messages
 from src import __version__
 from src.alerts import PLUGIN_METADATA, plugin_config_path, plugin_config_value
@@ -692,22 +692,11 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         gui_cfg = cm.config.get("web_gui", {})
 
         saved_username = gui_cfg.get("username", "illumio")
-        saved_hash = gui_cfg.get("password_hash", "")
-        saved_salt = gui_cfg.get("password_salt", "")
+        saved_password = gui_cfg.get("password", "")
 
-        if not saved_hash:
-            logger.error("[GUI] Login attempted but no password hash configured.")
-            return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
-
-        ok, new_hash = verify_and_upgrade_password(saved_hash, saved_salt, password)
-        if username == saved_username and ok:
+        if username == saved_username and password == saved_password:
             session.permanent = True
             login_user(AdminUser(username))
-            if new_hash is not None:
-                gui_cfg["password_hash"] = new_hash
-                gui_cfg["password_salt"] = ""
-                cm.save()
-                logger.info("[GUI] Upgraded password hash to argon2id for user '%s'.", saved_username)
             if gui_cfg.get("_initial_password"):
                 del gui_cfg["_initial_password"]
                 cm.save()
@@ -728,7 +717,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         return jsonify({
             "username": gui_cfg.get("username", "illumio"),
             "allowed_ips": gui_cfg.get("allowed_ips", []),
-            "auth_setup": bool(gui_cfg.get("password_hash"))
+            "auth_setup": bool(gui_cfg.get("password"))
         })
 
     @app.route('/api/security', methods=['POST'])
@@ -750,14 +739,11 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             gui_cfg["allowed_ips"] = allowed_ips
             
         if "new_password" in d and d["new_password"]:
-            if gui_cfg.get("password_hash"):
+            if gui_cfg.get("password"):
                 old_pass = d.get("old_password", "")
-                stored = gui_cfg.get("password_hash", "")
-                salt = gui_cfg.get("password_salt", "")
-                if not verify_password(stored, salt, old_pass):
+                if old_pass != gui_cfg.get("password", ""):
                     return jsonify({"ok": False, "error": t("gui_err_invalid_old_pass")}), 401
-            gui_cfg["password_salt"] = ""
-            gui_cfg["password_hash"] = hash_password_argon2(d["new_password"])
+            gui_cfg["password"] = d["new_password"]
             gui_cfg.pop("_initial_password", None)
             
         cm.save()

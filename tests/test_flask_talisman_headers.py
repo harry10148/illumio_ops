@@ -8,7 +8,7 @@ def client(tmp_path):
     cfg = tmp_path / "config.json"
     cfg.write_text(json.dumps({
         "api": {"url": "https://pce.test", "org_id": "1", "key": "k", "secret": "s"},
-        "web_gui": {"username": "illumio", "password_hash": "", "password_salt": "",
+        "web_gui": {"username": "illumio", "password": "illumio",
                     "secret_key": "", "allowed_ips": []},
     }), encoding="utf-8")
     from src.config import ConfigManager

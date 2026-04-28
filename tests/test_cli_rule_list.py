@@ -48,8 +48,7 @@ def _create_default_config(rules=None):
         },
         "web_gui": {
             "username": "illumio",
-            "password_hash": "",
-            "password_salt": "",
+            "password": "illumio",
             "secret_key": "",
             "allowed_ips": [],
             "tls": {

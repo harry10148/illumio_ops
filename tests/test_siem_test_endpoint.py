@@ -1,7 +1,7 @@
 import json, os, tempfile
 from unittest.mock import patch
 import pytest
-from src.config import ConfigManager, hash_password
+from src.config import ConfigManager
 from src.siem.tester import TestResult
 
 
@@ -9,11 +9,9 @@ from src.siem.tester import TestResult
 def client(tmp_path):
     fd, path = tempfile.mkstemp(suffix=".json"); os.close(fd)
     try:
-        salt = "testsalt"
-        h = hash_password(salt, "pw")
         with open(path, "w") as f:
-            json.dump({"web_gui": {"username": "admin", "password_hash": h,
-                                    "password_salt": salt, "secret_key": "s",
+            json.dump({"web_gui": {"username": "admin", "password": "pw",
+                                    "secret_key": "s",
                                     "allowed_ips": ["127.0.0.1"]},
                        "siem": {"enabled": False, "dispatch_tick_seconds": 5,
                                 "dlq_max_per_dest": 10000,

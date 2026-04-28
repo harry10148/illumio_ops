@@ -1,17 +1,15 @@
 import json, os, tempfile
 import pytest
-from src.config import ConfigManager, hash_password
+from src.config import ConfigManager
 
 
 @pytest.fixture
 def client(tmp_path):
     fd, path = tempfile.mkstemp(suffix=".json"); os.close(fd)
     try:
-        salt = "testsalt"
-        h = hash_password(salt, "pw")
         with open(path, "w") as f:
-            json.dump({"web_gui": {"username": "admin", "password_hash": h,
-                                    "password_salt": salt, "secret_key": "s",
+            json.dump({"web_gui": {"username": "admin", "password": "pw",
+                                    "secret_key": "s",
                                     "allowed_ips": ["127.0.0.1"]},
                        "siem": {"enabled": False, "dispatch_tick_seconds": 5,
                                 "dlq_max_per_dest": 10000}}, f)

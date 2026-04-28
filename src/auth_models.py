@@ -1,6 +1,6 @@
 """Flask-Login User model + pydantic LoginForm for illumio-ops admin auth.
 
-Single-admin model: the web_gui.username / password_hash in config.json
+Single-admin model: the web_gui.username / password in config.json
 defines the one admin user. flask-login's user_loader returns this user
 if the session's user_id matches the configured username.
 """
