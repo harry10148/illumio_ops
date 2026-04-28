@@ -41,7 +41,6 @@ PRODUCTION = [
     Pkg("flask-limiter", "flask_limiter"),
     Pkg("flask-talisman", "flask_talisman"),
     Pkg("flask-login", "flask_login"),
-    Pkg("argon2-cffi", "argon2"),
     # Phase 5
     Pkg("openpyxl", "openpyxl"),
     Pkg("reportlab", "reportlab"),
@@ -86,7 +85,7 @@ def verify(pkgs: list[Pkg], category: str, fatal: bool) -> list[str]:
     failed: list[str] = []
     for pkg in pkgs:
         # Suppress deprecation warnings raised by getattr(mod, '__version__')
-        # for packages (Flask/Click/argon2) that deprecate the attribute.
+        # for packages (Flask/Click) that deprecate the attribute.
         import warnings
         try:
             with warnings.catch_warnings():

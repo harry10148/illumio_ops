@@ -6,7 +6,7 @@
 #   Phase 1 — CLI UX:          rich, questionary, click, humanize
 #   Phase 2 — HTTP client:     requests, orjson, cachetools
 #   Phase 3 — Settings:        pydantic
-#   Phase 4 — Web GUI security: flask-wtf, flask-limiter, flask-talisman, flask-login, argon2-cffi
+#   Phase 4 — Web GUI security: flask-wtf, flask-limiter, flask-talisman, flask-login
 #   Phase 5 — Reports:         openpyxl, reportlab, matplotlib, plotly, pygments
 #   Phase 6 — Scheduler:       APScheduler, SQLAlchemy
 #   Phase 7 — Logging:         loguru
@@ -38,7 +38,6 @@ flask-wtf>=1.2,<2.0
 flask-limiter>=3.5,<5.0
 flask-talisman>=1.1,<2.0
 flask-login>=0.6,<0.7
-argon2-cffi>=23.1,<26.0
 
 # ── Phase 5: Reports (Excel + PDF + interactive charts) ──────────────────────
 openpyxl>=3.1,<4.0

@@ -11,8 +11,8 @@
 #       --platform win_amd64 --python-version 3.12 \
 #       --only-binary=:all: -d dist/wheels/windows/
 #
-# Note: transitive binary dependencies (numpy, pillow, cffi, argon2-cffi-bindings,
-# contourpy, etc.) are automatically included by pip download.
+# Note: transitive binary dependencies (numpy, pillow, contourpy, etc.) are
+# automatically included by pip download.
 
 # ── Existing core (Web GUI + reports) ────────────────────────────────────────
 flask>=3.0,<4.0
@@ -39,7 +39,6 @@ flask-wtf>=1.2,<2.0
 flask-limiter>=3.5,<5.0
 flask-talisman>=1.1,<2.0
 flask-login>=0.6,<0.7
-argon2-cffi>=23.1,<26.0
 
 # ── Phase 5: Reports (Excel + PDF + interactive charts) ──────────────────────
 openpyxl>=3.1,<4.0
