@@ -254,7 +254,7 @@ illumio_ops/
 │   │       └── splunk_hec.py  # Splunk HTTP Event Collector
 │   ├── analyzer.py            # Rule engine: flow matching, metric calculation, state management
 │   ├── reporter.py            # Alert aggregation and multi-channel dispatch
-│   ├── config.py              # Configuration loading, saving, rule CRUD, atomic writes, PBKDF2 password hashing
+│   ├── config.py              # Configuration loading, saving, rule CRUD, atomic writes
 │   ├── exceptions.py          # Typed exception hierarchy: IllumioOpsError → APIError/ConfigError/etc.
 │   ├── interfaces.py          # typing.Protocol definitions: IApiClient, IReporter, IEventStore
 │   ├── href_utils.py          # Canonical extract_id(href) helper
@@ -396,7 +396,7 @@ The analyzer supports flexible filter conditions for traffic rules:
 - **Thread Safety**: Uses **`threading.RLock`** (Reentrant Lock) to prevent deadlocks during recursive load/save cycles or concurrent access from Daemon and GUI threads.
 - **Deep Merge**: User config is merged over defaults — any missing fields are auto-populated.
 - **Atomic Save**: Writes to `.tmp` file first, then `os.replace()` for crash safety.
-- **Password Hashing**: Helper functions `hash_password()` and `verify_password()` handle both new PBKDF2 format (prefixed with `pbkdf2:`) and legacy SHA256 format.
+- **Password storage**: web GUI password is stored in plaintext in `config.json` `web_gui.password`. The login endpoint compares the form input with this string directly. No hashing functions exist in `src/config.py`.
 - **Rule CRUD**: `add_or_update_rule()`, `remove_rules_by_index()`, `load_best_practices()`.
 - **PCE Profile Management**: `add_pce_profile()`, `update_pce_profile()`, `activate_pce_profile()`, `remove_pce_profile()`, `list_pce_profiles()` — supports multi-PCE environments with profile switching.
 - **Report Schedule Management**: `add_report_schedule()`, `update_report_schedule()`, `remove_report_schedule()`, `list_report_schedules()`.
@@ -406,7 +406,7 @@ The analyzer supports flexible filter conditions for traffic rules:
 **Architecture**: Flask backend exposing ~40 JSON API endpoints, consumed by a Vanilla JS frontend (`templates/index.html`).
 
 - **Security Middleware**: Mandates login authentication for all routes and enforces IP Allowlisting (CIDR support) via `@app.before_request`. Unauthorized requests are blocked with 401/403 status.
-- **Password Hashing**: Password hashing uses **PBKDF2-HMAC-SHA256** with 260,000 iterations (Python `hashlib.pbkdf2_hmac`, stdlib only). Legacy SHA256 hashes are auto-upgraded on next successful login. Default credentials are `illumio` / `illumio` — users should change the password on first login.
+- **Password storage**: web GUI password is **plaintext** in `config.json` `web_gui.password` (default `illumio`). Rationale: this tool runs only in offline-isolated PCE management networks; all other secrets in `config.json` (`api.key`, `api.secret`, `alerts.line_*`, `smtp.password`, `webhook_url`) are also plaintext, so hashing only the GUI password gives no defensive value while complicating maintenance. Operators should change the default `illumio` password on first login regardless.
 - **Login Rate Limiting**: In-memory per-IP tracker with thread-safe locking. 5 attempts per 60-second window; returns HTTP 429 on excess.
 - **CSRF Protection**: Uses the **Synchronizer Token Pattern**: token is stored in Flask session and injected into `index.html` via a `<meta name="csrf-token">` tag. JavaScript reads the token from the meta tag (not from a cookie). The CSRF cookie has been removed.
 - **Session Security**: Cryptographically signed session cookies. The `session_secret` is automatically generated on first run.

@@ -15,7 +15,7 @@
 
 > **[English](README.md)** | **[繁體中文](README_zh.md)**
 
-An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE)** via REST API. Features real-time security event detection, intelligent traffic analysis, advanced report generation with automated security findings, scheduled report delivery, and multi-channel alerting — with **zero external dependencies** for CLI/daemon modes (Python stdlib only).
+An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE)** via REST API. Features real-time security event detection, intelligent traffic analysis, advanced report generation with automated security findings, scheduled report delivery, and multi-channel alerting.
 
 ---
 
@@ -24,7 +24,7 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 | Feature | Description |
 |:---|:---|
 | **Execution Modes** | Background daemon (`--monitor`), interactive CLI, standalone Web GUI (`--gui`), or **Persistent Monitor + UI** (`--monitor-gui`) |
-| **Enterprise Security** | **PBKDF2 password hashing** (260k iterations), **login rate limiting** (5/min), **CSRF synchronizer token** pattern, **IP Allowlisting** (CIDR/Subnet) |
+| **Enterprise Security** | **Web GUI session security**: **login rate limiting** (5/min), **CSRF synchronizer token** pattern, **IP Allowlisting** (CIDR/Subnet). Password is plaintext in `config.json` (offline-isolated deployment model). |
 | **Security Event Monitoring** | Tracks PCE audit events with anchor-based timestamps — guaranteed zero duplicate alerts |
 | **High-Performance Traffic Engine** | Aggregates rules into a single bulk API query; O(1) memory streaming for large datasets |
 | **Advanced Report Engine** | 15-module traffic reports with **Bulk-Delete** management; 4-module audit reports, policy usage reports, and VEN Status inventory reports — HTML + CSV |
@@ -47,11 +47,10 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 ### 1. Requirements
 
-- **Python 3.8+**
-- **Core (no install needed):** CLI and daemon modes run with zero external dependencies.
-- **Optional — Web GUI:** `flask>=3.0`
-- **Optional — Reports:** `pandas`, `pyyaml`
-- **Optional — PDF export:** `reportlab` (pure Python). PDF export does not require WeasyPrint, Pango, Cairo, GTK, or GDK-PixBuf. PDF output is a static English summary; HTML and XLSX are the recommended formats for full localized content.
+- **Python 3.8+** (tested up to 3.12)
+- **Install:** `pip install -r requirements.txt` — ~25 pinned packages spanning Flask + security middleware (`flask-wtf`, `flask-limiter`, `flask-talisman`, `flask-login`), reports + charts (`pandas`, `pyyaml`, `openpyxl`, `reportlab`, `matplotlib`, `plotly`, `pygments`), HTTP client (`requests`, `orjson`, `cachetools`), config validation (`pydantic`), scheduler + cache (`APScheduler`, `SQLAlchemy`), structured logging (`loguru`), CLI UX (`rich`, `questionary`, `click`, `humanize`).
+- **Offline-isolated targets:** use `scripts/build_offline_bundle.sh` to produce a self-contained tarball with all wheels pre-built; see [User Manual §1](docs/User_Manual.md) for the full bundle workflow.
+- **PDF export:** `reportlab` is included by default (pure Python; no WeasyPrint / Pango / Cairo / GTK / GDK-PixBuf required). PDF output is a static English summary; HTML and XLSX are the recommended formats for full localized content.
 
 ### 2. Installation & Launch
 
@@ -97,13 +96,13 @@ Default credentials: **username `illumio`** / **password `illumio`**.
 3. Configure **IP Allowlisting** to restrict access to trusted networks.
 
 > [!WARNING]
-> If you lose your password, delete the `password_hash` and `password_salt` keys from `config/config.json` to reset to defaults.
+> If you lose your password, edit `web_gui.password` in `config/config.json` to a new value (or remove it entirely to fall back to the default `illumio`). The value is plaintext.
 
 ### 4. Security Features
 
 | Feature | Details |
 |:---|:---|
-| **Password Hashing** | PBKDF2-HMAC-SHA256 with 260,000 iterations (stdlib, no external deps) |
+| **Web GUI password** | Plaintext in `config.json` `web_gui.password`. Designed for offline-isolated deployments; other secrets (PCE API key/secret, LINE token, SMTP password, webhook URL) are also plaintext for consistency. Change `illumio` default on first login. |
 | **Rate Limiting** | 5 login attempts per IP per 60 seconds; returns HTTP 429 on excess |
 | **CSRF Protection** | Synchronizer token pattern via `<meta>` tag injection (no XSS-readable cookie) |
 | **IP Allowlisting** | Supports individual IPs, CIDR ranges, and subnet masks |
@@ -161,7 +160,7 @@ illumio_ops/
 │   ├── api_client.py           # PCE REST API (async jobs, native filters, O(1) streaming)
 │   ├── analyzer.py             # Rule engine (flow matching, event analysis, state mgmt)
 │   ├── gui.py                  # Flask Web GUI (~40 JSON API endpoints, auth, CSRF)
-│   ├── config.py               # ConfigManager (PBKDF2 hashing, atomic writes)
+│   ├── config.py               # ConfigManager (plaintext config, atomic writes)
 │   ├── reporter.py             # Multi-channel alert dispatch (SMTP, LINE, Webhook)
 │   ├── i18n.py                 # i18n engine (EN/ZH_TW, ~1400+ string keys)
 │   ├── events/                 # Event pipeline (catalog, normalize, dedup, throttle)

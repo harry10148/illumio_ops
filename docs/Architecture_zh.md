@@ -253,7 +253,7 @@ illumio_ops/
 │   │       └── splunk_hec.py  # Splunk HTTP Event Collector
 │   ├── analyzer.py            # 規則引擎：流量匹配、指標計算、狀態管理
 │   ├── reporter.py            # 告警聚合與多通道派送
-│   ├── config.py              # 設定載入、儲存、規則 CRUD、原子寫入、PBKDF2 密碼雜湊
+│   ├── config.py              # 設定載入、儲存、規則 CRUD、原子寫入
 │   ├── exceptions.py          # 類型化例外階層：IllumioOpsError → APIError/ConfigError/等
 │   ├── interfaces.py          # typing.Protocol 定義：IApiClient、IReporter、IEventStore
 │   ├── href_utils.py          # 正規 extract_id(href) 輔助工具
@@ -395,7 +395,7 @@ Analyzer 支援流量規則的彈性篩選條件：
 - **執行緒安全**：使用 **`threading.RLock`**（可重入鎖），防止遞迴載入/儲存週期或 Daemon 與 GUI 執行緒並行存取時發生死鎖。
 - **深度合併**：使用者設定與預設值合併 —— 任何缺失欄位均會自動填入。
 - **原子儲存**：先寫入 `.tmp` 檔案，再透過 `os.replace()` 確保當機安全。
-- **密碼雜湊**：輔助函式 `hash_password()` 和 `verify_password()` 同時處理新的 PBKDF2 格式（前綴 `pbkdf2:`）與舊版 SHA256 格式。
+- **密碼儲存**：Web GUI 密碼以明文儲存於 `config.json` 的 `web_gui.password`。登入端點直接將表單輸入與此字串比對。`src/config.py` 中不存在任何雜湊函式。
 - **規則 CRUD**：`add_or_update_rule()`、`remove_rules_by_index()`、`load_best_practices()`。
 - **PCE Profile 管理**：`add_pce_profile()`、`update_pce_profile()`、`activate_pce_profile()`、`remove_pce_profile()`、`list_pce_profiles()` —— 支援多 PCE 環境與 profile 切換。
 - **報表排程管理**：`add_report_schedule()`、`update_report_schedule()`、`remove_report_schedule()`、`list_report_schedules()`。
@@ -405,7 +405,7 @@ Analyzer 支援流量規則的彈性篩選條件：
 **架構**：Flask 後端提供 ~40 個 JSON API endpoint，由 Vanilla JS 前端（`templates/index.html`）呼叫。
 
 - **安全性中介層**：透過 `@app.before_request` 強制所有路由進行登入認證，並實施 IP 允許清單（支援 CIDR）。未授權請求以 401/403 狀態封鎖。
-- **密碼雜湊**：密碼雜湊使用 **PBKDF2-HMAC-SHA256**，260,000 次迭代（Python `hashlib.pbkdf2_hmac`，僅標準函式庫）。舊版 SHA256 雜湊於下次成功登入時自動升級。預設憑證為 `illumio` / `illumio` —— 使用者應在首次登入時變更密碼。
+- **密碼儲存**：Web GUI 密碼以**明文**儲存於 `config.json` 的 `web_gui.password`（預設 `illumio`）。設計理由：此工具僅在離線隔離的 PCE 管理網路中執行；`config.json` 中所有其他密鑰（`api.key`、`api.secret`、`alerts.line_*`、`smtp.password`、`webhook_url`）同樣為明文，僅對 GUI 密碼加密無防禦效果且增加維護複雜度。操作人員應在首次登入後變更預設值 `illumio`。
 - **登入速率限制**：記憶體內每 IP 追蹤器，具執行緒安全鎖定。每 60 秒窗口 5 次嘗試；超出時回傳 HTTP 429。
 - **CSRF 保護**：使用 **Synchronizer Token Pattern**：token 儲存於 Flask session 中，並透過 `<meta name="csrf-token">` 標籤注入 `index.html`。JavaScript 從 meta 標籤讀取 token（而非從 cookie 讀取）。CSRF cookie 已移除。
 - **Session 安全**：加密簽名的 session cookie。`session_secret` 在首次執行時自動產生。

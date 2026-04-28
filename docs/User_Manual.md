@@ -16,7 +16,9 @@
 ### 1.1 System Requirements
 - **Python 3.8+** (tested up to 3.12)
 - **Network Access** to Illumio PCE (HTTPS, default port `8443`)
-- **(Optional)** `pip install flask` — required only for Web GUI mode
+- **Install:** `pip install -r requirements.txt` — ~25 pinned packages spanning Flask + security middleware (`flask-wtf`, `flask-limiter`, `flask-talisman`, `flask-login`), reports + charts (`pandas`, `pyyaml`, `openpyxl`, `reportlab`, `matplotlib`, `plotly`, `pygments`), HTTP client (`requests`, `orjson`, `cachetools`), config validation (`pydantic`), scheduler + cache (`APScheduler`, `SQLAlchemy`), structured logging (`loguru`), CLI UX (`rich`, `questionary`, `click`, `humanize`).
+- **Offline-isolated targets:** use `scripts/build_offline_bundle.sh` to produce a self-contained tarball with all wheels pre-built; see [§1.2](#12-installation) for the full bundle workflow.
+- **PDF export:** `reportlab` is included by default (pure Python; no WeasyPrint / Pango / Cairo / GTK / GDK-PixBuf required). PDF output is a static English summary; HTML and XLSX are the recommended formats for full localized content.
 
 ### 1.2 Installation
 
@@ -611,11 +613,11 @@ Default credentials: **username `illumio`** / **password `illumio`**.
 2. **Change your password immediately** in the **Settings → Security** page.
 3. Configure **IP Allowlisting** to restrict access to trusted networks.
 
-> **Password Reset**: If you lose your password, delete the `password_hash` and `password_salt` keys from the `web_gui` section in `config/config.json` to reset to defaults.
+> **Password Reset**: If you lose your password, edit `web_gui.password` in `config/config.json` to a new value (or remove it entirely to fall back to the default `illumio`). The value is plaintext.
 
 ### 4.1 Authentication
 
-- **Password hashing**: argon2id via argon2-cffi (memory-hard, OWASP-recommended). Legacy PBKDF2 hashes automatically upgrade to argon2id on next successful login — no manual action needed.
+- **Password storage**: plaintext in `config.json` `web_gui.password`. Rationale: illumio_ops is designed for offline-isolated PCE management networks where all other config secrets (PCE API key/secret, LINE/SMTP/webhook tokens) are already plaintext; encrypting only the GUI password provides no real defense. Always change the default `illumio` on first login.
 - **Login rate limiting**: 5 attempts per IP per minute (HTTP 429 on excess) via flask-limiter.
 - **CSRF protection**: flask-wtf CSRFProtect — token delivered via `X-CSRF-Token` response header and `<meta>` tag; validated on all state-changing requests (POST/PUT/DELETE).
 - **Security headers**: flask-talisman sets `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. HSTS activates automatically when TLS is enabled.
@@ -1236,7 +1238,7 @@ The `web_gui` block in `config.json` controls authentication and the web server 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `web_gui.username` | string | `illumio` | Login username for the single-admin account |
-| `web_gui.password` | string | `illumio` | **Change on first login.** The GUI stores an Argon2 hash — the plain-text password in the example is only valid before first use. |
+| `web_gui.password` | string | `illumio` | **Plaintext.** Default `illumio`; **change on first login**. The GUI compares this string directly against the form input — no hashing. |
 | `web_gui.allowed_ips` | list | `[]` | IP allowlist — empty list permits all sources |
 | `web_gui.tls.enabled` | bool | `false` | Enable HTTPS (requires `cert_file` + `key_file` or `self_signed: true`) |
 
@@ -1351,8 +1353,8 @@ Channels not listed in `alerts.active` are silently skipped even if their creden
 | `401 Unauthorized` | Invalid API credentials | Regenerate API Key in PCE Console |
 | `410 Gone` | Async query expired | The traffic query result was cleaned up; re-run the query |
 | `429 Too Many Requests` | API rate limiting | The system auto-retries with backoff; reduce query frequency if persistent |
-| Web GUI won't start | Flask not installed | **Ubuntu/Debian**: use venv — `venv/bin/pip install flask pandas pyyaml`. **RHEL**: `dnf install python3-flask` |
-| `externally-managed-environment` pip error | Ubuntu/Debian PEP 668 | Create a venv: `python3 -m venv venv && venv/bin/pip install flask pandas pyyaml` |
+| Web GUI won't start | Dependencies not installed | **Ubuntu/Debian**: use venv — `venv/bin/pip install -r requirements.txt`. **RHEL**: `python3 -m venv venv && venv/bin/pip install -r requirements.txt` |
+| `externally-managed-environment` pip error | Ubuntu/Debian PEP 668 | Create a venv: `python3 -m venv venv && venv/bin/pip install -r requirements.txt` |
 | No alerts received | Channel not activated | Ensure `alerts.active` array includes your channel(s) |
 | Report shows all VENs as online | Old cached state | Ensure `hours_since_last_heartbeat` is returned by your PCE version; check PCE API response for `agent.status` fields |
 | Rule Scheduler shows `[SKIP]` log | Rule or parent Ruleset in Draft | Complete and Provision the policy edits in PCE Console; the schedule will resume automatically |
@@ -1365,7 +1367,7 @@ Channels not listed in `alerts.active` are silently skipped even if their creden
 | SIEM test event fails with `Destination not found` | Destination name mismatch or `enabled: false` | Check `siem.destinations[].name` matches the argument; ensure `enabled: true` |
 | `mod_change_impact` shows `skipped: no_previous_snapshot` | First report run or snapshot pruned | Generate a second report after the first; snapshots persist for `report.snapshot_retention_days` days |
 | `config validate` exits non-zero with pydantic errors | Unknown key or wrong type in `config.json` | Fix the reported field; compare against `config.json.example` for reference |
-| Web GUI login fails after uninstall + reinstall | `web_gui.password_hash` from old config preserved | The hash is valid — the password has not changed. Log in with your previous password. |
+| Web GUI login fails after uninstall + reinstall | Old `config.json` with stale plaintext `web_gui.password` was preserved | The plaintext password persists across upgrades; log in with the same password you used previously, or edit `web_gui.password` to a new value. |
 | `--purge` accidentally removes config | Ran `uninstall.sh --purge` | The `--purge` flag is documented as destructive; restore from backup. Without `--purge`, config is always preserved. |
 
 ---
