@@ -1,176 +1,186 @@
-# SIEM Integration Guide
+# SIEM Integration
 
-This file is intentionally kept in English because existing tests and external links reference `docs/SIEM_Integration.md`. The main operations manual is now `docs/User_Manual_zh.md`.
+<!-- BEGIN:doc-map -->
+| Document | EN | 中文 |
+|---|---|---|
+| README | [README.md](../README.md) | [README_zh.md](../README_zh.md) |
+| User Manual | [User_Manual.md](./User_Manual.md) | [User_Manual_zh.md](./User_Manual_zh.md) |
+| Architecture | [Architecture.md](./Architecture.md) | [Architecture_zh.md](./Architecture_zh.md) |
+| Security Rules | [Security_Rules_Reference.md](./Security_Rules_Reference.md) | [Security_Rules_Reference_zh.md](./Security_Rules_Reference_zh.md) |
+<!-- END:doc-map -->
 
-The built-in SIEM forwarder is currently **Preview**. Existing deployments can keep using it for compatibility. New production deployments should validate throughput, TLS, retry, and DLQ behavior before relying on it as a primary pipeline.
+---
 
-## Option E — Built-in Forwarder (Recommended for On-Box Push)
+## SIEM Forwarder
 
-The built-in forwarder reads cached audit/traffic records, formats them as CEF/JSON/syslog, and sends them to configured destinations.
+> [!WARNING]
+> Status: **Preview** (2026-04-23).
+> Existing deployments may continue to use SIEM forwarding for compatibility, but full production rollout should wait until runtime pipeline gaps are closed.
+>
+> Known gaps tracked in Task.md:
+> - Runtime ingest path does not yet auto-enqueue SIEM dispatch rows.
+> - Scheduler dispatch path is not yet wired to a full end-to-end consumer loop.
+> - Payload-build failures can currently leave rows in persistent `pending` state.
 
-Supported transports:
+## Architecture
 
-- UDP
-- TCP
-- TLS
-- Splunk HEC
+```
+PCE API
+  └─► EventsIngestor / TrafficIngestor
+           │  (rate-limited, watermarked)
+           ▼
+      pce_cache.sqlite
+           │
+     siem_dispatch table
+           │
+      SiemDispatcher (tick every 5s)
+           │
+      ┌────┴───────────────────┐
+      │         Formatter      │
+      │  CEF 0.1 / JSON Lines  │
+      │  + RFC5424 syslog hdr  │
+      └────┬───────────────────┘
+           │
+      ┌────┴───────────────────┐
+      │       Transport        │
+      │  UDP / TCP / TLS / HEC │
+      └────────────────────────┘
+           │  (failure → DLQ)
+           ▼
+      SIEM / Splunk / Elastic
+```
 
-Supported formats:
+## Prerequisites
 
-- CEF
-- JSON line
-- syslog CEF
-- syslog JSON
+PCE cache must be enabled first (`pce_cache.enabled: true`).
 
-Example destination:
+## Enabling
+
+Add to `config/config.json`:
 
 ```json
-{
-  "name": "soc",
+"siem": {
   "enabled": true,
-  "transport": "tls",
-  "format": "cef",
-  "endpoint": "siem.example.com:6514",
-  "tls_verify": true,
-  "batch_size": 100,
-  "source_types": ["audit", "traffic"],
-  "max_retries": 10
+  "destinations": [
+    {
+      "name": "splunk-hec",
+      "transport": "hec",
+      "format": "json",
+      "endpoint": "https://splunk.example.com:8088",
+      "hec_token": "your-hec-token-here",
+      "source_types": ["audit", "traffic"],
+      "max_retries": 10
+    }
+  ]
 }
 ```
 
-CLI:
+## Global `siem` Config Block
 
-```bash
-python illumio_ops.py siem status
-python illumio_ops.py siem test soc
-python illumio_ops.py siem dlq --dest soc
-python illumio_ops.py siem replay --dest soc --limit 100
-python illumio_ops.py siem purge --dest soc --older-than 30
+The top-level `siem` section in `config.json` controls the forwarder runtime:
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `siem.enabled` | bool | `false` | Enable the SIEM forwarder |
+| `siem.destinations` | list | `[]` | List of destination objects (see schema below) |
+| `siem.dlq_max_per_dest` | int | `10000` | Maximum dead-letter queue depth per destination before oldest rows are evicted |
+| `siem.dispatch_tick_seconds` | int | `5` | How often (in seconds) the dispatcher checks for pending rows |
+
+**Operator commands:** `illumio-ops siem test <name>` (send synthetic event), `illumio-ops siem status` (show per-destination dispatch counts), `illumio-ops siem replay --dest <name>` (requeue DLQ entries), `illumio-ops siem dlq --dest <name>` (list dead-lettered events), `illumio-ops siem purge --dest <name>` (remove DLQ entries older than N days).
+
+## Destination Config Schema
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `name` | string | required | Unique identifier (1–64 chars) |
+| `transport` | udp\|tcp\|tls\|hec | required | Wire protocol |
+| `format` | cef\|json\|syslog_cef\|syslog_json | `cef` | Log line format |
+| `endpoint` | string | required | `host:port` for syslog; full URL for HEC |
+| `tls_verify` | bool | `true` | Verify TLS certificate (disable only for dev) |
+| `tls_ca_bundle` | string | null | Path to CA bundle for custom PKI |
+| `hec_token` | string | null | Splunk HEC token (required for `transport: hec`) |
+| `batch_size` | int | 100 | Rows per dispatcher tick |
+| `source_types` | list | `["audit","traffic"]` | Which data to forward |
+| `max_retries` | int | 10 | Retries before quarantine |
+
+## Format Samples
+
+**CEF (audit event):**
+```
+CEF:0|Illumio|PCE|3.11|policy.update|policy.update|3|rt=1745049600000 dvchost=pce.example.com externalId=uuid-abc outcome=success
 ```
 
-Web API:
-
-- `GET /api/siem/destinations`
-- `POST /api/siem/destinations`
-- `PUT /api/siem/destinations/<name>`
-- `DELETE /api/siem/destinations/<name>`
-- `POST /api/siem/destinations/<name>/test`
-- `GET /api/siem/status`
-- `GET /api/siem/dlq`
-- `POST /api/siem/dlq/replay`
-- `POST /api/siem/dlq/purge`
-- `GET /api/siem/dlq/export`
-
-## 1. Enable the JSON Sink
-
-For file-based collection, enable structured JSON logs:
-
+**JSON Lines (traffic flow):**
 ```json
-{
-  "logging": {
-    "json_sink": true,
-    "level": "INFO"
-  }
-}
+{"src_ip":"10.0.0.1","dst_ip":"10.0.0.2","port":443,"protocol":"tcp","action":"blocked","flow_count":5}
 ```
 
-This writes JSON lines to `logs/illumio_ops.json.log`.
+**RFC5424 syslog envelope (wraps any format):**
+```
+<14>1 2026-04-19T10:00:00.000Z pce.example.com illumio-ops - - - CEF:0|Illumio|PCE|...
+```
 
-## 2. Forwarding Options
+Use `format: syslog_cef` or `format: syslog_json` to enable the RFC5424 wrapper.
 
-### Option A — Filebeat (Elastic Stack)
-
-Use `deploy/filebeat.illumio_ops.yml`.
+## Testing a Destination
 
 ```bash
-cp deploy/filebeat.illumio_ops.yml /etc/filebeat/conf.d/illumio_ops.yml
-# Update output.elasticsearch.hosts to your cluster
-systemctl restart filebeat
+illumio-ops siem test splunk-hec
 ```
 
-### Option B — Logstash Pipeline
+Sends one synthetic `siem.test` event and reports success or failure with the error message.
 
-Use `deploy/logstash.illumio_ops.conf`.
+## DLQ Operator Guide
+
+When a destination fails `max_retries` times, the dispatch row moves to the `dead_letter` table. Inspect with:
 
 ```bash
-cp deploy/logstash.illumio_ops.conf /etc/logstash/conf.d/illumio_ops.conf
-# Update output.elasticsearch.hosts to your cluster
-systemctl restart logstash
+illumio-ops siem dlq --dest splunk-hec
 ```
 
-### Option C — rsyslog
-
-Use `deploy/rsyslog.illumio_ops.conf`.
+After fixing the root cause (bad token, network partition, etc.), replay:
 
 ```bash
-cp deploy/rsyslog.illumio_ops.conf /etc/rsyslog.d/50-illumio-ops.conf
-# Update Target and Port to your SIEM syslog receiver
-systemctl restart rsyslog
+illumio-ops siem replay --dest splunk-hec --limit 1000
 ```
 
-### Option D — Splunk Universal Forwarder
-
-Monitor either:
-
-- `logs/illumio_ops.log`
-- `logs/illumio_ops.json.log`
-- built-in HEC destination from Option E
-
-## 3. Useful Search Queries
-
-### Elastic / Kibana
-
-```text
-event.module:"illumio_ops" AND severity:("HIGH" OR "CRITICAL")
-```
-
-### Splunk
-
-```text
-index=illumio_ops (severity=HIGH OR severity=CRITICAL)
-```
-
-### QRadar AQL
-
-```sql
-SELECT * FROM events
-WHERE UTF8(payload) ILIKE '%illumio_ops%'
-LAST 24 HOURS
-```
-
-## 4. Key Event Types
-
-Common event categories:
-
-- PCE health and connectivity.
-- Agent missed heartbeat / offline / tampering.
-- Login and API authentication failures.
-- Ruleset and security policy changes.
-- Traffic findings from reports.
-- SIEM dispatcher / DLQ events.
-
-## 5. Alerting Recommendations
-
-- Alert immediately on `CRITICAL` and `HIGH` findings.
-- Treat cross-environment lateral ports and unmanaged-to-critical-services as priority incidents.
-- Monitor DLQ growth per destination.
-- Alert when SIEM pending rows grow continuously while sent rows do not increase.
-- Keep cache lag monitoring enabled when using SIEM Preview, because the forwarder depends on cached records.
-
-## 6. DLQ Operator Guide
-
-Use DLQ when destination delivery fails after retry or when payload preparation fails.
-
-Recommended flow:
-
-1. Check destination status.
-2. Fix network, TLS, token, or receiver-side issue.
-3. Replay DLQ for the destination.
-4. Purge old DLQ entries only after confirming replay is unnecessary.
+Purge old entries that are no longer needed:
 
 ```bash
-python illumio_ops.py siem status
-python illumio_ops.py siem dlq --dest soc --limit 50
-python illumio_ops.py siem replay --dest soc --limit 100
-python illumio_ops.py siem purge --dest soc --older-than 30
+illumio-ops siem purge --dest splunk-hec --older-than 30
 ```
+
+## Transport Selection Guide
+
+| Transport | Delivery | Ordering | Encryption | Use case |
+|---|---|---|---|---|
+| UDP | Best-effort | No | No | Low-value, high-volume; fire-and-forget |
+| TCP | At-least-once | Yes | No | Internal network, no TLS required |
+| TLS | At-least-once | Yes | Yes | **Recommended** for production |
+| HEC | At-least-once | Yes | Yes (HTTPS) | Splunk environments |
+
+UDP is available but **not recommended for production** — the GUI will show a warning banner when you configure a UDP destination.
+
+## Backoff Schedule
+
+Failed sends are retried with exponential backoff capped at 1 hour:
+
+| Retry | Wait |
+|---|---|
+| 1 | 10s |
+| 2 | 20s |
+| 3 | 40s |
+| 4 | 80s |
+| 5 | 160s |
+| 6 | 320s |
+| 7 | 640s |
+| 8 | 1280s |
+| 9 | 2560s |
+| 10 | 3600s (cap) |
+
+
+## See also
+
+- [User Manual](./User_Manual.md) — Execution modes, alert channels, and advanced deployment
+- [Architecture](./Architecture.md) — System overview, module map, PCE Cache, REST API Cookbook
+- [README](../README.md) — Project entry and Quickstart
