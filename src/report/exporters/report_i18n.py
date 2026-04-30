@@ -85,7 +85,19 @@ STRINGS: _StringMap = _StringMap({
     "rpt_tr_nav_change_impact": _entry("Change Impact", "變更影響分析"),
     "rpt_tr_nav_draft_actions": _entry("Draft Actions", "草稿動作"),
     "rpt_tr_nav_ringfence": _entry("Application Ringfence", "應用程式 Ringfence"),
+    "rpt_tr_sec_overview": _entry("Traffic Overview", "流量總覽"),
+    "rpt_tr_sec_policy": _entry("Policy Decisions", "Policy 判定"),
+    "rpt_tr_sec_uncovered": _entry("Uncovered Flows", "未覆蓋流量"),
+    "rpt_tr_sec_ransomware": _entry("Ransomware Exposure", "勒索軟體曝險"),
+    "rpt_tr_sec_user": _entry("User & Process", "使用者與程序"),
+    "rpt_tr_sec_matrix": _entry("Cross-Label Matrix", "跨標籤矩陣"),
+    "rpt_tr_sec_unmanaged": _entry("Unmanaged Hosts", "Unmanaged 主機"),
+    "rpt_tr_sec_distribution": _entry("Traffic Distribution", "流量分佈"),
+    "rpt_tr_sec_allowed": _entry("Allowed Traffic", "已允許流量"),
+    "rpt_tr_sec_bandwidth": _entry("Bandwidth & Volume", "頻寬與傳輸量"),
     "rpt_tr_sec_readiness": _entry("Enforcement Readiness", "Enforcement 就緒度"),
+    "rpt_tr_sec_infrastructure": _entry("Infrastructure Scoring", "基礎架構評分"),
+    "rpt_tr_sec_lateral": _entry("Lateral Movement", "橫向移動"),
     "rpt_mod_ringfence_title": _entry("Application Ringfence", "應用程式 Ringfence"),
     "rpt_mod_change_impact_title": _entry("Change Impact", "變更影響分析"),
     "rpt_tr_sec_findings": _entry("Security Findings", "安全發現"),
@@ -577,7 +589,12 @@ STRINGS: _StringMap = _StringMap({
     "rpt_pu_sec_hit": _entry("Hit Rules Detail", "已命中 Rules 明細"),
     "rpt_pu_sec_unused": _entry("Unused Rules Detail", "未使用 Rules 明細"),
     "rpt_pu_sec_deny": _entry("Deny Rule Effectiveness", "Deny 規則有效性分析"),
-    "rpt_pu_query_execution": _entry("Query Execution", "查詢執行狀態"),
+    "rpt_pu_query_execution": _entry("Query Execution", "查詢執行狀況"),
+    "rpt_pu_exec_cached_summaries": _entry("Cached summaries", "快取摘要"),
+    "rpt_pu_exec_new_queries": _entry("New queries", "新查詢"),
+    "rpt_pu_exec_completed_jobs": _entry("Completed jobs", "已完成工作"),
+    "rpt_pu_exec_pending_jobs": _entry("Pending jobs", "待處理工作"),
+    "rpt_pu_exec_failed_jobs": _entry("Failed jobs", "失敗工作"),
     "rpt_pu_top_hit_ports": _entry("Top Hit Ports", "命中最多的 Ports"),
     "rpt_pu_deny_total": _entry("Total Deny Rules", "Deny 規則總數"),
     "rpt_pu_deny_hit": _entry("Hit", "已命中"),
@@ -625,6 +642,51 @@ STRINGS: _StringMap = _StringMap({
     "rpt_change_direction_regressed": _entry("regressed", "退步"),
     "rpt_change_direction_unchanged": _entry("unchanged", "不變"),
     "rpt_change_direction_neutral": _entry("neutral", "中立"),
+    "rpt_tr_what_it_measures": _entry("What it measures", "衡量內容"),
+    # mod13 factor name values (row data, not column headers)
+    "rpt_factor_policy_coverage": _entry("Policy Coverage", "Policy 覆蓋率"),
+    "rpt_factor_ringfence_maturity": _entry("Ringfence Maturity", "Ringfence 成熟度"),
+    "rpt_factor_enforcement_mode": _entry("Enforcement Mode", "Enforcement 模式"),
+    "rpt_factor_staged_readiness": _entry("Staged Readiness", "Staged 就緒度"),
+    "rpt_factor_remote_app_coverage": _entry("Remote-App Coverage", "遠端 App 覆蓋率"),
+    # mod13 column guide
+    "rpt_mod13_col_guide_title": _entry("Column guide", "欄位說明"),
+    "rpt_mod13_col_guide_factor": _entry(
+        "<b>Factor</b> — the aspect of enforcement readiness being measured",
+        "<b>評估因素</b> — 衡量 Enforcement 就緒度的項目",
+    ),
+    "rpt_mod13_col_guide_weight": _entry(
+        "<b>Weight</b> — how much this factor contributes to the 100-point total score (e.g. 35 = 35%)",
+        "<b>權重</b> — 此因素在 100 分總分中所佔的比重（例如 35 = 35%）",
+    ),
+    "rpt_mod13_col_guide_ratio": _entry(
+        "<b>Ratio %</b> — the underlying measurement (e.g. 60% of flows are policy-covered)",
+        "<b>佔比 %</b> — 實際量測值（例如 60% 的流量已有 Policy 覆蓋）",
+    ),
+    "rpt_mod13_col_guide_score": _entry(
+        "<b>Score</b> — points earned for this factor (= Weight × Ratio ÷ 100); all factors sum to the total",
+        "<b>分數</b> — 此因素所得分數（= 權重 × 佔比 ÷ 100），各因素加總為總分",
+    ),
+    "rpt_mod13_col_guide_policy": _entry(
+        "% of flows matched by an allow policy (higher = fewer unprotected paths)",
+        "已有允許 Policy 對應的流量比率（越高代表未受保護的路徑越少）",
+    ),
+    "rpt_mod13_col_guide_ringfence": _entry(
+        "% of apps with app-boundary ringfence policies in place",
+        "已建立應用程式邊界 Ringfence Policy 的 App 比率",
+    ),
+    "rpt_mod13_col_guide_enforcement": _entry(
+        "% of workloads in selective or full enforcement (not visibility-only or idle)",
+        "處於 selective 或 full enforcement（非僅可視性或閒置）的 Workload 比率",
+    ),
+    "rpt_mod13_col_guide_staged": _entry(
+        "% of staged flows (rules written, not yet enforced) that are already covered; shows how much of the backlog is resolved",
+        "已有 Policy 覆蓋的 staged 流量比率（規則已寫但尚未套用），顯示積壓量的解決進度",
+    ),
+    "rpt_mod13_col_guide_remote": _entry(
+        "% of remote-access flows (RDP/SSH/VNC) that have a matching allow policy",
+        "遠端存取流量（RDP/SSH/VNC）中已有允許 Policy 對應的比率",
+    ),
 })
 
 for key, pair in {

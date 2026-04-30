@@ -5,6 +5,7 @@ Executive summary KPIs and execution metadata for the Policy Usage report.
 import datetime
 from collections import Counter
 
+from src.i18n import t
 from src.report.analysis.attack_posture import (
     make_posture_item,
     rank_posture_items,
@@ -32,14 +33,14 @@ def pu_executive_summary(results: dict, lookback_days: int) -> dict:
     top_port_label = top_hit_ports[0].get("port_proto", "N/A") if top_hit_ports else "N/A"
 
     kpis = [
-        {"label": "Total Rules", "value": str(total)},
-        {"label": "Hit Rules", "value": str(hit)},
-        {"label": "Unused Rules", "value": str(unused)},
-        {"label": "Hit Rate", "value": f"{rate}%"},
-        {"label": "Lookback", "value": f"{lookback_days} days"},
-        {"label": "Cached Reuse", "value": str(cached)},
-        {"label": "New Queries", "value": str(submitted)},
-        {"label": "Top Hit Port", "value": top_port_label},
+        {"label": t("rpt_pu_total_rules", default="Total Rules"), "value": str(total)},
+        {"label": t("rpt_pu_hit_rules", default="Hit Rules"), "value": str(hit)},
+        {"label": t("rpt_pu_unused_rules", default="Unused Rules"), "value": str(unused)},
+        {"label": t("rpt_pu_hit_rate", default="Hit Rate"), "value": f"{rate}%"},
+        {"label": t("rpt_pu_kpi_lookback", default="Lookback"), "value": f"{lookback_days} days"},
+        {"label": t("rpt_pu_kpi_cached_reuse", default="Cached Reuse"), "value": str(cached)},
+        {"label": t("rpt_pu_kpi_new_queries", default="New Queries"), "value": str(submitted)},
+        {"label": t("rpt_pu_kpi_top_hit_port", default="Top Hit Port"), "value": top_port_label},
     ]
 
     attention_items = []
@@ -51,19 +52,19 @@ def pu_executive_summary(results: dict, lookback_days: int) -> dict:
 
     execution_notes = []
     if cached:
-        execution_notes.append(f"Reused {cached} completed async summaries.")
+        execution_notes.append(t("rpt_pu_exec_note_cached", cached=cached, default=f"Reused {cached} completed async summaries."))
     if submitted:
-        execution_notes.append(f"Submitted {submitted} new async queries.")
+        execution_notes.append(t("rpt_pu_exec_note_submitted", submitted=submitted, default=f"Submitted {submitted} new async queries."))
     if pending:
-        execution_notes.append(f"{pending} async queries were still pending at timeout.")
+        execution_notes.append(t("rpt_pu_exec_note_pending", pending=pending, default=f"{pending} async queries were still pending at timeout."))
     if failed:
-        execution_notes.append(f"{failed} async queries failed.")
+        execution_notes.append(t("rpt_pu_exec_note_failed", failed=failed, default=f"{failed} async queries failed."))
     if top_hit_ports:
         top_summary = ", ".join(
             f"{item.get('port_proto', '')} ({int(item.get('flow_count', 0) or 0)})"
             for item in top_hit_ports[:3]
         )
-        execution_notes.append(f"Top observed hit ports: {top_summary}.")
+        execution_notes.append(t("rpt_pu_exec_note_top_ports", top_summary=top_summary, default=f"Top observed hit ports: {top_summary}."))
 
     attack_items = []
     if rate < 70:

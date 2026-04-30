@@ -4,11 +4,12 @@ Detail table for rules with zero observed traffic hits in the lookback period.
 from loguru import logger
 import pandas as pd
 
+from src.i18n import t
 from src.report.analysis.policy_usage.pu_mod02_hit_detail import _resolve_actors, _resolve_services
 
 _MAX_ROWS = 1000
 
-CAVEAT = (
+_CAVEAT_EN = (
     "Rules listed here had no observed traffic hits in the selected lookback window. "
     "This does not automatically mean the rules are safe to remove because the PCE traffic "
     "retention window, low-frequency workloads, or exceptional failover paths may hide valid usage."
@@ -57,7 +58,7 @@ def pu_unused_detail(
     return {
         "unused_df": unused_df,
         "record_count": len(rows),
-        "caveat": CAVEAT,
+        "caveat": t("rpt_pu_unused_caveat", default=_CAVEAT_EN),
     }
 
 def _build_unused_row(rule: dict, ruleset_map: dict, port_detail: dict, api_client) -> dict:

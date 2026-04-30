@@ -362,11 +362,11 @@ class PolicyUsageHtmlExporter:
             return ""
 
         rows = [
-            ("Cached summaries", stats.get("cached_rules", 0)),
-            ("New queries", stats.get("submitted_rules", 0)),
-            ("Completed jobs", stats.get("completed_jobs", 0)),
-            ("Pending jobs", stats.get("pending_jobs", 0)),
-            ("Failed jobs", stats.get("failed_jobs", 0)),
+            (self._s("rpt_pu_exec_cached_summaries"), stats.get("cached_rules", 0)),
+            (self._s("rpt_pu_exec_new_queries"), stats.get("submitted_rules", 0)),
+            (self._s("rpt_pu_exec_completed_jobs"), stats.get("completed_jobs", 0)),
+            (self._s("rpt_pu_exec_pending_jobs"), stats.get("pending_jobs", 0)),
+            (self._s("rpt_pu_exec_failed_jobs"), stats.get("failed_jobs", 0)),
         ]
         metrics_html = "".join(
             '<div class="attention-row">'

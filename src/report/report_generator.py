@@ -309,6 +309,7 @@ class ReportGenerator:
         from src.report.exporters.html_exporter import HtmlExporter
         from src.report.exporters.csv_exporter import CsvExporter
 
+        set_language(lang)
         paths = []
 
         if fmt in ('html', 'all', 'all_raw'):

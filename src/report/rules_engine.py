@@ -88,10 +88,7 @@ class R01DraftDenyDetected(_DraftPdRuleMixin):
             severity=self.severity,
             category="DraftPolicy",
             description=t("rule_r01_desc"),
-            recommendation=(
-                "Review and provision the draft deny rules, or add explicit allow rules "
-                "before provisioning to avoid unexpected traffic disruption."
-            ),
+            recommendation=t("rule_r01_rec"),
             evidence={
                 "matching_flows": len(matched),
                 "draft_decisions": str(matched["draft_policy_decision"].value_counts().to_dict()),
@@ -118,10 +115,7 @@ class R02OverrideDenyDetected(_DraftPdRuleMixin):
             severity=self.severity,
             category="DraftPolicy",
             description=t("rule_r02_desc"),
-            recommendation=(
-                "Override deny rules take precedence over all allow rules. "
-                "Verify each override deny is intentional before provisioning."
-            ),
+            recommendation=t("rule_r02_rec"),
             evidence={
                 "matching_flows": len(matched),
                 "draft_decisions": str(matched["draft_policy_decision"].value_counts().to_dict()),
@@ -149,10 +143,7 @@ class R03VisibilityBoundaryBreach(_DraftPdRuleMixin):
             severity=self.severity,
             category="DraftPolicy",
             description=t("rule_r03_desc"),
-            recommendation=(
-                "Move workloads to enforced mode to activate the boundary deny. "
-                "Flows are currently traversable only because VENs are in test/visibility mode."
-            ),
+            recommendation=t("rule_r03_rec"),
             evidence={
                 "matching_flows": len(matched),
             },
@@ -178,10 +169,7 @@ class R04AllowedAcrossBoundary(_DraftPdRuleMixin):
             severity=self.severity,
             category="DraftPolicy",
             description=t("rule_r04_desc"),
-            recommendation=(
-                "Confirm that cross-boundary allow rules are intentional and tightly scoped. "
-                "Consider whether a more restrictive rule can meet the business requirement."
-            ),
+            recommendation=t("rule_r04_rec"),
             evidence={
                 "matching_flows": len(matched),
             },
@@ -214,10 +202,7 @@ class R05DraftReportedMismatch(_DraftPdRuleMixin):
             severity=self.severity,
             category="DraftPolicy",
             description=t("rule_r05_desc"),
-            recommendation=(
-                "Review these workload pairs before provisioning draft rules. "
-                "Currently-allowed traffic will be blocked once the draft is provisioned."
-            ),
+            recommendation=t("rule_r05_rec"),
             evidence={
                 "mismatch_count": len(matched),
                 "top_pairs": str(top_pairs),
@@ -382,57 +367,31 @@ class RulesEngine:
                 "active lateral movement path between security domains."
             )
             if n_cross_env_allowed > 0:
-                recommendation = (
-                    "CRITICAL: Explicit allow rules permit lateral movement ports across environment boundaries. "
-                    f"Immediately remove or tightly scope these allow rules for: {list(named_ports.keys())}. "
-                    "Investigate source IPs in cross-env flows — treat as active incident until proven otherwise."
-                )
+                recommendation = t("rule_b001_rec_critical_cross_env", named_ports=list(named_ports.keys()))
             else:
-                recommendation = (
-                    "CRITICAL: Cross-environment flows detected with no allow rule (potentially_blocked). "
-                    "No explicit policy permits this traffic — it flows only because workloads are in test mode. "
-                    f"Move workloads to enforced mode to activate default-deny and block these paths immediately. "
-                    f"Investigate why this cross-env traffic exists on: {list(named_ports.keys())}."
-                )
+                recommendation = t("rule_b001_rec_pb_cross_env", named_ports=list(named_ports.keys()))
         elif n_cross_subnet > 0 and n_allowed > 0:
             severity = 'HIGH'
             risk_summary = (
                 f"{n_cross_subnet} flows are cross-subnet ({n_allowed} explicitly allowed). "
                 f"Same-subnet flows: {n_same_subnet} (may be legitimate admin)."
             )
-            recommendation = (
-                f"Cross-subnet flows on {list(named_ports.keys())} indicate unscoped management access "
-                "or potential lateral movement. "
-                "Restrict allow rules to: (1) authorised jump-host / bastion IPs only, "
-                "(2) specific management VLAN ranges. "
-                f"Same-subnet flows ({n_same_subnet}) may be legitimate Windows admin — "
-                "verify source IPs and scope rules accordingly. "
-                "Apply Illumio rules with explicit source IP / label constraints."
-            )
+            recommendation = t("rule_b001_rec_cross_subnet_allowed",
+                               named_ports=list(named_ports.keys()), n_same_subnet=n_same_subnet)
         elif n_cross_subnet > 0 and n_pb == n_cross_subnet:
             severity = 'MEDIUM'
             risk_summary = (
                 f"{n_cross_subnet} cross-subnet flows have no allow rule (potentially_blocked) — "
                 "traffic flows because VEN is in test mode; enforce to activate default-deny."
             )
-            recommendation = (
-                "Cross-subnet flows on critical ports have no allow rule (potentially_blocked) — "
-                "no policy covers these paths; they flow only because VEN is in test mode. "
-                "Move destination workloads to selective or full enforcement to activate default-deny. "
-                f"Same-subnet flows ({n_same_subnet}) may be legitimate admin traffic."
-            )
+            recommendation = t("rule_b001_rec_cross_subnet_pb")
         elif n_same_subnet == n_total and n_pb == n_total:
             severity = 'INFO'
             risk_summary = (
                 f"All {n_total} flows are within the same /24 subnet and in test mode only. "
                 "Traffic is likely routine Windows admin; block is not active but risk is limited."
             )
-            recommendation = (
-                "Same-subnet traffic on critical ports in test mode only. "
-                "Low immediate risk — verify source IPs are authorised admin systems, "
-                "then move workloads to enforced mode. "
-                "Consider scoping allow rules to specific admin IPs rather than subnet-wide."
-            )
+            recommendation = t("rule_b001_rec_same_subnet_pb")
         else:
             # Same-subnet, allowed — MEDIUM (legitimate admin but worth documenting)
             severity = 'MEDIUM'
@@ -441,15 +400,7 @@ class RulesEngine:
                 f"({n_allowed} allowed, {n_pb} test-mode). "
                 "Likely Windows administration traffic, but source scope should be verified."
             )
-            recommendation = (
-                "Same-subnet flows on critical ports are typical for Windows server administration "
-                "(RDP to nearby servers, SMB file shares, WinRM remote management). "
-                "Recommended actions: "
-                "(1) Verify each source IP is an authorised admin system or jump host, "
-                "(2) Scope Illumio allow rules to specific source IPs rather than allowing all "
-                "same-subnet access — this prevents lateral movement if any same-subnet host is compromised, "
-                "(3) Confirm SMB 445 and RPC 135 are not used for general file sharing across workloads."
-            )
+            recommendation = t("rule_b001_rec_same_subnet_allowed")
 
         # Top suspicious flows (cross-subnet or cross-env, allowed)
         suspicious = matched[
@@ -507,13 +458,7 @@ class RulesEngine:
                     f"operators (e.g., Conti, LockBit) who exploit exposed VNC/TeamViewer to gain GUI "
                     f"access without triggering endpoint alerts."
                 ),
-                recommendation=(
-                    "1) Verify each allowed flow has a documented business justification. "
-                    "2) Block TeamViewer (5938) and VNC (5900/5901) unless required for specific admin workflows — "
-                    "replace with MFA-protected jump servers. "
-                    "3) If NetBIOS (137-139) is allowed, migrate to SMBv3 over 445 with encryption. "
-                    "4) Create Illumio deny rules for these ports from all non-admin workloads."
-                ),
+                recommendation=t("rule_b002_rec"),
                 evidence={'matched_flows': len(matched), 'top_ports': str(top_ports),
                           'unique_sources': unique_src, 'unique_destinations': unique_dst},
             )
@@ -541,14 +486,7 @@ class RulesEngine:
                     f"While these flows would be blocked in enforced mode, they represent real "
                     f"network paths that ransomware could exploit if enforcement is delayed."
                 ),
-                recommendation=(
-                    "1) Prioritize moving workloads with potentially_blocked flows to enforced mode — "
-                    "start with the highest-risk ports (SSH, NFS). "
-                    "2) Review the 'potentially_blocked' flows to ensure no legitimate traffic "
-                    "will break when enforcement is applied. "
-                    "3) Create allow rules for verified legitimate traffic before switching to enforced mode. "
-                    "4) Set a deadline for enforcement — prolonged test mode leaves the network exposed."
-                ),
+                recommendation=t("rule_b003_rec"),
                 evidence={'matched_flows': len(matched), 'top_ports': str(top_ports)},
             )
         return None
@@ -571,14 +509,7 @@ class RulesEngine:
                     f"Unmanaged hosts bypass Illumio policy enforcement — any traffic they send "
                     f"cannot be micro-segmented, creating blind spots in your security posture."
                 ),
-                recommendation=(
-                    "1) Identify each unmanaged source IP — are they network devices, legacy servers, "
-                    "or shadow IT? "
-                    "2) Deploy VEN agents on servers that should be managed. "
-                    "3) For network devices that can't run a VEN, use IP lists and enforcement "
-                    "boundaries to control their access. "
-                    "4) Create explicit deny rules for any unmanaged-to-managed path that isn't required."
-                ),
+                recommendation=t("rule_b004_rec"),
                 evidence={'total_flows': total, 'top_src_ips': str(top_ips),
                           'unique_managed_destinations': unique_dst, 'top_ports': str(top_dst_ports)},
             )
@@ -604,15 +535,7 @@ class RulesEngine:
                     f"Low coverage means most traffic is flowing without explicit policy authorization, "
                     f"making it impossible to distinguish legitimate traffic from attacker movement."
                 ),
-                recommendation=(
-                    "1) Focus first on critical tiers: databases, identity infrastructure (AD/LDAP), "
-                    "and externally-facing workloads. "
-                    "2) Use Illumio's Explorer to identify top unruled flows and create allow rules "
-                    "for verified traffic. "
-                    "3) Set a target coverage of >{threshold}% within 30 days. "
-                    "4) Enable enforcement gradually — start with ring-fencing high-value assets, "
-                    "then expand to general workloads."
-                ),
+                recommendation=t("rule_b005_rec", threshold=threshold),
                 evidence={'coverage_pct': f'{coverage_pct:.1f}', 'allowed': allowed,
                           'blocked': blocked, 'potentially_blocked': pb, 'total': total},
             )
@@ -652,14 +575,7 @@ class RulesEngine:
                 f"Top offenders: {list(top.keys())[:3]}. "
                 f"This fan-out pattern is a strong indicator of host-hopping."
             ),
-            recommendation=(
-                "1) Investigate the top source IPs — check for exploit tools, unexpected SSH sessions, "
-                "or RDP brute-force. "
-                + ("2) Remove or tightly scope the allow rules driving the high-fan-out flows. " if high_src_allowed else
-                   "2) Move workloads to enforced mode — no allow rules exist for these paths; "
-                   "default-deny will block them upon enforcement. ")
-                + "3) Ring-fence high-value assets (databases, domain controllers) to limit blast radius."
-            ),
+            recommendation=t("rule_b006_rec_allowed" if high_src_allowed else "rule_b006_rec_pb"),
             evidence={'high_src_count': len(high_src), 'top_sources': str(top),
                       'total_lateral_flows': total_lateral, 'allowed_flows': n_allowed_flows,
                       'pb_flows': n_pb_flows, 'top_ports': str(top_ports)},
@@ -686,14 +602,7 @@ class RulesEngine:
                     f"A single account reaching many destinations may indicate credential theft, "
                     f"automated scanning, or data exfiltration via compromised credentials."
                 ),
-                recommendation=(
-                    "1) Cross-reference flagged accounts with HR/IT records — are these admin accounts "
-                    "or regular users? "
-                    "2) Check authentication logs for failed login attempts or impossible-travel alerts. "
-                    "3) For admin accounts, enforce just-in-time access and MFA for lateral sessions. "
-                    "4) Create Illumio user-based rules to limit which destinations each role can access. "
-                    "5) If compromise is suspected, rotate credentials immediately and isolate the workload."
-                ),
+                recommendation=t("rule_b007_rec"),
                 evidence={'high_user_count': len(high_users), 'top_users': str(top),
                           'top_ports': str(top_ports)},
             )
@@ -722,15 +631,7 @@ class RulesEngine:
                     f"Abnormally large data transfers may indicate data exfiltration, "
                     f"unauthorized backups, or misconfigured replication jobs."
                 ),
-                recommendation=(
-                    "1) Verify the top bandwidth consumers — are they backup servers, replication, "
-                    "or database sync? Document expected high-volume flows. "
-                    "2) For unexplained transfers, check if the source is a compromised workload "
-                    "exfiltrating data to an external or lateral destination. "
-                    "3) Consider implementing bandwidth-aware rules or QoS policies for known "
-                    "high-volume services. "
-                    "4) Set up Illumio monitoring alerts for sustained anomalous volume."
-                ),
+                recommendation=t("rule_b008_rec"),
                 evidence={'anomaly_count': len(anomalies), 'percentile_threshold': _fmt_bytes(threshold_bytes),
                           'total_anomaly_bytes': _fmt_bytes(total_anomaly_bytes), 'top_flows': str(top),
                           'top_ports': str(top_ports)},
@@ -757,15 +658,7 @@ class RulesEngine:
                     f"but should be explicitly authorized. Uncontrolled cross-env flows break "
                     f"environment isolation and can enable pivot attacks from lower to higher environments."
                 ),
-                recommendation=(
-                    "1) Audit each cross-env flow pair — document which ones are expected "
-                    "(e.g., Production monitoring pulling from Staging). "
-                    "2) Create explicit Illumio rules for approved cross-env paths with "
-                    "specific port restrictions. "
-                    "3) Block all other cross-env flows, especially database ports (see L004) and "
-                    "admin protocols (SSH, RDP). "
-                    "4) Use Illumio environment labels consistently to enforce isolation boundaries."
-                ),
+                recommendation=t("rule_b009_rec"),
                 evidence={'cross_env_flows': len(cross), 'top_pairs': str(top_pairs),
                           'environments': str(sorted(unique_envs)), 'top_ports': str(top_ports)},
             )
@@ -805,11 +698,7 @@ class RulesEngine:
                 f"(Telnet:{top_ports.get(23,0)}, FTP:{top_ports.get(21,0)+top_ports.get(20,0)}). "
                 f"{len(allowed)} of these are explicitly allowed."
             ),
-            recommendation=(
-                "Immediately disable Telnet (port 23) and FTP (ports 20/21). "
-                "Replace with SSH (22) or SFTP. Cleartext credentials can be captured "
-                "by any attacker with network access, enabling trivial lateral movement."
-            ),
+            recommendation=t("rule_l001_rec"),
             evidence={'total_flows': len(matched), 'allowed_flows': len(allowed),
                       'top_ports': str(top_ports), 'top_source_apps': str(top_apps)},
         )
@@ -839,12 +728,7 @@ class RulesEngine:
                 f"{len(unblocked)} flows on broadcast/discovery protocols are not blocked: "
                 f"{named}. These protocols enable Responder-based NTLMv2 hash harvesting."
             ),
-            recommendation=(
-                "Block NetBIOS (137-138), LLMNR (5355), and SSDP (1900) at the segmentation "
-                "layer. These protocols serve no legitimate role in modern micro-segmented "
-                "environments and are used almost exclusively for network reconnaissance and "
-                "credential poisoning attacks (e.g., Responder / Inveigh)."
-            ),
+            recommendation=t("rule_l002_rec"),
             evidence={'unblocked_flows': len(unblocked), 'top_protocols': str(named)},
         )
 
@@ -882,12 +766,7 @@ class RulesEngine:
                 f"unique source applications: {named_ports}. "
                 f"{len(wide)} database endpoints are reachable from >{threshold} distinct app tiers."
             ),
-            recommendation=(
-                "Database ports should only be reachable from their direct application tier "
-                "(typically 1-2 app labels). Use Illumio rule-sets to restrict db access to "
-                "approved app labels only. Wide database exposure is the primary post-exploitation "
-                "data exfiltration path after lateral movement succeeds."
-            ),
+            recommendation=t("rule_l003_rec"),
             evidence={'total_db_flows': len(db_flows),
                       'unique_src_apps': db_flows['src_app'].nunique(),
                       'top_databases': str(top_db), 'ports': str(named_ports)},
@@ -920,11 +799,7 @@ class RulesEngine:
                 f"Top pairs: " +
                 ', '.join(f"{r['src_env']}→{r['dst_env']}:{r['port']}({r['flows']})" for r in top_pairs[:3])
             ),
-            recommendation=(
-                "Enforce strict environment isolation for all database ports. "
-                "No Dev/Test/Staging application should have direct access to Production databases. "
-                "Use read replicas or API gateways as the cross-environment interface, never direct DB ports."
-            ),
+            recommendation=t("rule_l004_rec"),
             evidence={'cross_env_db_flows': len(cross), 'top_env_pairs': str(top_pairs)},
         )
 
@@ -963,14 +838,7 @@ class RulesEngine:
                 f"{unique_src_apps - unique_src_apps_allowed} potentially_blocked): {named}. "
                 f"Excessive LDAP/Kerberos reach enables domain enumeration and ticket attacks."
             ),
-            recommendation=(
-                ("Restrict Kerberos (88) and LDAP (389/636) to domain-joined workloads only. "
-                 "Remove or tightly scope allow rules permitting broad identity-port access. "
-                 if unique_src_apps_allowed > threshold else
-                 "These flows have no allow rule — move workloads to enforced mode so default-deny blocks them. "
-                 "Before enforcing, create allow rules only for legitimate LDAP consumers (domain-joined workloads). ")
-                + "No application tier should query LDAP directly — use a service account wrapper."
-            ),
+            recommendation=t("rule_l005_rec_allowed" if unique_src_apps_allowed > threshold else "rule_l005_rec_pb"),
             evidence={'unblocked_flows': len(id_flows), 'allowed_flows': len(id_allowed),
                       'unique_src_apps': unique_src_apps, 'unique_src_apps_allowed': unique_src_apps_allowed,
                       'top_ports': str(named), 'top_sources': str(top_srcs)},
@@ -1037,12 +905,7 @@ class RulesEngine:
                 f"Top pivot points: " +
                 ', '.join(f"{r['app']}({r['reachable']} reachable)" for r in top5)
             ),
-            recommendation=(
-                "Reduce lateral-port connectivity between application tiers using Illumio "
-                "rule-sets. Each application should only be able to reach its direct "
-                "dependencies — not transitively reach the entire network. "
-                "Prioritise isolating the top pivot apps listed in evidence."
-            ),
+            recommendation=t("rule_l006_rec"),
             evidence={'high_risk_nodes': len(high_risk),
                       'blast_radius_threshold': threshold,
                       'top_pivot_apps': str(top5[:3])},
@@ -1079,13 +942,7 @@ class RulesEngine:
                 f"targeting database/identity/management ports: {named_ports}. "
                 f"Top targets: {top_dst}."
             ),
-            recommendation=(
-                "Unmanaged hosts should NEVER directly reach database, identity, or Windows "
-                "management ports. Options: (1) Onboard the hosts to PCE immediately, "
-                "(2) Add explicit deny rules for unmanaged sources on these ports, "
-                "(3) Investigate whether these are attacker-controlled hosts or shadow IT. "
-                "Priority: verify the top source IPs are known/authorised assets."
-            ),
+            recommendation=t("rule_l007_rec"),
             evidence={'total_flows': len(matched),
                       'unique_unmanaged_src': matched['src_ip'].nunique(),
                       'top_src_ips': str(top_ips), 'top_ports': str(named_ports)},
@@ -1121,12 +978,7 @@ class RulesEngine:
                 f"These paths are currently traversable because workloads are not fully enforced. "
                 f"Top ports: {top_ports}."
             ),
-            recommendation=(
-                "Move workloads from visibility/test mode to selective or full enforcement. "
-                "Until enforcement is active, 'potentially_blocked' flows are live attack "
-                "paths — no allow rule covers them; only enforced mode's default-deny will block them. "
-                "Check enforcement mode in PCE for the destination apps: {top_apps}."
-            ),
+            recommendation=t("rule_l008_rec", top_apps=top_apps),
             evidence={'pb_lateral_flows': len(pb), 'unique_src': unique_src,
                       'unique_dst': unique_dst, 'top_ports': str(top_ports),
                       'top_dst_apps': str(top_apps)},
@@ -1162,13 +1014,7 @@ class RulesEngine:
                 f"to {exfil['dst_ip'].nunique()} unmanaged destinations. "
                 f"Top source apps: {top_apps_fmt}."
             ),
-            recommendation=(
-                "Investigate all managed-to-unmanaged outbound flows above the threshold. "
-                "Legitimate outbound traffic (internet APIs, CDN) should be explicitly "
-                "allowed and scoped to known destination IPs or ranges. "
-                "Apply an outbound allowlist policy and deny all other external destinations. "
-                "Top suspicious destinations (by bytes): {top_dst_fmt}."
-            ),
+            recommendation=t("rule_l009_rec", top_dst_fmt=top_dst_fmt),
             evidence={'total_transferred': _fmt_bytes(total_bytes),
                       'unique_unmanaged_dst': exfil['dst_ip'].nunique(),
                       'top_dst_ips': str(top_dst_fmt), 'top_src_apps': str(top_apps_fmt)},
@@ -1208,13 +1054,7 @@ class RulesEngine:
                 f"Top environment pairs: " +
                 ', '.join(f"{r['src_env']}→{r['dst_env']}({r['flows']} flows)" for r in top_pairs[:3])
             ),
-            recommendation=(
-                "CRITICAL: Lateral movement ports (SMB 445, RDP 3389, WinRM 5985/5986, RPC 135) "
-                "must NEVER be allowed across environment boundaries. "
-                "Implement deny rules at the environment boundary level immediately. "
-                "This represents an active lateral movement path between environments that "
-                "an attacker can exploit to escalate from low-security to high-security zones."
-            ),
+            recommendation=t("rule_l010_rec"),
             evidence={'cross_env_lateral_flows': len(cross), 'top_env_pairs': str(top_pairs[:3]),
                       'top_ports': str(top_ports)},
         )
