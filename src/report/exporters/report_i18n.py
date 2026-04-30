@@ -604,6 +604,10 @@ STRINGS: _StringMap = _StringMap({
     "rpt_email_ven_subject": _entry("Illumio VEN Status Report", "Illumio VEN 狀態報表"),
     "rpt_email_policy_usage_subject": _entry("Illumio Policy Usage Report", "Illumio Policy 使用報表"),
     "rpt_email_pu_subject": _entry("Illumio Policy Usage Report", "Illumio Policy 使用報表"),
+    "rpt_pdf_static_note": _entry(
+        "Static PDF summary. Use HTML or XLSX for full localized detail.",
+        "此 PDF 為靜態摘要，完整多語系報表請使用 HTML 或 XLSX 格式。",
+    ),
     # Application Ringfence body strings
     "rpt_mod_ringfence_no_labels": _entry("No app labels available for ringfence analysis.", "找不到可用的 App Label，無法執行 Ringfence 分析。"),
     "rpt_mod_ringfence_no_apps": _entry("No apps found.", "找不到任何應用程式。"),

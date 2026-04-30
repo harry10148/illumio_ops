@@ -1279,6 +1279,7 @@ class HtmlExporter:
         return html
 
     def _mod_ringfence_html(self) -> str:
+        _s = self._s
         m = self._r.get('mod_ringfence', {})
         if m.get('skipped'):
             return f'<p class="note">{_s("rpt_mod_ringfence_no_labels")}</p>'
@@ -1295,6 +1296,7 @@ class HtmlExporter:
         return html
 
     def _mod_change_impact_html(self) -> str:
+        _s = self._s
         from src.report.snapshot_store import read_latest
         from src.report.analysis.mod_change_impact import compare
         mod12 = self._r.get('mod12', {})

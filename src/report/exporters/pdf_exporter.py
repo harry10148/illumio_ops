@@ -210,11 +210,7 @@ def export_report_pdf(
     for s in styles.byName.values():
         s.fontName = _CJK_FONT_NAME
 
-    pdf_note = STRINGS["rpt_pdf_static_note"].get(lang) if "rpt_pdf_static_note" in dict.keys(STRINGS) else (
-        "此 PDF 為靜態摘要，完整多語系報表請使用 HTML 或 XLSX 格式。"
-        if lang == "zh_TW" else
-        "Static PDF summary. Use HTML or XLSX for full localized detail."
-    )
+    pdf_note = STRINGS["rpt_pdf_static_note"].get(lang) or STRINGS["rpt_pdf_static_note"]["en"]
 
     story: list[Any] = [
         Paragraph(_sanitize_pdf_value(title), styles["Title"]),

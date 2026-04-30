@@ -23,17 +23,19 @@ def test_export_report_pdf_produces_pdf_magic_bytes(tmp_path):
     assert out.stat().st_size > 1000
 
 
-def test_pdf_export_is_english_ui_even_when_values_are_non_latin(tmp_path):
+def test_pdf_sanitize_passes_cjk_text(tmp_path):
     from src.report.exporters.pdf_exporter import _sanitize_pdf_value, export_report_pdf
 
-    out = tmp_path / "english.pdf"
-    assert _sanitize_pdf_value("中文主機") == "[non-Latin text]"
+    # CJK text must pass through unchanged (no [non-Latin text] replacement)
+    assert _sanitize_pdf_value("中文主機") == "中文主機"
+    out = tmp_path / "cjk.pdf"
     export_report_pdf(
         title="Audit Report",
         output_path=str(out),
+        lang="zh_TW",
         module_results={
             "mod00": {
-                "title": "Executive Summary",
+                "title": "執行摘要",
                 "summary": pd.DataFrame([{"Object": "中文主機", "Count": 1}]),
             }
         },
