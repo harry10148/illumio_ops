@@ -43,7 +43,15 @@ def _install_main_test_env(monkeypatch, main_module):
     ],
 )
 def test_entrypoint_click_detection_matrix(argv, expected):
-    import illumio_ops
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "illumio_ops",
+        Path(__file__).resolve().parent.parent / "illumio-ops.py",
+    )
+    illumio_ops = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(illumio_ops)
 
     assert illumio_ops._looks_like_click_invocation(argv) is expected
 

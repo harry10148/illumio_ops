@@ -157,12 +157,12 @@ illumio-ops siem purge --dest splunk-hec --older-than 30
 
 ## Transport Selection Guide
 
-| Transport | Delivery | Ordering | Encryption | Use case |
-|---|---|---|---|---|
-| UDP | Best-effort | No | No | Low-value, high-volume; fire-and-forget |
-| TCP | At-least-once | Yes | No | Internal network, no TLS required |
-| TLS | At-least-once | Yes | Yes | **Recommended** for production |
-| HEC | At-least-once | Yes | Yes (HTTPS) | Splunk environments |
+| Option | Transport | Delivery | Ordering | Encryption | Use case |
+|---|---|---|---|---|---|
+| Option A | UDP | Best-effort | No | No | Low-value, high-volume; fire-and-forget |
+| Option B | TCP | At-least-once | Yes | No | Internal network, no TLS required |
+| Option C | TLS | At-least-once | Yes | Yes | **Recommended** for production |
+| Option D | HEC | At-least-once | Yes | Yes (HTTPS) | Splunk environments |
 
 UDP is available but **not recommended for production** — the GUI will show a warning banner when you configure a UDP destination.
 

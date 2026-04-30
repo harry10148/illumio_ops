@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ENTRY = REPO_ROOT / "illumio_ops.py"
+ENTRY = REPO_ROOT / "illumio-ops.py"
 
 
 def _run(args, timeout=10):
