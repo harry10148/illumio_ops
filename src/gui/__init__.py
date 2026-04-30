@@ -345,6 +345,10 @@ def _err(msg, status=400):
     """Standard error response: {"ok": false, "error": "..."}"""
     return jsonify({"ok": False, "error": msg}), status
 
+def _safe_log(s: str, max_len: int = 200) -> str:
+    """Strip CRLF and truncate for safe log output."""
+    return str(s).replace('\r', '').replace('\n', '').replace('\t', ' ')[:max_len]
+
 def _get_active_pce_url(cm: 'ConfigManager') -> str:
     """Return the active PCE profile URL, falling back to config['api']['url']."""
     active_id = cm.config.get('active_pce_id')
@@ -672,6 +676,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         from flask import Response as _Resp
         return _Resp('', status=200)
 
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(exc):
+        import uuid as _uuid_err
+        import traceback as _traceback
+        req_id = str(_uuid_err.uuid4())[:8]
+        logger.error(f"[GUI] Unhandled exception req={req_id}: {_traceback.format_exc()}")
+        return jsonify({"ok": False, "error": "Internal server error", "request_id": req_id}), 500
+
     @app.before_request
     def security_check():
         if request.endpoint == 'static' or request.path.startswith('/static/'):
@@ -681,7 +693,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         # so port scanners cannot detect an HTTP service on this port
         allowed_ips = cm.config.get("web_gui", {}).get("allowed_ips", [])
         if not _check_ip_allowed(allowed_ips, request.remote_addr):
-            logger.warning(f"[GUI] Blocked untrusted IP: {request.remote_addr}")
+            logger.warning(f"[GUI] Blocked untrusted IP: {_safe_log(request.remote_addr)}")
             _rst_drop()  # closes socket with RST, raises _RstDrop
 
         # Auth check (always enforced for all GUI modes)
@@ -739,7 +751,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             rules_count=rules_count,
             schedules_count=schedules_count,
             config_loaded_at=config_loaded_at,
-            ui_translations_json=_json.dumps(ui_translations, ensure_ascii=False),
+            ui_translations_json=_json.dumps(ui_translations, ensure_ascii=False).replace('</', '<\\/'),
         )
 
     # ??? Auth Routes ??????????????????????????????????????????????????????
@@ -911,7 +923,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             from src.settings import _event_category
         except Exception as exc:
             logger.error("Failed to load event viewer dependencies: {}", exc)
-            return _err(str(exc), 500)
+            return _err("Service unavailable", 500)
 
         try:
             mins = max(5, min(int(request.args.get('mins', 60)), 10080))
@@ -1023,7 +1035,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             from src.events import compare_event_rules, format_utc
         except Exception as exc:
             logger.error("Failed to load shadow compare dependencies: {}", exc)
-            return _err(str(exc), 500)
+            return _err("Service unavailable", 500)
 
         try:
             mins = max(5, min(int(request.args.get('mins', 60)), 10080))
@@ -1082,7 +1094,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             )
         except Exception as exc:
             logger.error("Failed to load rule test dependencies: {}", exc)
-            return _err(str(exc), 500)
+            return _err("Service unavailable", 500)
 
         try:
             idx = int(request.args.get('idx', '-1'))
@@ -1869,7 +1881,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             return jsonify(fig.to_plotly_json())
         except Exception as exc:
             logger.warning("Dashboard chart {} error: {}", chart_id, exc)
-            return _err(str(exc), 500)
+            return _err("Chart unavailable", 500)
 
     @app.route('/api/reports', methods=['GET'])
     def api_list_reports():
