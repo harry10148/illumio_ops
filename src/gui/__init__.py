@@ -3127,8 +3127,8 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         pass
 
     @app.route('/api/daemon/restart', methods=['POST'])
-    @login_required
     @limiter.limit("5 per hour")
+    @login_required
     def api_daemon_restart():
         import src.gui as _self
         if not _self._GUI_OWNS_DAEMON:
