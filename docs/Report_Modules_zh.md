@@ -27,7 +27,7 @@
 | Web GUI → Reports 分頁 | 點選 **Traffic Report**、**Audit Summary**、**VEN Status** 或 **Policy Usage** |
 | CLI → **2. Report Generation** 子選單項目 1–4 | 選擇報表類型與日期範圍 |
 | Daemon 模式 | 透過 CLI **2. Report Generation → 5. Report Schedule Management** 設定 — 報表自動產生並可透過 Email 寄送 |
-| 命令列 | `python illumio_ops.py --report --report-type traffic\|audit\|ven_status\|policy_usage` |
+| 命令列 | `python illumio-ops.py --report --report-type traffic\|audit\|ven_status\|policy_usage` |
 
 報表儲存至 `reports/` 目錄，依格式設定產生 `.html`（格式化報表）及/或 `_raw.zip`（CSV 原始資料）。
 
@@ -284,7 +284,7 @@ Daemon 迴圈每 60 秒檢查排程，並執行任何已到達設定時間的排
 
 # 報表模組清單與導讀指南
 
-本文盤點 illumio_ops 既有報表模組的實務價值，並定義每個章節應補充的導讀內容。目標是讓報表讀者不只看到圖表和表格，而是能理解「這章在回答什麼問題」、「哪些現象需要注意」、「下一步該做什麼」。
+本文盤點 illumio-ops 既有報表模組的實務價值，並定義每個章節應補充的導讀內容。目標是讓報表讀者不只看到圖表和表格，而是能理解「這章在回答什麼問題」、「哪些現象需要注意」、「下一步該做什麼」。
 
 ## NotebookLM 佐證摘要
 

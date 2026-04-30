@@ -29,7 +29,7 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 | Feature | Description |
 |:---|:---|
 | **Execution Modes** | Background daemon (`--monitor`), interactive CLI, standalone Web GUI (`--gui`), or **Persistent Monitor + UI** (`--monitor-gui`) |
-| **Enterprise Security** | **Web GUI session security**: **login rate limiting** (5/min), **CSRF synchronizer token** pattern, **IP Allowlisting** (CIDR/Subnet). Password is plaintext in `config.json` (offline-isolated deployment model). |
+| **Enterprise Security** | **Web GUI session security**: **login rate limiting** (5/min), **CSRF synchronizer token** pattern, **IP Allowlisting** (CIDR/Subnet). Argon2id password hashing with first-login force-change; HTTPS enabled by default (ECDSA P-256 self-signed). |
 | **Security Event Monitoring** | Tracks PCE audit events with anchor-based timestamps — guaranteed zero duplicate alerts |
 | **High-Performance Traffic Engine** | Aggregates rules into a single bulk API query; O(1) memory streaming for large datasets |
 | **Advanced Report Engine** | 15-module traffic reports with **Bulk-Delete** management; 4-module audit reports, policy usage reports, and VEN Status inventory reports — HTML + CSV |
@@ -53,7 +53,7 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 ### 1. Requirements
 
 - **Python 3.8+** (tested up to 3.12)
-- **Install:** `pip install -r requirements.txt` — ~25 pinned packages spanning Flask + security middleware (`flask-wtf`, `flask-limiter`, `flask-talisman`, `flask-login`), reports + charts (`pandas`, `pyyaml`, `openpyxl`, `reportlab`, `matplotlib`, `plotly`, `pygments`), HTTP client (`requests`, `orjson`, `cachetools`), config validation (`pydantic`), scheduler + cache (`APScheduler`, `SQLAlchemy`), structured logging (`loguru`), CLI UX (`rich`, `questionary`, `click`, `humanize`).
+- **Install:** `pip install -r requirements.txt` — pinned packages spanning Flask + security middleware (`flask-wtf`, `flask-limiter`, `flask-talisman`, `flask-login`, `argon2-cffi`, `cryptography`), reports + charts (`pandas`, `pyyaml`, `openpyxl`, `reportlab`, `matplotlib`, `plotly`, `pygments`), HTTP client (`requests`, `orjson`, `cachetools`), config validation (`pydantic`), scheduler + cache (`APScheduler`, `SQLAlchemy`), structured logging (`loguru`), CLI UX (`rich`, `questionary`, `click`, `humanize`), production WSGI server (`cheroot`).
 - **Offline-isolated targets:** use `scripts/build_offline_bundle.sh` to produce a self-contained tarball with all wheels pre-built; see [User Manual §1](docs/User_Manual.md) for the full bundle workflow.
 - **PDF export:** `reportlab` is included by default (pure Python; no WeasyPrint / Pango / Cairo / GTK / GDK-PixBuf required). PDF output is a static English summary; HTML and XLSX are the recommended formats for full localized content.
 
@@ -61,25 +61,25 @@ An advanced **agentless** monitoring and automation tool for **Illumio Core (PCE
 
 ```bash
 git clone <repo-url>
-cd illumio_ops
+cd illumio-ops
 cp config/config.json.example config/config.json    # Edit with your PCE credentials
 
 # Interactive CLI:
-python illumio_ops.py
+python illumio-ops.py
 
 # Visual Web GUI:
-python illumio_ops.py --gui
+python illumio-ops.py --gui
 
 # Persistent Mode (Daemon + Web GUI):
-python illumio_ops.py --monitor-gui --interval 5 --port 5001
+python illumio-ops.py --monitor-gui --interval 5 --port 5001
 
 # Background Daemon Only:
-python illumio_ops.py --monitor --interval 5
+python illumio-ops.py --monitor --interval 5
 
 # New subcommand style (Phase 1+):
-python illumio_ops.py monitor -i 5
-python illumio_ops.py status
-python illumio_ops.py version
+python illumio-ops.py monitor -i 5
+python illumio-ops.py status
+python illumio-ops.py version
 ```
 
 ### Shell Tab Completion (bash)
@@ -94,22 +94,24 @@ sudo cp scripts/illumio-ops-completion.bash /etc/bash_completion.d/illumio-ops
 
 ### 3. First Login
 
-Default credentials: **username `illumio`** / **password `illumio`**.
+**Default username:** `illumio`. The first time the application starts, if `web_gui.password` is empty, a random initial password is generated and printed to the console / logged; it is also stored in `config.json` under `_initial_password`. The account is flagged with `must_change_password=true`, so the first login forces a password change before any other action.
 
-1. Log in with the default credentials.
-2. **Change your password immediately** in the **Settings** page.
+1. Read the initial password from the console output (or from `config/config.json` → `web_gui._initial_password`).
+2. Log in; the GUI redirects to **Settings → Web GUI Security** to set a new password.
 3. Configure **IP Allowlisting** to restrict access to trusted networks.
 
 > [!WARNING]
-> If you lose your password, edit `web_gui.password` in `config/config.json` to a new value (or remove it entirely to fall back to the default `illumio`). The value is plaintext.
+> If you lose your password, clear `web_gui.password` (and `web_gui._initial_password` if present) in `config/config.json`. On next startup a new initial password will be generated and the force-change flow re-armed.
 
 ### 4. Security Features
 
 | Feature | Details |
 |:---|:---|
-| **Web GUI password** | Plaintext in `config.json` `web_gui.password`. Designed for offline-isolated deployments; other secrets (PCE API key/secret, LINE token, SMTP password, webhook URL) are also plaintext for consistency. Change `illumio` default on first login. |
+| **Web GUI password** | Stored as Argon2id hash (`$argon2id$…`) in `config.json` `web_gui.password`. Plaintext values placed by an operator are auto-hashed on next load. First-time deployments must use the auto-generated initial password. |
+| **HTTPS by Default** | `web_gui.tls.enabled=true`; if no cert is supplied a self-signed ECDSA P-256 cert is generated (TLS 1.2+ ciphers only). |
 | **Rate Limiting** | 5 login attempts per IP per 60 seconds; returns HTTP 429 on excess |
 | **CSRF Protection** | Synchronizer token pattern via `<meta>` tag injection (no XSS-readable cookie) |
+| **Security Headers** | flask-talisman: CSP with per-request nonce, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS when TLS is on |
 | **IP Allowlisting** | Supports individual IPs, CIDR ranges, and subnet masks |
 | **SMTP Credentials** | Set `ILLUMIO_SMTP_PASSWORD` env var to avoid storing passwords in config |
 
@@ -163,14 +165,14 @@ Reports can be generated from the Web GUI, CLI menu, or run automatically on a s
 ## Project Structure
 
 ```text
-illumio_ops/
-├── illumio_ops.py          # Entry point
+illumio-ops/
+├── illumio-ops.py          # Entry point
 ├── src/
 │   ├── main.py                 # CLI argparse, daemon/GUI orchestration
 │   ├── api_client.py           # PCE REST API (async jobs, native filters, O(1) streaming)
 │   ├── analyzer.py             # Rule engine (flow matching, event analysis, state mgmt)
 │   ├── gui.py                  # Flask Web GUI (~40 JSON API endpoints, auth, CSRF)
-│   ├── config.py               # ConfigManager (plaintext config, atomic writes)
+│   ├── config.py               # ConfigManager (Argon2id GUI password, atomic writes)
 │   ├── reporter.py             # Multi-channel alert dispatch (SMTP, LINE, Webhook)
 │   ├── i18n.py                 # i18n engine (EN/ZH_TW, ~1400+ string keys)
 │   ├── events/                 # Event pipeline (catalog, normalize, dedup, throttle)

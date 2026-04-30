@@ -27,7 +27,7 @@ Reports can be triggered from three places:
 | Web GUI → Reports tab | Click **Traffic Report**, **Audit Summary**, **VEN Status**, or **Policy Usage** |
 | CLI → **2. Report Generation** sub-menu items 1–4 | Select report type and date range |
 | Daemon mode | Configure via CLI **2. Report Generation → 5. Report Schedule Management** — reports run automatically and can be emailed |
-| Command line | `python illumio_ops.py --report --report-type traffic\|audit\|ven_status\|policy_usage` |
+| Command line | `python illumio-ops.py --report --report-type traffic\|audit\|ven_status\|policy_usage` |
 
 Reports are saved to the `reports/` directory as `.html` (formatted report) and/or `_raw.zip` (CSV raw data) depending on your format setting.
 
@@ -284,7 +284,7 @@ When no previous snapshot exists (first report run), the module returns `skipped
 
 # Report Module Inventory And Reader Guidance
 
-本文盤點 illumio_ops 既有報表模組的實務價值，並定義每個章節應補充的導讀內容。目標是讓報表讀者不只看到圖表和表格，而是能理解「這章在回答什麼問題」、「哪些現象需要注意」、「下一步該做什麼」。
+本文盤點 illumio-ops 既有報表模組的實務價值，並定義每個章節應補充的導讀內容。目標是讓報表讀者不只看到圖表和表格，而是能理解「這章在回答什麼問題」、「哪些現象需要注意」、「下一步該做什麼」。
 
 ## NotebookLM 佐證摘要
 

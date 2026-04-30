@@ -81,7 +81,13 @@ PCE 快取是一個選用的本機 SQLite 資料庫，儲存 PCE 稽核事件和
 illumio-ops cache retention
 ```
 
-保留工作程序作為 APScheduler 任務自動執行；沒有 `--run-now` 旗標。若要強制手動清除，重啟 daemon —— 保留任務在啟動時觸發。
+如需立即執行清除（不等下一次每日排程），可加上 `--run`：
+
+```bash
+illumio-ops cache retention --run
+```
+
+此命令會以目前的 `events_retention_days` / `traffic_raw_retention_days` / `traffic_agg_retention_days` 設定值對資料庫呼叫 `RetentionWorker.run_once()`，並列印刪除筆數。
 
 ## Monitoring
 
@@ -148,7 +154,8 @@ illumio-ops cache status
 ### `illumio-ops cache retention`
 
 ```
-illumio-ops cache retention
+illumio-ops cache retention            # 僅顯示策略
+illumio-ops cache retention --run      # 顯示策略 + 立即執行清除
 ```
 
 以表格顯示已設定的保留策略，列出 TTL 值：
@@ -158,6 +165,8 @@ illumio-ops cache retention
 | `events_retention_days` | 90 |
 | `traffic_raw_retention_days` | 7 |
 | `traffic_agg_retention_days` | 90 |
+
+加上 `--run` 旗標時會立即對資料庫呼叫 `RetentionWorker.run_once()`；不加旗標時為唯讀。每日 APScheduler 任務不受此命令影響，會持續獨立運作。
 
 ### `illumio-ops cache backfill`
 

@@ -45,7 +45,7 @@ Illumio abstracts workload identity from IP addresses using a four-dimension lab
 
 Labels are applied to workloads via pairing profiles (at VEN install time), manual assignment in the PCE web console, REST API updates, bulk CSV import, or Container Workload Profiles (for Kubernetes/OpenShift pods). Once assigned, labels flow through to ruleset scopes and security rules: a rule that specifies `role=web, env=production` applies exactly to all workloads carrying those two label values, regardless of their IP address.
 
-In `illumio_ops`, labels surface in the `Workload` model, report tables (policy usage, traffic analysis), and the SIEM event enrichment pipeline. The `src/api/` domain classes fetch label definitions from the PCE and cache them in SQLite for offline resolution.
+In `illumio-ops`, labels surface in the `Workload` model, report tables (policy usage, traffic analysis), and the SIEM event enrichment pipeline. The `src/api/` domain classes fetch label definitions from the PCE and cache them in SQLite for offline resolution.
 
 ### Background.3 Workload types
 
@@ -67,7 +67,7 @@ Policy objects in the PCE — including rulesets, IP lists, enforcement boundari
 
 3. **Active**: An explicit provisioning action promotes pending changes to Active. The PCE then recomputes the full policy graph and distributes the updated firewall rules to every affected VEN through the encrypted control channel. Each provisioning event is stamped with a timestamp, the responsible user, and a count of impacted workloads, supporting audit and rollback workflows.
 
-The `compute_draft` logic in `illumio_ops` (see `Security_Rules_Reference.md` — R01–R05 rules) reads Draft-state rules from the PCE to evaluate policy intent before provisioning, surfacing gaps before they reach Active state.
+The `compute_draft` logic in `illumio-ops` (see `Security_Rules_Reference.md` — R01–R05 rules) reads Draft-state rules from the PCE to evaluate policy intent before provisioning, surfacing gaps before they reach Active state.
 
 ### Background.5 Enforcement modes
 
@@ -82,7 +82,7 @@ The VEN's policy state governs how PCE-computed rules are applied to a workload'
 
 Selective mode lets administrators enforce specific network segments while merely observing the rest — a common transitional state when hardening an application incrementally. Full mode is the target state for production microsegmentation.
 
-`illumio_ops` surfaces per-workload enforcement mode in the policy usage report and the R-Series rules (see `Security_Rules_Reference.md` §R02–R04) flag workloads that remain in Idle or Visibility Only in production environments.
+`illumio-ops` surfaces per-workload enforcement mode in the policy usage report and the R-Series rules (see `Security_Rules_Reference.md` §R02–R04) flag workloads that remain in Idle or Visibility Only in production environments.
 
 > **References:** Illumio Admin Guide 25.4 (`Admin_25_4.pdf`).
 
@@ -191,8 +191,8 @@ graph TB
 ## 2. Directory Structure
 
 ```text
-illumio_ops/
-├── illumio_ops.py         # Entry point — imports and calls src.main.main()
+illumio-ops/
+├── illumio-ops.py         # Entry point — imports and calls src.main.main()
 ├── requirements.txt       # Python dependencies
 │
 ├── config/
@@ -401,7 +401,7 @@ The analyzer supports flexible filter conditions for traffic rules:
 - **Thread Safety**: Uses **`threading.RLock`** (Reentrant Lock) to prevent deadlocks during recursive load/save cycles or concurrent access from Daemon and GUI threads.
 - **Deep Merge**: User config is merged over defaults — any missing fields are auto-populated.
 - **Atomic Save**: Writes to `.tmp` file first, then `os.replace()` for crash safety.
-- **Password storage**: web GUI password is stored in plaintext in `config.json` `web_gui.password`. The login endpoint compares the form input with this string directly. No hashing functions exist in `src/config.py`.
+- **Password storage**: web GUI password is stored as an Argon2id hash (`$argon2id$…`) in `config.json` `web_gui.password`, produced by `argon2-cffi` (`time_cost=3, memory_cost=64MiB, parallelism=4`). `src/config.py` exposes `hash_password(plain)` and `verify_password(plain, stored)`; plaintext values placed manually are auto-hashed on the next `_ensure_web_gui_secret()` pass.
 - **Rule CRUD**: `add_or_update_rule()`, `remove_rules_by_index()`, `load_best_practices()`.
 - **PCE Profile Management**: `add_pce_profile()`, `update_pce_profile()`, `activate_pce_profile()`, `remove_pce_profile()`, `list_pce_profiles()` — supports multi-PCE environments with profile switching.
 - **Report Schedule Management**: `add_report_schedule()`, `update_report_schedule()`, `remove_report_schedule()`, `list_report_schedules()`.
@@ -411,7 +411,7 @@ The analyzer supports flexible filter conditions for traffic rules:
 **Architecture**: Flask backend exposing ~40 JSON API endpoints, consumed by a Vanilla JS frontend (`templates/index.html`).
 
 - **Security Middleware**: Mandates login authentication for all routes and enforces IP Allowlisting (CIDR support) via `@app.before_request`. Unauthorized requests are blocked with 401/403 status.
-- **Password storage**: web GUI password is **plaintext** in `config.json` `web_gui.password` (default `illumio`). Rationale: this tool runs only in offline-isolated PCE management networks; all other secrets in `config.json` (`api.key`, `api.secret`, `alerts.line_*`, `smtp.password`, `webhook_url`) are also plaintext, so hashing only the GUI password gives no defensive value while complicating maintenance. Operators should change the default `illumio` password on first login regardless.
+- **Password storage**: web GUI password is **Argon2id-hashed** (`$argon2id$…`) in `config.json` `web_gui.password`. On first startup with an empty `web_gui.password`, the loader generates a random initial password (URL-safe, 12 bytes) into `web_gui._initial_password` and sets `must_change_password=true`; the GUI then enforces a force-change flow (HTTP 423 on all other endpoints) until the user picks a new password.
 - **Login Rate Limiting**: In-memory per-IP tracker with thread-safe locking. 5 attempts per 60-second window; returns HTTP 429 on excess.
 - **CSRF Protection**: Uses the **Synchronizer Token Pattern**: token is stored in Flask session and injected into `index.html` via a `<meta name="csrf-token">` tag. JavaScript reads the token from the meta tag (not from a cookie). The CSRF cookie has been removed.
 - **Session Security**: Cryptographically signed session cookies. The `session_secret` is automatically generated on first run.

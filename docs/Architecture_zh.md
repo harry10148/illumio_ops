@@ -45,7 +45,7 @@ Illumio 使用四維度 label 系統，將 workload 身份從 IP 位址中抽象
 
 Label 透過配對設定檔（VEN 安裝時）、PCE Web 主控台手動指派、REST API 更新、批次 CSV 匯入，或容器 Workload Profile（用於 Kubernetes/OpenShift Pod）等方式套用至 workload。一旦指派，label 便會流向 ruleset 範圍及安全規則：指定 `role=web, env=production` 的規則，恰好適用於所有攜帶這兩個 label 值的 workload，而無論其 IP 位址為何。
 
-在 `illumio_ops` 中，label 出現於 `Workload` 模型、報表表格（policy usage、流量分析）以及 SIEM 事件豐富化 pipeline 中。`src/api/` 領域類別從 PCE 擷取 label 定義，並將其快取至 SQLite 以供離線解析。
+在 `illumio-ops` 中，label 出現於 `Workload` 模型、報表表格（policy usage、流量分析）以及 SIEM 事件豐富化 pipeline 中。`src/api/` 領域類別從 PCE 擷取 label 定義，並將其快取至 SQLite 以供離線解析。
 
 ### Background.3 Workload 類型
 
@@ -67,7 +67,7 @@ PCE 中的策略物件 —— 包括 ruleset、IP list、enforcement boundary，
 
 3. **Active**：明確的佈建操作將 Pending 中的變更提升至 Active。PCE 隨後重新計算完整的策略圖，並透過加密控制通道將更新後的防火牆規則分發至每個受影響的 VEN。每個佈建事件均標記時間戳記、負責人及受影響的 workload 數量，以支援稽核和回滾工作流程。
 
-`illumio_ops` 中的 `compute_draft` 邏輯（參見 `Security_Rules_Reference.md` — R01–R05 規則）在佈建前從 PCE 讀取 Draft 狀態的規則，以評估策略意圖，在策略進入 Active 狀態前顯示差距。
+`illumio-ops` 中的 `compute_draft` 邏輯（參見 `Security_Rules_Reference.md` — R01–R05 規則）在佈建前從 PCE 讀取 Draft 狀態的規則，以評估策略意圖，在策略進入 Active 狀態前顯示差距。
 
 ### Background.5 強制模式
 
@@ -82,7 +82,7 @@ VEN 的策略狀態決定了 PCE 計算的規則如何套用至 workload 的 OS 
 
 Selective 模式讓管理員在僅觀察其餘流量的同時，對特定網路區段實施強制執行 —— 這是逐步強化應用程式時常見的過渡狀態。Full 模式是生產環境微分段的目標狀態。
 
-`illumio_ops` 在 policy usage 報表中顯示每個 workload 的強制模式，R 系列規則（參見 `Security_Rules_Reference.md` §R02–R04）會標記在生產環境中仍處於 Idle 或 Visibility Only 的 workload。
+`illumio-ops` 在 policy usage 報表中顯示每個 workload 的強制模式，R 系列規則（參見 `Security_Rules_Reference.md` §R02–R04）會標記在生產環境中仍處於 Idle 或 Visibility Only 的 workload。
 
 > **參考資料：** Illumio Admin Guide 25.4（`Admin_25_4.pdf`）。
 
@@ -190,8 +190,8 @@ graph TB
 ## 2. 目錄結構
 
 ```text
-illumio_ops/
-├── illumio_ops.py         # 進入點 — 匯入並呼叫 src.main.main()
+illumio-ops/
+├── illumio-ops.py         # 進入點 — 匯入並呼叫 src.main.main()
 ├── requirements.txt       # Python 相依套件
 │
 ├── config/
@@ -400,7 +400,7 @@ Analyzer 支援流量規則的彈性篩選條件：
 - **執行緒安全**：使用 **`threading.RLock`**（可重入鎖），防止遞迴載入/儲存週期或 Daemon 與 GUI 執行緒並行存取時發生死鎖。
 - **深度合併**：使用者設定與預設值合併 —— 任何缺失欄位均會自動填入。
 - **原子儲存**：先寫入 `.tmp` 檔案，再透過 `os.replace()` 確保當機安全。
-- **密碼儲存**：Web GUI 密碼以明文儲存於 `config.json` 的 `web_gui.password`。登入端點直接將表單輸入與此字串比對。`src/config.py` 中不存在任何雜湊函式。
+- **密碼儲存**：Web GUI 密碼以 Argon2id 雜湊（`$argon2id$…`）儲存於 `config.json` 的 `web_gui.password`，由 `argon2-cffi` 產生（`time_cost=3`、`memory_cost=64MiB`、`parallelism=4`）。`src/config.py` 提供 `hash_password(plain)` 與 `verify_password(plain, stored)`；管理員手動填入的明文於下次 `_ensure_web_gui_secret()` 執行時自動雜湊。
 - **規則 CRUD**：`add_or_update_rule()`、`remove_rules_by_index()`、`load_best_practices()`。
 - **PCE Profile 管理**：`add_pce_profile()`、`update_pce_profile()`、`activate_pce_profile()`、`remove_pce_profile()`、`list_pce_profiles()` —— 支援多 PCE 環境與 profile 切換。
 - **報表排程管理**：`add_report_schedule()`、`update_report_schedule()`、`remove_report_schedule()`、`list_report_schedules()`。
@@ -410,7 +410,7 @@ Analyzer 支援流量規則的彈性篩選條件：
 **架構**：Flask 後端提供 ~40 個 JSON API endpoint，由 Vanilla JS 前端（`templates/index.html`）呼叫。
 
 - **安全性中介層**：透過 `@app.before_request` 強制所有路由進行登入認證，並實施 IP 允許清單（支援 CIDR）。未授權請求以 401/403 狀態封鎖。
-- **密碼儲存**：Web GUI 密碼以**明文**儲存於 `config.json` 的 `web_gui.password`（預設 `illumio`）。設計理由：此工具僅在離線隔離的 PCE 管理網路中執行；`config.json` 中所有其他密鑰（`api.key`、`api.secret`、`alerts.line_*`、`smtp.password`、`webhook_url`）同樣為明文，僅對 GUI 密碼加密無防禦效果且增加維護複雜度。操作人員應在首次登入後變更預設值 `illumio`。
+- **密碼儲存**：Web GUI 密碼以 **Argon2id 雜湊**（`$argon2id$…`）儲存於 `config.json` 的 `web_gui.password`。首次啟動時若 `web_gui.password` 為空，載入器會產生隨機初始密碼（URL-safe，12 byte）寫入 `web_gui._initial_password`，並設定 `must_change_password=true`；GUI 隨後對所有其他端點回傳 HTTP 423 直到使用者完成變更密碼。
 - **登入速率限制**：記憶體內每 IP 追蹤器，具執行緒安全鎖定。每 60 秒窗口 5 次嘗試；超出時回傳 HTTP 429。
 - **CSRF 保護**：使用 **Synchronizer Token Pattern**：token 儲存於 Flask session 中，並透過 `<meta name="csrf-token">` 標籤注入 `index.html`。JavaScript 從 meta 標籤讀取 token（而非從 cookie 讀取）。CSRF cookie 已移除。
 - **Session 安全**：加密簽名的 session cookie。`session_secret` 在首次執行時自動產生。

@@ -29,7 +29,7 @@
 | 功能 | 說明 |
 |:---|:---|
 | **執行模式** | 背景 daemon (`--monitor`)、互動式 CLI、獨立 Web GUI (`--gui`)，或 **常駐監控 + UI** (`--monitor-gui`) |
-| **企業級安全** | **Web GUI 連線安全**：**登入速率限制**（5/分鐘）、**CSRF synchronizer token**、**IP 白名單**（CIDR / Subnet）。密碼以明碼儲存於 `config.json`（離線隔離部署模型）。 |
+| **企業級安全** | **Web GUI 連線安全**：**登入速率限制**（5/分鐘）、**CSRF synchronizer token**、**IP 白名單**（CIDR / Subnet）。密碼以 Argon2id 雜湊儲存，首次登入強制變更；HTTPS 預設啟用（ECDSA P-256 自簽憑證）。 |
 | **安全事件監控** | 透過 anchor-based timestamp 追蹤 PCE audit 事件 — 保證零重複警示 |
 | **高效能流量引擎** | 將規則合併為單一 bulk API query；對大資料集採 O(1) memory streaming |
 | **進階報表引擎** | 15 模組的 Traffic 報表附 **Bulk-Delete** 管理；4 模組 Audit 報表、Policy Usage 報表，以及 VEN Status 庫存報表 — HTML + CSV |
@@ -53,7 +53,7 @@
 ### 1. 系統需求
 
 - **Python 3.8+**（已測試至 3.12）
-- **安裝：** `pip install -r requirements.txt` — 約 25 個鎖定套件，涵蓋 Flask + 安全中介層（`flask-wtf`、`flask-limiter`、`flask-talisman`、`flask-login`）、報表 + 圖表（`pandas`、`pyyaml`、`openpyxl`、`reportlab`、`matplotlib`、`plotly`、`pygments`）、HTTP 客戶端（`requests`、`orjson`、`cachetools`）、設定驗證（`pydantic`）、排程 + 快取（`APScheduler`、`SQLAlchemy`）、結構化日誌（`loguru`）、CLI UX（`rich`、`questionary`、`click`、`humanize`）。
+- **安裝：** `pip install -r requirements.txt` — 鎖定套件涵蓋 Flask + 安全中介層（`flask-wtf`、`flask-limiter`、`flask-talisman`、`flask-login`、`argon2-cffi`、`cryptography`）、報表 + 圖表（`pandas`、`pyyaml`、`openpyxl`、`reportlab`、`matplotlib`、`plotly`、`pygments`）、HTTP 客戶端（`requests`、`orjson`、`cachetools`）、設定驗證（`pydantic`）、排程 + 快取（`APScheduler`、`SQLAlchemy`）、結構化日誌（`loguru`）、CLI UX（`rich`、`questionary`、`click`、`humanize`）、生產級 WSGI server（`cheroot`）。
 - **離線隔離目標：** 使用 `scripts/build_offline_bundle.sh` 產生含所有預建 wheel 的自包含 tarball；完整 bundle 工作流程請見[使用手冊 §1](docs/User_Manual_zh.md)。
 - **PDF 匯出：** `reportlab` 預設包含（純 Python；不需 WeasyPrint / Pango / Cairo / GTK / GDK-PixBuf）。PDF 內容為靜態英文摘要；HTML 與 XLSX 是完整本地化內容的建議格式。
 
@@ -61,25 +61,25 @@
 
 ```bash
 git clone <repo-url>
-cd illumio_ops
+cd illumio-ops
 cp config/config.json.example config/config.json    # 編輯填入 PCE 認證資訊
 
 # 互動式 CLI：
-python illumio_ops.py
+python illumio-ops.py
 
 # Web 視覺化介面：
-python illumio_ops.py --gui
+python illumio-ops.py --gui
 
 # 常駐模式（Daemon + Web GUI）：
-python illumio_ops.py --monitor-gui --interval 5 --port 5001
+python illumio-ops.py --monitor-gui --interval 5 --port 5001
 
 # 純背景 Daemon：
-python illumio_ops.py --monitor --interval 5
+python illumio-ops.py --monitor --interval 5
 
 # 新版 subcommand 風格（Phase 1+）：
-python illumio_ops.py monitor -i 5
-python illumio_ops.py status
-python illumio_ops.py version
+python illumio-ops.py monitor -i 5
+python illumio-ops.py status
+python illumio-ops.py version
 ```
 
 ### Shell Tab Completion (bash)
@@ -94,22 +94,24 @@ sudo cp scripts/illumio-ops-completion.bash /etc/bash_completion.d/illumio-ops
 
 ### 3. 首次登入
 
-預設帳密：**username `illumio`** / **password `illumio`**。
+**預設帳號：** `illumio`。應用程式首次啟動時，若 `web_gui.password` 為空，會自動產生隨機初始密碼並印到 console / 寫入 log，同時保存於 `config.json` 的 `_initial_password` 欄位。帳號會被標記 `must_change_password=true`，因此首次登入會強制要求變更密碼後才能進入其他功能。
 
-1. 以預設帳密登入。
-2. **立即在「設定」頁變更密碼**。
+1. 從 console 輸出（或 `config/config.json` → `web_gui._initial_password`）取得初始密碼。
+2. 登入後系統會自動導向 **Settings → Web GUI Security** 設定新密碼。
 3. 設定 **IP 白名單** 限制信任網段存取。
 
 > [!WARNING]
-> 若忘記密碼，請直接編輯 `config/config.json` 中的 `web_gui.password` 為新值（或刪除該欄位以回退至預設值 `illumio`）。該值為明文。
+> 若忘記密碼，請刪除 `config/config.json` 中 `web_gui.password` 與（若存在）`web_gui._initial_password`。下次啟動時會重新產生初始密碼並重新觸發強制變更流程。
 
 ### 4. 安全機制
 
 | 功能 | 細節 |
 |:---|:---|
-| **Web GUI 密碼** | 明文儲存於 `config.json` 的 `web_gui.password`。專為離線隔離部署設計；其他密鑰（PCE API key/secret、LINE token、SMTP 密碼、webhook URL）同樣以明文儲存以保持一致性。首次登入後請變更預設值 `illumio`。 |
+| **Web GUI 密碼** | 以 Argon2id 雜湊（`$argon2id$…`）儲存於 `config.json` 的 `web_gui.password`。若管理員手動填入明文，下次載入會自動雜湊。首次部署需使用自動產生的初始密碼。 |
+| **HTTPS 預設啟用** | `web_gui.tls.enabled=true`；若未提供憑證會產生 ECDSA P-256 自簽憑證（僅支援 TLS 1.2+ ciphers）。 |
 | **速率限制** | 每 IP 每 60 秒最多 5 次登入嘗試；超量回 HTTP 429 |
 | **CSRF 保護** | Synchronizer token 模式，透過 `<meta>` tag 注入（避免 XSS-readable cookie） |
+| **安全標頭** | flask-talisman：CSP（每請求 nonce）、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`、TLS 啟用時自動加上 HSTS |
 | **IP 白名單** | 支援單一 IP、CIDR 範圍、subnet mask |
 | **SMTP 認證** | 設定 `ILLUMIO_SMTP_PASSWORD` 環境變數，避免將密碼寫入 config |
 
@@ -163,14 +165,14 @@ sudo cp scripts/illumio-ops-completion.bash /etc/bash_completion.d/illumio-ops
 ## 專案結構
 
 ```text
-illumio_ops/
-├── illumio_ops.py          # 進入點
+illumio-ops/
+├── illumio-ops.py          # 進入點
 ├── src/
 │   ├── main.py                 # CLI argparse、daemon/GUI 編排
 │   ├── api_client.py           # PCE REST API（async job、native filter、O(1) streaming）
 │   ├── analyzer.py             # 規則引擎（flow matching、事件分析、狀態管理）
 │   ├── gui.py                  # Flask Web GUI（~40 個 JSON API endpoint、auth、CSRF）
-│   ├── config.py               # ConfigManager（明文設定、atomic write）
+│   ├── config.py               # ConfigManager（Argon2id GUI 密碼、atomic write）
 │   ├── reporter.py             # 多通道警示派送（SMTP、LINE、Webhook）
 │   ├── i18n.py                 # i18n 引擎（EN/ZH_TW，~1400+ string keys）
 │   ├── events/                 # 事件 pipeline（catalog、normalize、dedup、throttle）

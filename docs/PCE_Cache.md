@@ -81,7 +81,13 @@ The retention worker runs daily and purges rows older than the configured TTL. T
 illumio-ops cache retention
 ```
 
-The retention worker runs automatically as an APScheduler job; there is no `--run-now` flag. To force a purge manually, restart the daemon — the retention job fires on startup.
+To execute a purge immediately (outside the daily schedule), pass `--run`:
+
+```bash
+illumio-ops cache retention --run
+```
+
+This invokes `RetentionWorker.run_once()` against the configured database with the current `events_retention_days` / `traffic_raw_retention_days` / `traffic_agg_retention_days` values and prints the deleted-row counts.
 
 ## Monitoring
 
@@ -148,7 +154,8 @@ Displays a table of row counts and last-ingested timestamps for each cache table
 ### `illumio-ops cache retention`
 
 ```
-illumio-ops cache retention
+illumio-ops cache retention            # show policy only
+illumio-ops cache retention --run      # show policy + execute purge now
 ```
 
 Shows the configured retention policy as a table of TTL values:
@@ -158,6 +165,8 @@ Shows the configured retention policy as a table of TTL values:
 | `events_retention_days` | 90 |
 | `traffic_raw_retention_days` | 7 |
 | `traffic_agg_retention_days` | 90 |
+
+The `--run` flag executes `RetentionWorker.run_once()` against the live database; without it the command is read-only. The daily APScheduler job keeps running independently of this command.
 
 ### `illumio-ops cache backfill`
 
