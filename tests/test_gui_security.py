@@ -847,7 +847,9 @@ def test_settings_support_dynamic_plugin_roots(monkeypatch):
 
         get_response = client.get('/api/settings', environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
         assert get_response.status_code == 200
-        assert get_response.json["dummy_plugin"]["token"] == "abc123"
+        # "token" is a secret field — GET response redacts it; verify via __set sentinel
+        assert get_response.json["dummy_plugin"]["token__set"] is True
+        assert get_response.json["dummy_plugin"]["token"] != "abc123"
         assert get_response.json["dummy_plugin"]["retries"] == 0
         assert get_response.json["dummy_plugin"]["targets"] == ["ops", "soc"]
 

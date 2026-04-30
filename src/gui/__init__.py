@@ -23,6 +23,7 @@ import struct
 
 try:
     from flask import Flask, request, jsonify, render_template, send_from_directory, session, redirect
+    from werkzeug.utils import secure_filename
     HAS_FLASK = True
     FLASK_IMPORT_ERROR = ""
 except ImportError:
@@ -117,6 +118,39 @@ def _validate_allowed_ips(values) -> tuple[list, list]:
         except ValueError:
             invalid.append(item)
     return normalized, invalid
+
+_SECRET_FIELDS = frozenset({
+    "password", "secret", "key", "token",
+    "webhook_url", "line_channel_access_token",
+    "smtp_password",
+})
+
+def _redact_secrets(obj):
+    """Recursively redact secret fields for API responses."""
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            if any(s in k.lower() for s in _SECRET_FIELDS):
+                out[k] = "*" * min(len(str(v)), 8) if v else ""
+                out[f"{k}__set"] = bool(v)
+                out[f"{k}__length"] = len(str(v)) if v else 0
+            else:
+                out[k] = _redact_secrets(v)
+        return out
+    elif isinstance(obj, list):
+        return [_redact_secrets(item) for item in obj]
+    return obj
+
+_SETTINGS_ALLOWLISTS = {
+    "smtp": {"host", "port", "user", "password", "enable_auth", "enable_tls"},
+    "alerts": {"active", "line_channel_access_token", "line_target_id", "webhook_url"},
+    "settings": {
+        "language", "theme", "timezone", "enable_health_check", "dashboard_queries",
+    },
+    "api": {"url", "org_id", "key", "secret", "verify_ssl"},
+    "email": {"sender", "recipients"},
+    "report": {"output_dir", "retention_days"},
+}
 
 def _normalize_rule_throttle(raw_value):
     value = str(raw_value or "").strip()
@@ -478,6 +512,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     app.config['JSON_AS_ASCII'] = False
     app.config['TEMPLATES_AUTO_RELOAD'] = False
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25 MB
     app.config['CM'] = cm
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
@@ -1488,7 +1523,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         }
         for root in _plugin_config_roots():
             payload.setdefault(root, cm.config.get(root, {}))
-        return jsonify(payload)
+        return jsonify(_redact_secrets(payload))
 
     @app.route('/api/alert-plugins')
     def api_alert_plugins():
@@ -1521,22 +1556,40 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     @app.route('/api/settings', methods=['POST'])
     @limiter.limit("30 per hour")
     def api_save_settings():
+        import urllib.parse as _urlparse
         d = request.json
         if 'api' in d:
-            for k in ('url', 'org_id', 'key', 'secret', 'verify_ssl'):
-                if k in d['api']:
-                    cm.config['api'][k] = d['api'][k]
+            api_in = d['api']
+            api_allowlist = _SETTINGS_ALLOWLISTS["api"]
+            # Validate url scheme before accepting it
+            if 'url' in api_in:
+                _url_val = str(api_in['url']).strip()
+                _scheme = _urlparse.urlparse(_url_val).scheme.lower()
+                if _scheme not in ('http', 'https'):
+                    return jsonify({"ok": False, "error": "api.url must use http or https scheme"}), 400
+                if _scheme == 'http':
+                    logger.warning("api.url uses plain HTTP — TLS verification cannot be performed")
+            for k in api_allowlist:
+                if k in api_in:
+                    cm.config['api'][k] = api_in[k]
         if 'email' in d:
-            if 'sender' in d['email']:
-                cm.config['email']['sender'] = d['email']['sender']
-            if 'recipients' in d['email']:
-                cm.config['email']['recipients'] = d['email']['recipients']
+            email_in = d['email']
+            if 'sender' in email_in:
+                cm.config['email']['sender'] = email_in['sender']
+            if 'recipients' in email_in:
+                cm.config['email']['recipients'] = email_in['recipients']
         if 'smtp' in d:
-            cm.config.setdefault('smtp', {}).update(d['smtp'])
+            allowlist = _SETTINGS_ALLOWLISTS["smtp"]
+            filtered = {k: v for k, v in d['smtp'].items() if k in allowlist}
+            cm.config.setdefault('smtp', {}).update(filtered)
         if 'alerts' in d:
-            cm.config.setdefault('alerts', {}).update(d['alerts'])
+            allowlist = _SETTINGS_ALLOWLISTS["alerts"]
+            filtered = {k: v for k, v in d['alerts'].items() if k in allowlist}
+            cm.config.setdefault('alerts', {}).update(filtered)
         if 'settings' in d:
-            cm.config.setdefault('settings', {}).update(d['settings'])
+            allowlist = _SETTINGS_ALLOWLISTS["settings"]
+            filtered = {k: v for k, v in d['settings'].items() if k in allowlist}
+            cm.config.setdefault('settings', {}).update(filtered)
         if 'report' in d:
             rpt_in = d['report']
             rpt_cfg = cm.config.setdefault('report', {})
@@ -1632,10 +1685,10 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     @app.route('/api/pce-profiles', methods=['GET'])
     def api_list_pce_profiles():
         cm.load()
-        return jsonify({
+        return jsonify(_redact_secrets({
             "profiles": cm.get_pce_profiles(),
             "active_pce_id": cm.get_active_pce_id(),
-        })
+        }))
 
     @app.route('/api/pce-profiles', methods=['POST'])
     def api_pce_profiles_action():
@@ -1916,6 +1969,8 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/reports/<path:filename>', methods=['GET'])
     def api_serve_report(filename):
+        if '..' in filename or filename.startswith('/'):
+            return jsonify({"ok": False, "error": "Invalid path"}), 403
         cm.load()
         reports_dir = _resolve_reports_dir(cm)
         # Path traversal protection: ensure resolved path stays within reports_dir
@@ -1970,9 +2025,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 csv_file = request.files['file']
                 if csv_file.filename == '':
                     return jsonify({"ok": False, "error": t("gui_err_empty_csv")})
+                if csv_file.mimetype not in {
+                    'text/csv', 'application/vnd.ms-excel',
+                    'text/plain', 'application/octet-stream',
+                }:
+                    return jsonify({"ok": False, "error": "Invalid file type"}), 415
 
                 import uuid as _uuid
-                safe_filename = os.path.basename(csv_file.filename)
+                safe_filename = secure_filename(csv_file.filename) or 'upload.csv'
                 temp_path = os.path.join(tempfile.gettempdir(), f"{_uuid.uuid4().hex}_{safe_filename}")
                 csv_file.save(temp_path)
                 try:
