@@ -2,9 +2,12 @@
 Shared i18n helpers for HTML report exporters.
 """
 from __future__ import annotations
+import os
 
 class _StringMap(dict):
     def __missing__(self, key: str) -> dict[str, str]:
+        if os.getenv("ILLUMIO_OPS_I18N_STRICT"):
+            raise KeyError(f"Missing i18n key: {key}")
         return {"en": key, "zh_TW": key}
 
 def _entry(en: str, zh_tw: str | None = None) -> dict[str, str]:
@@ -82,6 +85,9 @@ STRINGS: _StringMap = _StringMap({
     "rpt_tr_nav_change_impact": _entry("Change Impact", "變更影響分析"),
     "rpt_tr_nav_draft_actions": _entry("Draft Actions", "草稿動作"),
     "rpt_tr_nav_ringfence": _entry("Application Ringfence", "應用程式 Ringfence"),
+    "rpt_tr_sec_readiness": _entry("Enforcement Readiness", "Enforcement 就緒度"),
+    "rpt_mod_ringfence_title": _entry("Application Ringfence", "應用程式 Ringfence"),
+    "rpt_mod_change_impact_title": _entry("Change Impact", "變更影響分析"),
     "rpt_tr_sec_findings": _entry("Security Findings", "安全發現"),
     "rpt_tr_policy_coverage": _entry("Policy Coverage", "Policy 覆蓋率"),
     "rpt_tr_flow_breakdown": _entry("Allowed / Blocked / Potentially Blocked", "Allowed / Blocked / Potentially Blocked"),
@@ -598,6 +604,23 @@ STRINGS: _StringMap = _StringMap({
     "rpt_email_ven_subject": _entry("Illumio VEN Status Report", "Illumio VEN 狀態報表"),
     "rpt_email_policy_usage_subject": _entry("Illumio Policy Usage Report", "Illumio Policy 使用報表"),
     "rpt_email_pu_subject": _entry("Illumio Policy Usage Report", "Illumio Policy 使用報表"),
+    # Application Ringfence body strings
+    "rpt_mod_ringfence_no_labels": _entry("No app labels available for ringfence analysis.", "找不到可用的 App Label，無法執行 Ringfence 分析。"),
+    "rpt_mod_ringfence_no_apps": _entry("No apps found.", "找不到任何應用程式。"),
+    "rpt_mod_ringfence_top_apps_h4": _entry("Top Apps by Flow Volume", "依流量排行的應用程式"),
+    "rpt_col_app": _entry("App", "應用程式"),
+    # Change Impact body strings
+    "rpt_mod_change_impact_no_kpi": _entry("No KPI data available for change comparison.", "尚無 KPI 資料可供變更比較。"),
+    "rpt_mod_change_impact_overall_label": _entry("Overall", "整體評估"),
+    "rpt_col_kpi": _entry("KPI", "KPI"),
+    "rpt_col_previous": _entry("Previous", "前次"),
+    "rpt_col_current": _entry("Current", "本次"),
+    "rpt_col_delta": _entry("Delta", "差異"),
+    "rpt_col_direction": _entry("Direction", "趨勢"),
+    "rpt_change_direction_improved": _entry("improved", "改善"),
+    "rpt_change_direction_regressed": _entry("regressed", "退步"),
+    "rpt_change_direction_unchanged": _entry("unchanged", "不變"),
+    "rpt_change_direction_neutral": _entry("neutral", "中立"),
 })
 
 for key, pair in {
@@ -719,7 +742,7 @@ for suffix, pair in {
     "proto": ("Proto", "Protocol"),
     "connections": ("Connections", "連線數"),
     "flow_count": ("Flow Count", "Flow 數量"),
-    "flows": ("Flows", "Flows"),
+    "flows": ("Flows", "流量數"),
     "decision": ("Decision", "判定"),
     "risk_level": ("Risk Level", "風險等級"),
     "service": ("Service", "Service"),

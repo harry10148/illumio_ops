@@ -1281,11 +1281,12 @@ class HtmlExporter:
     def _mod_ringfence_html(self) -> str:
         m = self._r.get('mod_ringfence', {})
         if m.get('skipped'):
-            return '<p class="note">No app labels available for ringfence analysis.</p>'
+            return f'<p class="note">{_s("rpt_mod_ringfence_no_labels")}</p>'
         top_apps = m.get('top_apps', [])
         if not top_apps:
-            return '<p class="note">No apps found.</p>'
-        html = '<h4>Top Apps by Flow Volume</h4><table><tr><th>App</th><th>Flows</th></tr>'
+            return f'<p class="note">{_s("rpt_mod_ringfence_no_apps")}</p>'
+        html = (f'<h4>{_s("rpt_mod_ringfence_top_apps_h4")}</h4>'
+                f'<table><tr><th>{_s("rpt_col_app")}</th><th>{_s("rpt_col_flows")}</th></tr>')
         for a in top_apps[:10]:
             app_name = a.get('app', a.get('index', ''))
             flows = a.get('flows', a.get(0, ''))
@@ -1299,24 +1300,34 @@ class HtmlExporter:
         mod12 = self._r.get('mod12', {})
         current_kpis = mod12.get('kpis', {})
         if not isinstance(current_kpis, dict) or not current_kpis:
-            return '<p class="note">No KPI data available for change comparison.</p>'
+            return f'<p class="note">{_s("rpt_mod_change_impact_no_kpi")}</p>'
         previous = read_latest('traffic', profile=self._profile)
         impact = compare(current_kpis=current_kpis, previous=previous)
         if impact.get('skipped'):
             return f'<p class="note">{t("rpt_change_impact_no_previous", default="No previous snapshot — change impact will appear on the next report run.")}</p>'
         verdict = impact.get('overall_verdict', 'unchanged')
         verdict_color = {'improved': '#22C55E', 'regressed': '#EF4444', 'mixed': '#EAB308'}.get(verdict, '#6B7280')
-        html = (f'<p><b>Overall:</b> <span style="color:{verdict_color};font-weight:700">{verdict.upper()}</span>'
+        dir_label = {
+            'improved': _s('rpt_change_direction_improved'),
+            'regressed': _s('rpt_change_direction_regressed'),
+            'unchanged': _s('rpt_change_direction_unchanged'),
+            'neutral': _s('rpt_change_direction_neutral'),
+        }
+        html = (f'<p><b>{_s("rpt_mod_change_impact_overall_label")}:</b>'
+                f' <span style="color:{verdict_color};font-weight:700">{dir_label.get(verdict, verdict).upper()}</span>'
                 f' (vs {(impact.get("previous_snapshot_at") or "")[:10]})</p>')
         deltas = impact.get('deltas', {})
         if deltas:
-            html += '<table><tr><th>KPI</th><th>Previous</th><th>Current</th><th>Delta</th><th>Direction</th></tr>'
+            html += (f'<table><tr>'
+                     f'<th>{_s("rpt_col_kpi")}</th><th>{_s("rpt_col_previous")}</th>'
+                     f'<th>{_s("rpt_col_current")}</th><th>{_s("rpt_col_delta")}</th>'
+                     f'<th>{_s("rpt_col_direction")}</th></tr>')
             dir_color = {'improved': '#22C55E', 'regressed': '#EF4444', 'unchanged': '#6B7280', 'neutral': '#6B7280'}
             for kpi, d in deltas.items():
                 col = dir_color.get(d['direction'], '#6B7280')
                 html += (f'<tr><td>{kpi}</td><td>{d["previous"]}</td><td>{d["current"]}</td>'
                          f'<td>{d["delta"]:+}</td>'
-                         f'<td style="color:{col};font-weight:600">{d["direction"]}</td></tr>')
+                         f'<td style="color:{col};font-weight:600">{dir_label.get(d["direction"], d["direction"])}</td></tr>')
             html += '</table>'
         return html
 
