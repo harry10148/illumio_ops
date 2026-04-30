@@ -245,6 +245,7 @@ def test_api_security_rejects_invalid_allowlist(client):
     csrf_token = _csrf(res_login)
 
     res = client.post('/api/security', json={
+        "old_password": "testpass",
         "allowed_ips": ["127.0.0.1", "localhost"]
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'}, headers={'X-CSRF-Token': csrf_token})
 
@@ -262,6 +263,7 @@ def test_api_security_normalizes_single_ip_allowlist_entries(app_persistent):
     csrf_token = _csrf(res_login)
 
     res = client.post('/api/security', json={
+        "old_password": "testpass",
         "allowed_ips": ["::ffff:192.168.1.1", "127.0.0.1/32", "::1"]
     }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'}, headers={'X-CSRF-Token': csrf_token})
 

@@ -133,3 +133,46 @@ def test_login_timing_equivalent_for_invalid_username_and_password(app_client):
     # single host, so a loaded CI runner can hit 3.5x without a real regression.
     ratio = max(elapsed_bad_user, elapsed_bad_pass) / max(0.001, min(elapsed_bad_user, elapsed_bad_pass))
     assert ratio < 5.0, f"timing ratio {ratio:.1f}x suggests username enumeration possible"
+
+
+def test_security_post_username_change_requires_old_password(app_client):
+    """H2: changing the admin username without old_password must be rejected."""
+    client, _cm = app_client
+    # Login first
+    r = client.post('/api/login', json={'username': 'illumio', 'password': 'illumio'})
+    assert r.status_code == 200
+    csrf_token = (r.get_json() or {}).get('csrf_token', '')
+    # Try to change username without old_password (CSRF token included so we
+    # reach the auth check, not get short-circuited by CSRF middleware).
+    r = client.post('/api/security', json={'username': 'attacker'},
+                    headers={'X-CSRF-Token': csrf_token})
+    assert r.status_code == 401
+    body = r.get_json()
+    assert body['ok'] is False
+
+
+def test_security_post_allowed_ips_change_requires_old_password(app_client):
+    """H2: changing the IP allowlist without old_password must be rejected."""
+    client, _cm = app_client
+    r = client.post('/api/login', json={'username': 'illumio', 'password': 'illumio'})
+    assert r.status_code == 200
+    csrf_token = (r.get_json() or {}).get('csrf_token', '')
+    r = client.post('/api/security', json={'allowed_ips': ['1.2.3.4']},
+                    headers={'X-CSRF-Token': csrf_token})
+    assert r.status_code == 401
+    body = r.get_json()
+    assert body['ok'] is False
+
+
+def test_security_post_username_change_succeeds_with_old_password(app_client):
+    """H2: with correct old_password, username change should succeed."""
+    client, _cm = app_client
+    r = client.post('/api/login', json={'username': 'illumio', 'password': 'illumio'})
+    assert r.status_code == 200
+    csrf_token = (r.get_json() or {}).get('csrf_token', '')
+    r = client.post('/api/security', json={
+        'username': 'newadmin',
+        'old_password': 'illumio',
+    }, headers={'X-CSRF-Token': csrf_token})
+    assert r.status_code == 200
+    assert r.get_json()['ok'] is True

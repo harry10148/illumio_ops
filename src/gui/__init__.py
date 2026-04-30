@@ -819,10 +819,19 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         d = request.json or {}
         cm.load()
         gui_cfg = cm.config.setdefault("web_gui", {})
-        
+
+        # H2: any modification to username, allowed_ips, or password requires
+        # old_password verification — except during initial setup when no
+        # password is stored yet.
+        sensitive_change = any(k in d for k in ("username", "allowed_ips", "new_password"))
+        if sensitive_change and gui_cfg.get("password"):
+            old_pw = d.get("old_password", "")
+            if not verify_password(old_pw, gui_cfg.get("password", "")):
+                return jsonify({"ok": False, "error": t("gui_err_invalid_old_pass")}), 401
+
         if "username" in d:
             gui_cfg["username"] = d["username"]
-        
+
         if "allowed_ips" in d:
             allowed_ips, invalid_ips = _validate_allowed_ips(d["allowed_ips"])
             if invalid_ips:
@@ -831,9 +840,8 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                     "error": f"Invalid allowlist entries: {', '.join(invalid_ips)}"
                 }), 400
             gui_cfg["allowed_ips"] = allowed_ips
-            
+
         if "new_password" in d and d["new_password"]:
-            # Use a placeholder old_password when no password is set yet (initial setup)
             old_pw_for_form = d.get("old_password") or "placeholder"
             try:
                 change_form = PasswordChangeForm.model_validate({
@@ -841,15 +849,13 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                     "new_password": d["new_password"],
                     "confirm_password": d.get("confirm_password", d["new_password"]),
                 })
-            except Exception as e:
-                return jsonify({"ok": False, "error": str(e)}), 400
-            if gui_cfg.get("password"):
-                if not verify_password(d.get("old_password", ""), gui_cfg.get("password", "")):
-                    return jsonify({"ok": False, "error": t("gui_err_invalid_old_pass")}), 401
+            except Exception:
+                return jsonify({"ok": False, "error": t("gui_err_invalid_password_form")}), 400
+            # Old-password check already done above for already-set-up case.
             gui_cfg["password"] = hash_password(change_form.new_password)
             gui_cfg.pop("_initial_password", None)
             gui_cfg.pop("must_change_password", None)
-            
+
         cm.save()
         return jsonify({"ok": True})
 
