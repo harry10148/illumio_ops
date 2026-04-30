@@ -7,6 +7,8 @@ CSRF rejection, rate limit 429, session persistence, logout.
 from __future__ import annotations
 
 import json
+import time
+
 import pytest
 
 
@@ -94,3 +96,40 @@ def test_rate_limit_429_returns_json_not_html(app_client):
     body = r.get_json(silent=True)
     assert body is not None, f"429 body must be JSON, got: {r.data[:200]!r}"
     assert body.get("ok") is False
+
+
+def test_login_timing_equivalent_for_invalid_username_and_password(app_client):
+    """H1: invalid username and invalid password must take similar time
+    (both trigger argon2id). The dynamic floor (half the warm-up's bad-pass
+    elapsed) catches the case where argon2 was clearly skipped, regardless
+    of how argon2 params are tuned. The ratio check is belt-and-suspenders."""
+    client, _cm = app_client
+    # Warm caches AND measure baseline argon2 cost (bad-pass = full argon2)
+    t0 = time.perf_counter()
+    client.post('/api/login', json={'username': 'illumio', 'password': 'wrong'})
+    baseline = time.perf_counter() - t0
+    # Self-calibrating floor: half the baseline. If a future config tunes argon2
+    # down (e.g. time_cost=1 on CI), the floor scales with it.
+    floor = baseline * 0.5
+
+    # Time invalid-username path
+    t0 = time.perf_counter()
+    r1 = client.post('/api/login', json={'username': 'nobody', 'password': 'wrong'})
+    elapsed_bad_user = time.perf_counter() - t0
+
+    # Time invalid-password path (correct user)
+    t0 = time.perf_counter()
+    r2 = client.post('/api/login', json={'username': 'illumio', 'password': 'wrong'})
+    elapsed_bad_pass = time.perf_counter() - t0
+
+    assert r1.status_code == 401
+    assert r2.status_code == 401
+    # Floor proves verify_password actually ran (no short-circuit on missing user)
+    assert elapsed_bad_user > floor, (
+        f"invalid-username path too fast ({elapsed_bad_user:.3f}s vs floor={floor:.3f}s) "
+        f"— short-circuit not removed"
+    )
+    # Ratio is the second check — argon2 default params vary 80-250ms even on a
+    # single host, so a loaded CI runner can hit 3.5x without a real regression.
+    ratio = max(elapsed_bad_user, elapsed_bad_pass) / max(0.001, min(elapsed_bad_user, elapsed_bad_pass))
+    assert ratio < 5.0, f"timing ratio {ratio:.1f}x suggests username enumeration possible"

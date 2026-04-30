@@ -781,7 +781,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         saved_username = gui_cfg.get("username", "illumio")
         saved_password = gui_cfg.get("password", "")
 
-        if _hmac.compare_digest(username.strip(), saved_username.strip()) and verify_password(password, saved_password):
+        # H1: always run verify_password to equalize timing, even if username
+        # is wrong. We compare the boolean results last to avoid short-circuit.
+        # Do NOT insert early returns or blank lines between these two lines.
+        username_ok = _hmac.compare_digest(username.strip(), saved_username.strip())
+        password_ok = verify_password(password, saved_password)
+        if username_ok and password_ok:
             session.permanent = True
             login_user(AdminUser(username))
             if gui_cfg.get("_initial_password"):
