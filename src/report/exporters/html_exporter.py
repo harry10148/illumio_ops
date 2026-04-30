@@ -522,10 +522,6 @@ class HtmlExporter:
                 _nav_link('readiness', 'rpt_tr_nav_readiness', '13 Enforcement Readiness'),
                 _nav_link('infrastructure', 'rpt_tr_nav_infrastructure', '14 Infrastructure Scoring'),
                 _nav_link('lateral', 'rpt_tr_nav_lateral', '15 Lateral Movement'),
-                (_nav_link('enforcement_rollout', 'rpt_tr_nav_enf_rollout', 'Enforcement Rollout')
-                 if visible_in('mod_enforcement_rollout', profile, detail_level) else ''),
-                (_nav_link('exfiltration', 'rpt_tr_nav_exfiltration', 'Exfiltration Intel')
-                 if visible_in('mod_exfiltration_intel', profile, detail_level) else ''),
                 _nav_link('findings', 'rpt_tr_nav_findings', 'Findings', badge=n_findings),
             ]
         else:  # network_inventory
@@ -613,10 +609,6 @@ class HtmlExporter:
                            render_section_guidance('mod15', profile=profile, detail_level=detail_level) + self._mod15_html(),
                            'rpt_tr_sec_lateral_intro', 'Focus on paths, Services, and sources tied to lateral movement to surface spread risk.') + '\n'
              if visible_in('mod15_lateral_movement', profile, detail_level) else '') +
-            (self._section('enforcement_rollout', 'rpt_mod_enf_rollout_title', 'Enforcement Rollout Plan',
-                           render_section_guidance('mod_enforcement_rollout', profile, detail_level) + self._mod_enforcement_rollout_html(),
-                           '', '') + '\n'
-             if visible_in('mod_enforcement_rollout', profile, detail_level) else '') +
             (self._section('ringfence', 'rpt_mod_ringfence_title', 'Application Ringfence',
                            render_section_guidance('mod_ringfence', profile, detail_level) + self._mod_ringfence_html(),
                            '', '') + '\n'
@@ -625,10 +617,6 @@ class HtmlExporter:
                            render_section_guidance('mod_change_impact', profile, detail_level) + self._mod_change_impact_html(),
                            '', '') + '\n'
              if visible_in('mod_change_impact', profile, detail_level) else '') +
-            (self._section('exfiltration', 'rpt_mod_exfil_title', 'Exfiltration & Threat Intel',
-                           render_section_guidance('mod_exfiltration_intel', profile, detail_level) + self._mod_exfil_html(),
-                           '', '') + '\n'
-             if visible_in('mod_exfiltration_intel', profile, detail_level) else '') +
             ((
             '<section id="findings" class="card">'
             f'<h2>{_s("rpt_tr_sec_findings")} ({n_findings})</h2>'
@@ -1290,23 +1278,6 @@ class HtmlExporter:
             html += f'<h4>{_s("rpt_tr_app_chains")}</h4>' + _df_to_html(app_chains, lang=_lang)
         return html
 
-    def _mod_enforcement_rollout_html(self) -> str:
-        m = self._r.get('mod_enforcement_rollout', {})
-        if m.get('skipped'):
-            return '<p class="note">No app labels available for rollout ranking.</p>'
-        rows = m.get('ranked', [])
-        if not rows:
-            return '<p class="note">No apps to rank.</p>'
-        html = '<table><tr><th>#</th><th>App</th><th>Why Now</th><th>PB Impact</th><th>Allow Rules Needed</th><th>Risk Reduction</th></tr>'
-        for r in rows:
-            html += (f'<tr><td>{r.get("priority","")}</td><td>{r.get("app","")}</td>'
-                     f'<td>{r.get("why_now","").replace("_"," ")}</td>'
-                     f'<td>{r.get("expected_default_deny_impact","")}</td>'
-                     f'<td>{r.get("required_allow_rules","")}</td>'
-                     f'<td>{r.get("risk_reduction","")}</td></tr>')
-        html += '</table>'
-        return html
-
     def _mod_ringfence_html(self) -> str:
         m = self._r.get('mod_ringfence', {})
         if m.get('skipped'):
@@ -1349,25 +1320,3 @@ class HtmlExporter:
             html += '</table>'
         return html
 
-    def _mod_exfil_html(self) -> str:
-        m = self._r.get('mod_exfiltration_intel', {})
-        if m.get('skipped'):
-            return '<p class="note">No managed/unmanaged labels available for exfiltration analysis.</p>'
-        parts = [f'<p>Managed→Unmanaged flows: <b>{m.get("managed_to_unmanaged_count", 0)}</b></p>']
-        high_vol = m.get('high_volume_exfil', [])
-        if high_vol:
-            parts.append('<h4>High-Volume Flows (≥1 GB)</h4>')
-            parts.append('<table><tr><th>Src</th><th>Dst</th><th>Port</th><th>Bytes</th><th>Flows</th></tr>')
-            for r in high_vol:
-                parts.append(f'<tr><td>{r.get("src","")}</td><td>{r.get("dst","")}</td>'
-                             f'<td>{r.get("port","")}</td><td>{r.get("bytes",""):,}</td>'
-                             f'<td>{r.get("flows","")}</td></tr>')
-            parts.append('</table>')
-        matches = m.get('threat_intel_matches', [])
-        if matches:
-            parts.append('<h4>Threat Intel Matches</h4>')
-            parts.append('<table><tr><th>Src</th><th>Dst</th><th>Port</th><th>Reason</th></tr>')
-            for r in matches:
-                parts.append(f'<tr><td>{r["src"]}</td><td>{r["dst"]}</td><td>{r["port"]}</td><td>{r["reason"]}</td></tr>')
-            parts.append('</table>')
-        return ''.join(parts)

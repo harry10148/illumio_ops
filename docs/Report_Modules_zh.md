@@ -211,31 +211,7 @@ Daemon 迴圈每 60 秒檢查排程，並執行任何已到達設定時間的排
 | `mod_change_impact` | 比較目前報表 KPI 與前次快照；針對每個 KPI 輸出 `improved` / `regressed` / `neutral` 判斷 | 目前 KPI 字典 + 前次 JSON 快照 | Delta 表格 + 整體判斷 + 前次快照時間戳 | `report.snapshot_retention_days` |
 | `mod_draft_actions` | 針對需要人工審查的 draft policy decision 子類別提供可行的修復建議：Override Deny、Allowed Across Boundary、what-if | 含 `draft_policy_decision` 欄位的 Flows DataFrame | `override_deny` 區塊、`allowed_across_boundary` 區塊、`what_if_summary` | `report.draft_actions_enabled` |
 | `mod_draft_summary` | 計算所有 7 種 draft policy decision 子類型並列出每種子類型的熱門 workload 配對 | 含 `draft_policy_decision` 欄位的 Flows DataFrame | `counts` 字典（7 個子類型）+ 每種子類型的 `top_pairs` | — |
-| `mod_enforcement_rollout` | 依就緒分數排列應用程式，評估移至完整 enforcement 的優先順序 | 含 app 標籤（`src_app` / `dst_app`）的 Flows DataFrame + 選用 draft / readiness 摘要 | 含分數、`why_now` 理由、必要允許規則、風險降低的優先化應用清單 | — |
-| `mod_exfiltration_intel` | 標記具有高位元組流量的受管至未管理流量；選用性地與已知惡意 IP 的 CSV 進行威脅情報比對 | 含 `src_managed` / `dst_managed` + 選用 `bytes` 欄位的 Flows DataFrame | `high_volume_exfil` 清單、`managed_to_unmanaged_count`、`threat_intel_matches` | `report.threat_intel_csv_path` |
 | `mod_ringfence` | 每個應用程式的依賴 Profile + 微分段的候選允許規則；無特定目標應用時顯示熱門應用摘要 | 含 `src_app` / `dst_app` 標籤的 Flows DataFrame | 每個應用：應用內流量、跨應用流量、跨環境流量、候選允許規則；或熱門 20 個應用清單 | — |
-
-**威脅情報 CSV 格式（`mod_exfiltration_intel`）：**
-
-選用的 `report.threat_intel_csv_path` 檔案必須包含至少一個名為 `ip` 的欄位（已知惡意 IP 位址）。任何額外欄位（例如 `threat_category`、`confidence`、`source`）均會保留並顯示於威脅比對輸出中：
-
-```csv
-ip,threat_category,confidence,source
-185.220.101.1,tor_exit_node,high,abuse.ch
-203.0.113.45,c2_server,critical,custom_intel
-```
-
-在 `config.json` 中設定路徑：
-
-```json
-{
-    "report": {
-        "threat_intel_csv_path": "/opt/illumio_ops/data/threat_intel.csv"
-    }
-}
-```
-
-若未設定路徑或檔案不存在，`mod_exfiltration_intel` 仍會執行 — 它會回報高流量的受管→未管理流量，但回傳空的 `threat_intel_matches` 清單。
 
 **應用程式 Ringfence 使用方式（`mod_ringfence`）：**
 
@@ -299,32 +275,6 @@ ip,threat_category,confidence,source
 若無前次快照（首次報表執行），模組回傳 `skipped: true` 並附 `reason: no_previous_snapshot`。
 
 **操作使用：** 以固定排程執行報表（例如每週），並監控 `overall_verdict` 趨勢。政策變更後持續出現 `regressed` 判斷表示該變更引入了新的覆蓋缺口或啟用了不需要的流量模式，應進行調查。
-
-## 13. 執行推進規劃
-
-`mod_enforcement_rollout` 模組依就緒分數排列流量資料集中所有應用程式，評估在 PCE 中移至完整 enforcement 模式的準備程度。
-
-**評分公式：**
-
-```
-score = (allowed_flows / total_flows) - (potentially_blocked_flows / total_flows)
-```
-
-高分表示大多數流量已有允許規則覆蓋（高分子）且較少流量會因啟用預設 deny 而中斷（低分母）。分數接近 1.0 表示應用程式已準備好以最小的操作風險進行 enforcement。
-
-**每個應用程式的輸出：**
-
-| 欄位 | 說明 |
-|---|---|
-| `app` | 應用程式標籤值 |
-| `priority` | 排名順序（1 = 最就緒） |
-| `why_now` | 此排名的人類可讀理由 |
-| `expected_default_deny_impact` | 將被丟棄的 `potentially_blocked` 流量數量 |
-| `required_allow_rules` | enforcement 前需要允許規則的推斷埠/來源配對清單 |
-| `risk_reduction` | enforcement 後預估的橫向移動暴露降低量 |
-
-使用優先順序清單建立 enforcement 路線圖：從優先順序 1 的應用程式開始（已完整覆蓋），逐步處理需要額外允許規則的低優先順序應用程式。
-
 
 ---
 

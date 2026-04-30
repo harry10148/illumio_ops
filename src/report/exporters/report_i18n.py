@@ -81,8 +81,6 @@ STRINGS: _StringMap = _StringMap({
     "rpt_tr_nav_findings": _entry("Findings", "發現總覽"),
     "rpt_tr_nav_change_impact": _entry("Change Impact", "變更影響分析"),
     "rpt_tr_nav_draft_actions": _entry("Draft Actions", "草稿動作"),
-    "rpt_tr_nav_enf_rollout": _entry("Enforcement Rollout", "Enforcement 推行計畫"),
-    "rpt_tr_nav_exfiltration": _entry("Exfiltration Intel", "外洩情資"),
     "rpt_tr_nav_ringfence": _entry("Application Ringfence", "應用程式 Ringfence"),
     "rpt_tr_sec_findings": _entry("Security Findings", "安全發現"),
     "rpt_tr_policy_coverage": _entry("Policy Coverage", "Policy 覆蓋率"),

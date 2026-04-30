@@ -211,31 +211,7 @@ These modules run automatically as part of the Traffic Report pipeline and appea
 | `mod_change_impact` | Compare current report KPIs to the previous snapshot; emit `improved` / `regressed` / `neutral` verdict per KPI | Current KPIs dict + previous JSON snapshot | Delta table + overall verdict + previous snapshot timestamp | `report.snapshot_retention_days` |
 | `mod_draft_actions` | Actionable remediation suggestions for draft policy decision sub-categories that need human review: Override Deny, Allowed Across Boundary, what-if | Flows DataFrame with `draft_policy_decision` column | `override_deny` block, `allowed_across_boundary` block, `what_if_summary` | `report.draft_actions_enabled` |
 | `mod_draft_summary` | Count all 7 draft policy decision subtypes and list top workload pairs per subtype | Flows DataFrame with `draft_policy_decision` column | `counts` dict (7 subtypes) + `top_pairs` per subtype | — |
-| `mod_enforcement_rollout` | Rank applications by readiness score for moving to full enforcement | Flows DataFrame with app labels (`src_app` / `dst_app`) + optional draft / readiness summaries | Prioritized app list with score, `why_now` rationale, required allow rules, risk reduction | — |
-| `mod_exfiltration_intel` | Flag managed-to-unmanaged flows with high byte volume; optionally join against a CSV of known-bad IPs for threat-match enrichment | Flows DataFrame with `src_managed` / `dst_managed` + optional `bytes` column | `high_volume_exfil` list, `managed_to_unmanaged_count`, `threat_intel_matches` | `report.threat_intel_csv_path` |
 | `mod_ringfence` | Per-application dependency profile + candidate allow rules for micro-segmentation; top-app summary when no specific app is targeted | Flows DataFrame with `src_app` / `dst_app` labels | Per-app: intra-app flows, cross-app flows, cross-env flows, candidate allow rules; or top-20 apps list | — |
-
-**Threat Intel CSV format (`mod_exfiltration_intel`):**
-
-The optional `report.threat_intel_csv_path` file must contain at least one column named `ip` (the known-bad IP address). Any additional columns (e.g. `threat_category`, `confidence`, `source`) are preserved and surfaced in the threat-match output:
-
-```csv
-ip,threat_category,confidence,source
-185.220.101.1,tor_exit_node,high,abuse.ch
-203.0.113.45,c2_server,critical,custom_intel
-```
-
-Set the path in `config.json`:
-
-```json
-{
-    "report": {
-        "threat_intel_csv_path": "/opt/illumio_ops/data/threat_intel.csv"
-    }
-}
-```
-
-When no file is configured or the file does not exist, `mod_exfiltration_intel` still runs — it will report high-volume managed→unmanaged flows but return an empty `threat_intel_matches` list.
 
 **Application Ringfence usage (`mod_ringfence`):**
 
@@ -299,32 +275,6 @@ The `mod_change_impact` module compares KPIs from the current report to the most
 When no previous snapshot exists (first report run), the module returns `skipped: true` with `reason: no_previous_snapshot`.
 
 **Operational use:** Run reports on a consistent schedule (e.g., weekly) and monitor the `overall_verdict` trend. A sustained `regressed` verdict after a policy change indicates the change introduced new coverage gaps or enabled unwanted traffic patterns that should be investigated.
-
-## 13. Enforcement Rollout Planning
-
-The `mod_enforcement_rollout` module ranks every application found in the traffic dataset by its readiness score for moving to full enforcement mode in the PCE.
-
-**Scoring formula:**
-
-```
-score = (allowed_flows / total_flows) - (potentially_blocked_flows / total_flows)
-```
-
-A high score means most flows are already covered by allow rules (high numerator) and few flows would be disrupted by enabling default-deny (low denominator). A score near 1.0 indicates the application is ready for enforcement with minimal operational risk.
-
-**Output per application:**
-
-| Field | Description |
-|---|---|
-| `app` | Application label value |
-| `priority` | Rank order (1 = most ready) |
-| `why_now` | Human-readable rationale for this ranking |
-| `expected_default_deny_impact` | Number of `potentially_blocked` flows that would be dropped |
-| `required_allow_rules` | Inferred list of port/source pairs that need allow rules before enforcement |
-| `risk_reduction` | Estimated reduction in lateral-movement exposure after enforcement |
-
-Use the priority list to build an enforcement roadmap: start with priority-1 apps (already fully covered), work down to lower-priority apps that need additional allow rules.
-
 
 ---
 

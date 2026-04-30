@@ -116,7 +116,6 @@ def test_report_snapshot_retention_default():
     r = ReportSettings()
     assert r.snapshot_retention_days == 90
     assert r.draft_actions_enabled is True
-    assert r.threat_intel_csv_path is None
 
 
 def test_report_snapshot_retention_validates_range():

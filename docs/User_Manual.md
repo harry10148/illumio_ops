@@ -687,7 +687,6 @@ These keys live under the `report` block in `config.json` and control advanced r
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `report.snapshot_retention_days` | int | `90` | How long Change Impact (`mod_change_impact`) KPI snapshots are retained before auto-pruning |
-| `report.threat_intel_csv_path` | string | `null` | Absolute path to an optional CSV of known-bad IPs, consumed by `mod_exfiltration_intel` for threat-match enrichment |
 | `report.draft_actions_enabled` | bool | `true` | Whether `mod_draft_actions` produces per-flow remediation suggestions in the Traffic Report |
 
 Example `config.json` fragment:
@@ -696,7 +695,6 @@ Example `config.json` fragment:
 {
     "report": {
         "snapshot_retention_days": 90,
-        "threat_intel_csv_path": "/opt/illumio_ops/data/threat_intel.csv",
         "draft_actions_enabled": true
     }
 }
