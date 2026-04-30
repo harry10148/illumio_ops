@@ -31,9 +31,10 @@ def app_persistent(temp_config_file):
     cm = ConfigManager(config_file=temp_config_file)
     cm.load()
     
+    from src.config import hash_password as _hash_password
     cm.config["web_gui"] = {
         "username": "admin",
-        "password": "testpass",
+        "password": _hash_password("testpass"),
         "allowed_ips": ["127.0.0.1", "192.168.1.0/24"],
         "secret_key": "test-secret"
     }
@@ -229,7 +230,7 @@ def test_api_security_endpoints(app_persistent):
     assert res.json['ok'] is True
     
     # Re-login with new password
-    client.get('/logout')
+    client.post('/logout', environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     res = client.post('/api/login', json={"username": "admin2", "password": "newpass"}, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
     assert res.status_code == 200
     assert res.json['ok'] is True

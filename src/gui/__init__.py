@@ -27,7 +27,7 @@ except ImportError:
     HAS_FLASK = False
     FLASK_IMPORT_ERROR = str(sys.exc_info()[1])
 
-from src.config import ConfigManager
+from src.config import ConfigManager, hash_password, verify_password
 from src.i18n import t, get_messages
 from src import __version__
 from src.alerts import PLUGIN_METADATA, plugin_config_path, plugin_config_value
@@ -635,6 +635,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 return _err(t("gui_err_unauthorized"), 401)
             return redirect('/login')
 
+        # Force password change if flagged
+        if current_user.is_authenticated:
+            gui_cfg = cm.config.get("web_gui", {})
+            if gui_cfg.get("must_change_password") and request.endpoint not in (
+                'api_security_get', 'api_security_post', 'logout', 'api_csrf_token'
+            ):
+                return jsonify({"ok": False, "error": "must_change_password", "code": 423}), 423
+
     @app.after_request
     def add_security_headers(response):
         # Security headers (talisman will add CSP/HSTS in Task 7; keep fallbacks here)
@@ -694,17 +702,16 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         saved_username = gui_cfg.get("username", "illumio")
         saved_password = gui_cfg.get("password", "")
 
-        if username == saved_username and password == saved_password:
+        import hmac as _hmac
+        if _hmac.compare_digest(username.strip(), saved_username.strip()) and verify_password(password, saved_password):
             session.permanent = True
             login_user(AdminUser(username))
-            if gui_cfg.get("_initial_password"):
-                del gui_cfg["_initial_password"]
-                cm.save()
             return jsonify({"ok": True, "csrf_token": generate_csrf()})
 
         return jsonify({"ok": False, "error": t("gui_err_invalid_auth")}), 401
 
-    @app.route('/logout')
+    @app.route('/logout', methods=['POST'])
+    @csrf.exempt
     def logout():
         logout_user()
         session.clear()
@@ -741,10 +748,11 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         if "new_password" in d and d["new_password"]:
             if gui_cfg.get("password"):
                 old_pass = d.get("old_password", "")
-                if old_pass != gui_cfg.get("password", ""):
+                if not verify_password(old_pass, gui_cfg.get("password", "")):
                     return jsonify({"ok": False, "error": t("gui_err_invalid_old_pass")}), 401
-            gui_cfg["password"] = d["new_password"]
+            gui_cfg["password"] = hash_password(d["new_password"])
             gui_cfg.pop("_initial_password", None)
+            gui_cfg.pop("must_change_password", None)
             
         cm.save()
         return jsonify({"ok": True})
