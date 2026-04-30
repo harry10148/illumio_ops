@@ -558,7 +558,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     limiter = Limiter(
         app=app,
         key_func=get_remote_address,
-        default_limits=[],          # no global limit; apply per-endpoint
+        default_limits=["300 per minute"],
         storage_uri="memory://",    # single-node deployment
         strategy="fixed-window",
     )
@@ -575,13 +575,13 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     # ── flask-talisman security headers ───────────────────────────────────────
     from flask_talisman import Talisman
 
-    # CSP: allow inline scripts/styles (SPA uses them); locked down otherwise
+    # CSP: nonce-based inline scripts/styles; no unsafe-inline
     _csp = {
         'default-src': "'self'",
-        'script-src': ["'self'", "'unsafe-inline'"],  # SPA inline JS
-        'style-src': ["'self'", "'unsafe-inline'"],   # SPA inline CSS
+        'script-src': "'self'",   # nonce added by Talisman per-request
+        'style-src': "'self'",    # nonce added by Talisman per-request
         'img-src': ["'self'", "data:"],
-        'font-src': "'self'",
+        'font-src': ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
         'connect-src': "'self'",
     }
 
@@ -594,13 +594,17 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         strict_transport_security_preload=True,
         session_cookie_secure=True,
         content_security_policy=_csp,
-        content_security_policy_nonce_in=[],   # inline not nonce-based (SPA compat)
+        content_security_policy_nonce_in=['script-src', 'style-src'],
         frame_options='DENY',
         referrer_policy='strict-origin-when-cross-origin',
         permissions_policy={
             "camera": "()",
             "microphone": "()",
             "geolocation": "()",
+            "interest-cohort": "()",
+            "browsing-topics": "()",
+            "payment": "()",
+            "usb": "()",
         },
     )
 
@@ -672,6 +676,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         _tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
         if _tls_cfg.get("enabled"):
             response.headers.setdefault('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+        # Isolation headers — safe for same-origin SPA; omit COEP to avoid breaking
+        # embedded third-party resources that may not send CORP headers.
+        response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+        response.headers['Cross-Origin-Resource-Policy'] = 'same-site'
+        # Remove server fingerprint header
+        response.headers.pop('Server', None)
         # Prevent browser from caching JS/CSS so code changes take effect immediately
         if request.path.startswith('/static/'):
             response.headers['Cache-Control'] = 'no-store'
@@ -750,6 +760,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         })
 
     @app.route('/api/security', methods=['POST'])
+    @limiter.limit("10 per hour")
     def api_security_post():
         d = request.json or {}
         cm.load()
@@ -1508,6 +1519,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         })
 
     @app.route('/api/settings', methods=['POST'])
+    @limiter.limit("30 per hour")
     def api_save_settings():
         d = request.json
         if 'api' in d:
@@ -1577,6 +1589,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         return jsonify(result)
 
     @app.route('/api/tls/config', methods=['POST'])
+    @limiter.limit("10 per hour")
     def api_tls_config():
         d = request.json or {}
         cm.load()
@@ -1598,6 +1611,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         return jsonify({"ok": True, "message": "TLS settings saved. Restart the server to apply."})
 
     @app.route('/api/tls/renew', methods=['POST'])
+    @limiter.limit("10 per hour")
     def api_tls_renew():
         cm.load()
         tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
@@ -1912,6 +1926,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         return send_from_directory(reports_dir, filename, as_attachment=as_download)
 
     @app.route('/api/reports/generate', methods=['POST'])
+    @limiter.limit("30 per hour")
     def api_generate_report():
         if request.is_json:
             d = request.json or {}
@@ -2759,6 +2774,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             return jsonify({"ok": False, "error": str(e)})
 
     @app.route('/api/shutdown', methods=['POST'])
+    @limiter.limit("5 per hour")
     def api_shutdown():
         if persistent_mode:
             return jsonify({"ok": False, "error": "Shutdown not allowed in persistent mode"}), 403
@@ -3112,6 +3128,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     @app.route('/api/daemon/restart', methods=['POST'])
     @login_required
+    @limiter.limit("5 per hour")
     def api_daemon_restart():
         import src.gui as _self
         if not _self._GUI_OWNS_DAEMON:
