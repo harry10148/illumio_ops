@@ -340,6 +340,7 @@ class ReportGenerator:
                         "start_date": result.date_range[0] if result.date_range else "",
                         "end_date": result.date_range[1] if len(result.date_range) > 1 else "",
                     },
+                    lang=lang,
                 )
                 paths.append(pdf_path)
                 print(t("rpt_pdf_saved", path=pdf_path, default=f"PDF saved: {pdf_path}"))
