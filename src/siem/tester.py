@@ -11,6 +11,7 @@ from src.config_models import SiemDestinationSettings
 
 @dataclass
 class TestResult:
+    __test__ = False  # not a pytest test class
     ok: bool
     error: Optional[str] = None
     latency_ms: int = 0
