@@ -54,13 +54,22 @@ def test_csp_style_src_allows_unsafe_inline(client):
         "style-src must allow 'unsafe-inline' (see src/gui/__init__.py CSP comment)"
 
 
-def test_csp_has_nonce(client):
+def test_csp_script_src_has_nonce(client):
     r = client.get("/login")
     csp = _parse_csp(r.headers)
     assert "'nonce-" in csp.get("script-src", ""), \
         f"script-src must contain a nonce; got: {csp.get('script-src')!r}"
-    assert "'nonce-" in csp.get("style-src", ""), \
-        f"style-src must contain a nonce; got: {csp.get('style-src')!r}"
+
+
+def test_csp_style_src_has_no_nonce(client):
+    """Per CSP Level 3, 'unsafe-inline' is ignored when a nonce is also
+    present in the same directive. Since style-src needs 'unsafe-inline'
+    for the 344+ inline style="..." attributes in templates, it must NOT
+    carry a nonce."""
+    r = client.get("/login")
+    csp = _parse_csp(r.headers)
+    assert "'nonce-" not in csp.get("style-src", ""), \
+        f"style-src must not contain a nonce (would suppress 'unsafe-inline'); got: {csp.get('style-src')!r}"
 
 
 def test_server_header_removed(client):

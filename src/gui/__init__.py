@@ -660,7 +660,14 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         strict_transport_security_preload=True,
         session_cookie_secure=True,
         content_security_policy=_csp,
-        content_security_policy_nonce_in=['script-src', 'style-src'],
+        # Per CSP Level 3, when both 'unsafe-inline' and 'nonce-...' appear in
+        # the same directive, browsers IGNORE 'unsafe-inline'. Since style-src
+        # needs 'unsafe-inline' for the 344+ inline style="..." attributes in
+        # templates, we must NOT have Talisman inject a nonce into style-src;
+        # otherwise the inline styles would be blocked. The inline <style>
+        # block in templates becomes nonce-less but is allowed by 'unsafe-inline'.
+        # script-src keeps the nonce — it does NOT use 'unsafe-inline'.
+        content_security_policy_nonce_in=['script-src'],
         frame_options='DENY',
         referrer_policy='strict-origin-when-cross-origin',
         permissions_policy={
