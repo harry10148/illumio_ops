@@ -3,7 +3,8 @@
     Install or uninstall the illumio_ops offline bundle on Windows.
 .DESCRIPTION
     install  : Copies bundled Python + app, installs wheels, registers NSSM service.
-               Safe to re-run for upgrades — config.json and rule_schedules.json preserved.
+               Safe to re-run for upgrades — config.json, alerts.json (rules),
+               and rule_schedules.json preserved.
     uninstall: Stops and removes the NSSM service, then deletes the install directory.
 .PARAMETER Action
     install (default) | uninstall
@@ -57,7 +58,7 @@ Write-Host "==> Copying application files"
 if ($IsUpgrade) {
     # Preserve operator-owned files on upgrade
     Robocopy "$SRC\app" "$InstallRoot" /E /NP /NFL /NDL `
-        /XF "config.json" "rule_schedules.json" | Out-Null
+        /XF "config.json" "alerts.json" "rule_schedules.json" | Out-Null
     if ($LASTEXITCODE -ge 8) {
         Write-Host "ERROR: Robocopy failed copying application files (exit $LASTEXITCODE)" -ForegroundColor Red
         exit 1

@@ -35,9 +35,12 @@ def _format_error_input(loc: tuple, raw_input):
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(PKG_DIR)
 CONFIG_FILE = os.path.join(ROOT_DIR, "config", "config.json")
-# Alerts (notification destinations + tokens) live in their own file so
-# that secret values can be rotated/locked-down independently of the
-# system config. In-memory access via cm.config["alerts"] is unchanged.
+# Alert RULES live in their own file (alerts.json) so the rules engine's
+# state can be edited / version-controlled independently of system config
+# and channel credentials. Channel destinations + tokens (line, webhook,
+# active list, smtp, email) live back in config.json. Naming kept as
+# alerts.json — "alert rules" — even though channel creds moved out.
+# In-memory access via cm.config["rules"] / cm.config["alerts"] unchanged.
 ALERTS_FILE = os.path.join(ROOT_DIR, "config", "alerts.json")
 
 # Default configuration template
@@ -139,13 +142,22 @@ class ConfigManager:
                 print(f"{Colors.FAIL}{t('error_loading_config', error=e)}{Colors.ENDC}")
                 # Fall through with raw_data={} to use defaults
 
-        # Alerts live in their own file. If alerts.json exists, it wins;
-        # otherwise inherit any "alerts" still present in config.json (so
-        # an existing single-file install migrates transparently — the
-        # next save() will write alerts.json and strip from config.json).
-        alerts_data = self._read_alerts_file()
-        if alerts_data is not None:
-            raw_data["alerts"] = alerts_data
+        # alerts.json holds RULES (new layout). If the file is the previous
+        # layout — a dict of channel settings (active / line_* / webhook_url
+        # with no "rules" key) — treat it as legacy and migrate the channel
+        # block back into config.json on next save(). Rules in config.json
+        # then move out to alerts.json on next save().
+        external = self._read_alerts_file()
+        if external is not None:
+            if isinstance(external, dict) and "rules" in external:
+                raw_data["rules"] = external.get("rules") or []
+            elif isinstance(external, dict) and external:
+                # Legacy channel-config layout — migrate back to config.json.
+                logger.info(
+                    "Migrating legacy alerts.json (channel config) back into "
+                    "config.json; alerts.json will be rewritten with rules on next save."
+                )
+                raw_data["alerts"] = external
 
         # Merge defaults with raw data (deep merge preserves legacy behavior)
         merged = _deep_merge(json.loads(json.dumps(_DEFAULT_CONFIG)), raw_data)
@@ -205,12 +217,12 @@ class ConfigManager:
 
     def save(self):
         try:
-            # Persist alerts to its own file first so an interruption between
-            # the two writes never leaves stale alerts in config.json.
+            # Persist rules to alerts.json first so an interruption between
+            # the two writes never leaves stale rules in config.json.
             self._write_alerts_file()
 
-            # Atomic write: write config.json without the "alerts" section.
-            config_for_disk = {k: v for k, v in self.config.items() if k != "alerts"}
+            # Atomic write: write config.json without the "rules" section.
+            config_for_disk = {k: v for k, v in self.config.items() if k != "rules"}
             tmp_file = self.config_file + ".tmp"
             with open(tmp_file, 'w', encoding='utf-8') as f:
                 json.dump(config_for_disk, f, indent=4, ensure_ascii=False)
@@ -229,12 +241,15 @@ class ConfigManager:
             print(f"{Colors.FAIL}{t('error_saving_config', error=e)}{Colors.ENDC}")
 
     def _read_alerts_file(self):
-        """Return alerts dict from alerts.json, or None if file is missing.
+        """Return the parsed alerts.json dict, or None if file is missing.
 
-        Missing file is the migration trigger: callers fall back to whatever
-        "alerts" still lives in config.json, then the next save() splits it
-        out. JSON / I/O errors return {} (empty alerts) and log loudly so
-        the user sees the corruption rather than silently using defaults.
+        Two on-disk formats are accepted:
+          - New: ``{"rules": [...]}`` — load() pulls rules from here.
+          - Legacy: ``{"active": [...], "line_*": ..., "webhook_url": ...}``
+            — load() migrates this back into config.json's ``alerts`` block.
+
+        Missing file → None (callers use whatever's in config.json plus
+        defaults). JSON / I/O errors return {} (empty) and log loudly.
         """
         if not os.path.exists(self.alerts_file):
             return None
@@ -246,12 +261,14 @@ class ConfigManager:
             return {}
 
     def _write_alerts_file(self):
-        """Atomically write self.config['alerts'] to alerts.json with 0o600."""
-        alerts = self.config.get("alerts", {})
+        """Atomically write ``{"rules": self.config['rules']}`` to alerts.json
+        with mode 0o600. Channel credentials (line / webhook / active / smtp)
+        intentionally stay in config.json — see ALERTS_FILE comment."""
+        payload = {"rules": self.config.get("rules", [])}
         os.makedirs(os.path.dirname(self.alerts_file), exist_ok=True)
         tmp_file = self.alerts_file + ".tmp"
         with open(tmp_file, 'w', encoding='utf-8') as f:
-            json.dump(alerts, f, indent=4, ensure_ascii=False)
+            json.dump(payload, f, indent=4, ensure_ascii=False)
         os.replace(tmp_file, self.alerts_file)
         try:
             os.chmod(self.alerts_file, 0o600)

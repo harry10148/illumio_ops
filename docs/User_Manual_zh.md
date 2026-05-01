@@ -403,7 +403,7 @@ illumio-ops config show --section web_gui
 - **首次登入強制變更**：當 `web_gui.must_change_password` 為 true 時，除登出/變更密碼端點外，所有 GUI 端點皆回傳 HTTP 423，直到使用者完成變更。
 - **登入速率限制**：每個 IP 每分鐘最多 5 次嘗試（超過回傳 HTTP 429），由 flask-limiter 管理。
 - **CSRF 防護**：flask-wtf CSRFProtect — token 透過 `X-CSRF-Token` 回應標頭及 `<meta>` 標籤傳遞；所有變更請求（POST/PUT/DELETE）均需驗證。
-- **安全標頭**：flask-talisman 自動設定 `Content-Security-Policy`（每請求 nonce、移除 `unsafe-inline`）、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`；啟用 TLS 時自動開啟 HSTS。
+- **安全標頭**：flask-talisman 自動設定 `Content-Security-Policy`（`script-src` 與 `style-src` 開放 `'unsafe-inline'` 以支援 GUI 大量動態注入的 inline event handler；補償控制為 CSRF、IP 白名單，並對所有動態 HTML 插入呼叫 `escapeHtml`/`escapeAttr`）、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Referrer-Policy: strict-origin-when-cross-origin`；啟用 TLS 時自動開啟 HSTS。
 - **Session 管理**：flask-login session 保護（strong 模式）；安全簽章 Cookie（密鑰自動產生於 `config.json` 中）。
 - **設定方式**：透過 **CLI 選單 7. Web GUI Security** 或 Web GUI **Settings** 頁面變更帳密。
 - **SMTP 憑證**：可設定 `ILLUMIO_SMTP_PASSWORD` 環境變數，避免在設定檔中儲存密碼
@@ -659,9 +659,17 @@ sudo systemctl enable --now illumio-ops
 
 ## 9. 設定參考
 
-所有設定都在 `config/config.json`。下方為頂層結構，後續小節說明非顯而易見的區塊。
+設定拆成兩個檔案，皆位於 `config/` 下：
+
+- **`config/config.json`** — 系統與通道設定（PCE 認證、GUI、SMTP、通道目的地、排程器等）。
+- **`config/alerts.json`** — 告警規則引擎狀態，格式為 `{"rules": [...]}`，與系統設定分離以避免規則異動干擾系統 config。
+
+記憶體存取行為不變：兩檔在 load 時合併為單一 `cm.config` dict；`cm.save()` 各自原子寫回對應檔案。舊版單檔安裝（規則仍在 `config.json`）與前一版拆分（通道憑證放 `alerts.json`）皆會在下一次 save 時自動 migrate。
+
+下方為頂層結構，後續小節說明非顯而易見的區塊。
 
 ```text
+config/config.json
 {
   "pce_profiles":   [ … ]            // 多 PCE profile 槽位（見 §6）
   "active_pce_id":  …                // 目前選用的 profile id
@@ -670,7 +678,6 @@ sudo systemctl enable --now illumio-ops
   "email":          { sender, recipients }                // §4.1
   "smtp":           { host, port, user, password, … }     // §4.1
   "settings":       { timezone, language, theme, … }      // §9.1、§9.2
-  "rules":          [ … ]            // 事件 / 流量 / 頻寬規則（§2）
   "report":         { schedule, format, retention_days, … }  // §9.3
   "report_schedules": [ … ]                               // 排程報表（§8 / §9.5）
   "rule_scheduler": { enabled, check_interval_seconds }   // §8
@@ -679,6 +686,9 @@ sudo systemctl enable --now illumio-ops
   "siem":           { … }            // SIEM forwarder（SIEM_Integration_zh.md）
   "logging":        { json_sink, level }                  // §5 / Troubleshooting_zh.md
 }
+
+config/alerts.json
+{ "rules": [ … ] }                   // 事件 / 流量 / 頻寬規則（§2）
 ```
 
 ### 最小設定 — 起步

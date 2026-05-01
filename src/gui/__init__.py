@@ -601,7 +601,7 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     # ── flask-login setup ──────────────────────────────────────────────────────
     from flask_login import LoginManager, current_user, login_required, login_user, logout_user
-    from src.auth_models import AdminUser, LoginForm, PasswordChangeForm
+    from src.auth_models import AdminUser, LoginForm
 
     login_manager = LoginManager(app)
     login_manager.login_view = "login_page"
@@ -660,14 +660,26 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     # ── flask-talisman security headers ───────────────────────────────────────
     from flask_talisman import Talisman
 
-    # CSP: nonce-based inline scripts/styles; no unsafe-inline
+    # CSP: 'unsafe-inline' on script-src AND style-src.
+    #
+    # Trade-off accepted on the code-review-fixes branch: 40+ dynamically-
+    # injected inline `onclick=` handlers across the JS codebase still need
+    # to function while the M1 dispatcher migration is incomplete. Per CSP
+    # Level 3, inline event handler attributes require 'unsafe-inline'
+    # (nonces don't cover them). Mixing 'nonce-...' with 'unsafe-inline'
+    # would make browsers IGNORE 'unsafe-inline', so the nonce is dropped
+    # from script-src entirely.
+    #
+    # Compensating controls: CSRF, IP allowlist, escapeHtml on all dynamic
+    # HTML insertions (utils.js:63 + integrations.js:7 — both escape ', ",
+    # <, >, &).
+    #
+    # Vulnerability scanners (Mozilla Observatory, securityheaders.com,
+    # Nessus, Qualys, OWASP ZAP, CIS benchmarks) WILL flag this — typically
+    # Low/Medium. Risk-accepted until the M1 data-action sweep finishes.
     _csp = {
         'default-src': "'self'",
-        'script-src': "'self'",   # nonce added by Talisman per-request
-        # 'unsafe-inline' for STYLES is widely accepted as low-risk: style
-        # injection cannot execute scripts. The 344+ inline `style="..."`
-        # attributes scattered across templates would otherwise be blocked,
-        # breaking layout. script-src remains strict ('self' + nonce).
+        'script-src': ["'self'", "'unsafe-inline'"],
         'style-src': ["'self'", "'unsafe-inline'"],
         'img-src': ["'self'", "data:"],
         # Fonts are bundled locally (src/static/fonts/); no external font CDN.
@@ -684,14 +696,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         strict_transport_security_preload=True,
         session_cookie_secure=True,
         content_security_policy=_csp,
-        # Per CSP Level 3, when both 'unsafe-inline' and 'nonce-...' appear in
-        # the same directive, browsers IGNORE 'unsafe-inline'. Since style-src
-        # needs 'unsafe-inline' for the 344+ inline style="..." attributes in
-        # templates, we must NOT have Talisman inject a nonce into style-src;
-        # otherwise the inline styles would be blocked. The inline <style>
-        # block in templates becomes nonce-less but is allowed by 'unsafe-inline'.
-        # script-src keeps the nonce — it does NOT use 'unsafe-inline'.
-        content_security_policy_nonce_in=['script-src'],
+        # No nonce injection: per CSP Level 3, the presence of a nonce in a
+        # directive causes browsers to IGNORE 'unsafe-inline' in the same
+        # directive. Inline <script nonce="..."> / <style nonce="..."> markers
+        # left in templates by csp_nonce() are harmless (unused) under this
+        # policy.
+        content_security_policy_nonce_in=[],
         frame_options='DENY',
         referrer_policy='strict-origin-when-cross-origin',
         permissions_policy={
@@ -883,14 +893,10 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
         cm.load()
         gui_cfg = cm.config.setdefault("web_gui", {})
 
-        # H2: any modification to username, allowed_ips, or password requires
-        # old_password verification — except during initial setup when no
-        # password is stored yet.
-        sensitive_change = any(k in d for k in ("username", "allowed_ips", "new_password"))
-        if sensitive_change and gui_cfg.get("password"):
-            old_pw = d.get("old_password", "")
-            if not verify_password(old_pw, gui_cfg.get("password", "")):
-                return jsonify({"ok": False, "error": t("gui_err_invalid_old_pass")}), 401
+        # No old_password gate: an authenticated session is sufficient to
+        # change credentials. The CLI menu (settings.py) is the recovery path
+        # when the password is forgotten and is the only way back in if the
+        # admin loses session access too.
 
         if "username" in d:
             gui_cfg["username"] = d["username"]
@@ -904,18 +910,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
                 }), 400
             gui_cfg["allowed_ips"] = allowed_ips
 
-        if "new_password" in d and d["new_password"]:
-            old_pw_for_form = d.get("old_password") or "placeholder"
-            try:
-                change_form = PasswordChangeForm.model_validate({
-                    "old_password": old_pw_for_form,
-                    "new_password": d["new_password"],
-                    "confirm_password": d.get("confirm_password", d["new_password"]),
-                })
-            except Exception:
+        if d.get("new_password"):
+            new_pw = d["new_password"]
+            confirm_pw = d.get("confirm_password", new_pw)
+            if not (12 <= len(new_pw) <= 512) or new_pw != confirm_pw:
                 return jsonify({"ok": False, "error": t("gui_err_invalid_password_form")}), 400
-            # Old-password check already done above for already-set-up case.
-            gui_cfg["password"] = hash_password(change_form.new_password)
+            gui_cfg["password"] = hash_password(new_pw)
             gui_cfg.pop("_initial_password", None)
             gui_cfg.pop("must_change_password", None)
 

@@ -98,7 +98,7 @@ sudo systemctl stop illumio-ops
 tar xzf illumio_ops-<new-version>-offline-linux-x86_64.tar.gz
 cd illumio_ops-<new-version>
 
-# 3. Run install.sh — config.json and rule_schedules.json are preserved
+# 3. Run install.sh — config.json, alerts.json (rules), and rule_schedules.json are preserved
 sudo ./install.sh
 
 # 4. Restart

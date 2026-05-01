@@ -29,9 +29,11 @@ stage_app() {
         "$REPO_ROOT/illumio-ops.py" \
         "$REPO_ROOT/src" \
         "$dest/app/"
-    # config templates only — NEVER bundle config.json (API credentials) or runtime data
+    # config templates only — NEVER bundle config.json (API credentials),
+    # alerts.json (operator rules + previously LINE/webhook secrets), or runtime data
     rsync -a \
         --exclude='config.json' \
+        --exclude='alerts.json' \
         --exclude='rule_schedules.json' \
         "$REPO_ROOT/config/" "$dest/app/config/"
     rsync -a "$REPO_ROOT/scripts/" "$dest/app/scripts/"

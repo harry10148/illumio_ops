@@ -107,10 +107,13 @@ def test_load_redacts_secret_input_in_logs(tmp_path, caplog):
     assert "[REDACTED]" in combined or "secret" in combined.lower()
 
 
-# ─── Alerts split-file tests ────────────────────────────────────────────────
+# ─── Split-file tests ───────────────────────────────────────────────────────
+# Layout: config.json holds the ``alerts`` channel block (active list, line
+# tokens, webhook URL); alerts.json holds the ``rules`` array as
+# ``{"rules": [...]}``.
 
-def test_alerts_round_trip_uses_separate_file(tmp_path):
-    """alerts persists to alerts.json, not config.json."""
+def test_rules_round_trip_persists_to_alerts_file(tmp_path):
+    """rules persist to alerts.json, alerts (channel block) persist to config.json."""
     from src.config import ConfigManager
     cfg = tmp_path / "config.json"
     alerts = tmp_path / "alerts.json"
@@ -119,63 +122,76 @@ def test_alerts_round_trip_uses_separate_file(tmp_path):
     }), encoding="utf-8")
 
     cm = ConfigManager(str(cfg), alerts_file=str(alerts))
+    cm.config["rules"] = [
+        {"id": 1, "type": "event", "name": "Auth failures",
+         "filter_value": "request.authentication_failed"}
+    ]
     cm.config["alerts"]["webhook_url"] = "https://hooks.example/abc"
     cm.config["alerts"]["line_channel_access_token"] = "secret-line-token"
     cm.save()
 
-    # alerts.json now exists with the alert values
+    # alerts.json now holds the rules as {"rules": [...]}
     assert alerts.exists()
     saved_alerts = json.loads(alerts.read_text(encoding="utf-8"))
-    assert saved_alerts["webhook_url"] == "https://hooks.example/abc"
-    assert saved_alerts["line_channel_access_token"] == "secret-line-token"
+    assert "rules" in saved_alerts
+    assert saved_alerts["rules"][0]["name"] == "Auth failures"
+    # Channel credentials must NOT leak into alerts.json
+    assert "webhook_url" not in saved_alerts
+    assert "line_channel_access_token" not in saved_alerts
 
-    # config.json must NOT contain alerts
+    # config.json holds the alerts channel block but NOT rules
     saved_config = json.loads(cfg.read_text(encoding="utf-8"))
-    assert "alerts" not in saved_config, "alerts must not be persisted in config.json"
+    assert "rules" not in saved_config, "rules must not be persisted in config.json"
+    assert saved_config["alerts"]["webhook_url"] == "https://hooks.example/abc"
+    assert saved_config["alerts"]["line_channel_access_token"] == "secret-line-token"
 
-    # Reload through a fresh ConfigManager — alerts come back from alerts.json
+    # Reload through a fresh ConfigManager — both come back to the right places
     cm2 = ConfigManager(str(cfg), alerts_file=str(alerts))
     assert cm2.config["alerts"]["webhook_url"] == "https://hooks.example/abc"
-    assert cm2.config["alerts"]["line_channel_access_token"] == "secret-line-token"
+    assert cm2.config["rules"][0]["name"] == "Auth failures"
 
 
-def test_alerts_migration_from_legacy_single_file(tmp_path):
-    """Pre-split installs have alerts inside config.json; first save() splits them out."""
+def test_legacy_alerts_file_migrates_channel_block_back_to_config(tmp_path):
+    """Pre-flip installs have channel creds inside alerts.json; load() pulls
+    them back into config.json's ``alerts`` block, then first save() rewrites
+    alerts.json with the rules array."""
     from src.config import ConfigManager
     cfg = tmp_path / "config.json"
     alerts = tmp_path / "alerts.json"
     cfg.write_text(json.dumps({
         "api": {"url": "https://p.test", "org_id": "1", "key": "k", "secret": "s"},
-        "alerts": {
-            "active": ["mail", "webhook"],
-            "webhook_url": "https://legacy.example/hook",
-            "line_channel_access_token": "legacy-token",
-            "line_target_id": "C123",
-        },
+        "rules": [{"id": 1, "type": "event", "name": "Old rule", "filter_value": "x"}],
     }), encoding="utf-8")
-    assert not alerts.exists()
+    # Legacy alerts.json — channel-config layout, no "rules" key
+    alerts.write_text(json.dumps({
+        "active": ["mail", "webhook"],
+        "webhook_url": "https://legacy.example/hook",
+        "line_channel_access_token": "legacy-token",
+        "line_target_id": "C123",
+    }), encoding="utf-8")
 
     cm = ConfigManager(str(cfg), alerts_file=str(alerts))
-    # In-memory alerts inherited from config.json
+    # Legacy channel block migrated into in-memory alerts
     assert cm.config["alerts"]["webhook_url"] == "https://legacy.example/hook"
     assert cm.config["alerts"]["line_channel_access_token"] == "legacy-token"
+    # Rules from config.json preserved
+    assert cm.config["rules"][0]["name"] == "Old rule"
 
     cm.save()
 
-    # alerts.json now exists with the migrated values
-    assert alerts.exists()
-    migrated = json.loads(alerts.read_text(encoding="utf-8"))
-    assert migrated["webhook_url"] == "https://legacy.example/hook"
-    assert migrated["line_channel_access_token"] == "legacy-token"
-    assert migrated["active"] == ["mail", "webhook"]
+    # alerts.json rewritten in new layout
+    rewritten = json.loads(alerts.read_text(encoding="utf-8"))
+    assert rewritten == {"rules": [{"id": 1, "type": "event", "name": "Old rule", "filter_value": "x"}]}
 
-    # config.json no longer carries alerts
+    # config.json regained the channel block; rules removed
     cleaned = json.loads(cfg.read_text(encoding="utf-8"))
-    assert "alerts" not in cleaned
+    assert "rules" not in cleaned
+    assert cleaned["alerts"]["webhook_url"] == "https://legacy.example/hook"
+    assert cleaned["alerts"]["line_channel_access_token"] == "legacy-token"
 
 
 def test_alerts_file_missing_falls_back_to_defaults(tmp_path):
-    """If both config.json and alerts.json lack alerts, defaults are used."""
+    """If alerts.json is absent, both rules and the channel block use defaults."""
     from src.config import ConfigManager
     cfg = tmp_path / "config.json"
     alerts = tmp_path / "alerts.json"
@@ -187,6 +203,7 @@ def test_alerts_file_missing_falls_back_to_defaults(tmp_path):
     # Defaults from _DEFAULT_CONFIG
     assert cm.config["alerts"]["active"] == ["mail"]
     assert cm.config["alerts"]["webhook_url"] == ""
+    assert cm.config["rules"] == []
 
 
 def test_alerts_corrupt_file_keeps_app_running(tmp_path, caplog):
@@ -202,8 +219,8 @@ def test_alerts_corrupt_file_keeps_app_running(tmp_path, caplog):
 
     caplog.set_level(logging.ERROR)
     cm = ConfigManager(str(cfg), alerts_file=str(alerts))
-    # alerts dict still exists (empty/defaults), no exception
-    assert isinstance(cm.config["alerts"], dict)
+    # rules list still exists (empty/defaults), no exception
+    assert isinstance(cm.config.get("rules"), list)
     combined = " ".join(r.message for r in caplog.records)
     assert "alerts" in combined.lower() or "Error reading alerts" in combined
 

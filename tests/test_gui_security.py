@@ -876,6 +876,9 @@ def test_settings_support_dynamic_plugin_roots(monkeypatch):
 def test_event_rule_test_returns_current_vs_legacy_diff(monkeypatch):
     fd, path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
+    # Isolate alerts.json (which now holds rules) — auto-derived /tmp/alerts.json
+    # would be shared across tests and pollute rules state.
+    alerts_path = path + ".alerts"
     try:
         with open(path, 'w', encoding='utf-8') as f:
             json.dump({
@@ -899,7 +902,7 @@ def test_event_rule_test_returns_current_vs_legacy_diff(monkeypatch):
                 },
             }, f)
 
-        cm = ConfigManager(config_file=path)
+        cm = ConfigManager(config_file=path, alerts_file=alerts_path)
         cm.load()
         app = _create_app(cm, persistent_mode=True)
         app.config.update({"TESTING": True})
@@ -933,6 +936,8 @@ def test_event_rule_test_returns_current_vs_legacy_diff(monkeypatch):
         assert response.json["only_legacy"][0]["event_type"] == "request.authentication_failed"
     finally:
         os.unlink(path)
+        if os.path.exists(alerts_path):
+            os.unlink(alerts_path)
 
 
 def test_event_rule_create_persists_throttle_and_rejects_invalid(client):

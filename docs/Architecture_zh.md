@@ -451,7 +451,7 @@ Analyzer 支援流量規則的彈性篩選條件：
 | CSRF | `flask-wtf` CSRFProtect；token 存於 Flask session，透過 `<meta name="csrf-token">` 暴露 |
 | Session | `flask-login` strong 模式；簽章 cookie；`session_secret` 由 `_ensure_web_gui_secret()` 自動產生 |
 | 強制變更閘 | `@app.before_request` 在 `must_change_password=true` 時回傳 HTTP 423（見 `src/gui/__init__.py:714`） |
-| 安全標頭 | `gui.py` 的 `_init_security_middleware()` 初始化 `flask-talisman`，每請求 CSP nonce |
+| 安全標頭 | `gui.py` 的 `_init_security_middleware()` 初始化 `flask-talisman`。CSP 的 `script-src`、`style-src` 帶 `'unsafe-inline'`（不使用 nonce）以支援 GUI JS 動態注入的 inline event handler；XSS 風險由 CSRF 與所有動態 HTML 插入的 `escapeHtml`/`escapeAttr` 控制 |
 | TLS 終結 | `cheroot` HTTPS server；未提供憑證時由 `src/web_gui/tls.py` 產生 |
 | 執行緒模型（`--monitor-gui`） | Daemon 迴圈於獨立 `threading.Thread`；Flask 在主執行緒處理訊號 |
 

@@ -403,7 +403,7 @@ All Web GUI modes REQUIRE authentication and support source IP restrictions.
 - **First-login force-change**: when `web_gui.must_change_password` is true, all GUI endpoints other than logout / password-change return HTTP 423 until the user sets a new password.
 - **Login rate limiting**: 5 attempts per IP per minute (HTTP 429 on excess) via flask-limiter.
 - **CSRF protection**: flask-wtf CSRFProtect — token delivered via `X-CSRF-Token` response header and `<meta>` tag; validated on all state-changing requests (POST/PUT/DELETE).
-- **Security headers**: flask-talisman sets `Content-Security-Policy` (with per-request nonce; `unsafe-inline` removed), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. HSTS activates automatically when TLS is enabled.
+- **Security headers**: flask-talisman sets `Content-Security-Policy` (`script-src` and `style-src` allow `'unsafe-inline'` to support the GUI's dynamically-injected inline event handlers; compensating controls are CSRF, IP allowlist, and `escapeHtml`/`escapeAttr` on all dynamic HTML insertions), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. HSTS activates automatically when TLS is enabled.
 - **Session Management**: flask-login session protection (`strong` mode); secure signed cookies (secret key auto-generated in `config.json`).
 - **Configuration**: Change credentials via **CLI Menu 7. Web GUI Security** or Web GUI **Settings** page.
 - **SMTP credentials**: Set `ILLUMIO_SMTP_PASSWORD` environment variable to avoid storing passwords in config file
@@ -659,9 +659,17 @@ The system implements **multi-layer Draft state protection**:
 
 ## 9. Settings Reference
 
-All settings live in `config/config.json`. Below is the top-level structure; subsequent sections cover the blocks that are not self-explanatory.
+Settings live in two files under `config/`:
+
+- **`config/config.json`** — system / channel configuration (PCE creds, GUI, SMTP, channel destinations, scheduler, etc.).
+- **`config/alerts.json`** — the alert rules engine state, persisted as `{"rules": [...]}` so rule edits don't churn the system config.
+
+In-memory access is unchanged: both files merge into a single `cm.config` dict at load time, and `cm.save()` writes each back to its own file atomically. Legacy single-file installs (rules in `config.json`) and the previous split layout (channel creds in `alerts.json`) are auto-migrated on first save.
+
+Below is the top-level structure; subsequent sections cover the blocks that are not self-explanatory.
 
 ```text
+config/config.json
 {
   "pce_profiles":   [ … ]            // Multi-PCE profile slots (see §6)
   "active_pce_id":  …                // Currently selected profile id
@@ -670,7 +678,6 @@ All settings live in `config/config.json`. Below is the top-level structure; sub
   "email":          { sender, recipients }                // §4.1
   "smtp":           { host, port, user, password, … }     // §4.1
   "settings":       { timezone, language, theme, … }      // §9.1, §9.2
-  "rules":          [ … ]            // Event/Traffic/Bandwidth rules (§2)
   "report":         { schedule, format, retention_days, … }  // §9.3
   "report_schedules": [ … ]                               // Recurring reports (§8 / §9.5)
   "rule_scheduler": { enabled, check_interval_seconds }   // §8
@@ -679,6 +686,9 @@ All settings live in `config/config.json`. Below is the top-level structure; sub
   "siem":           { … }            // SIEM forwarder (SIEM_Integration.md)
   "logging":        { json_sink, level }                  // §5 / Troubleshooting.md
 }
+
+config/alerts.json
+{ "rules": [ … ] }                   // Event/Traffic/Bandwidth rules (§2)
 ```
 
 ### Minimal config — getting started

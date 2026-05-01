@@ -35,41 +35,36 @@ def _parse_csp(headers) -> dict[str, str]:
     return result
 
 
-def test_csp_script_src_no_unsafe_inline(client):
-    """script-src must stay strict — 'unsafe-inline' there enables XSS."""
+def test_csp_script_src_allows_unsafe_inline(client):
+    """script-src carries 'unsafe-inline' so 40+ dynamically-injected
+    inline onclick handlers across the JS codebase keep working while the
+    M1 dispatcher migration is incomplete. See the CSP comment in
+    src/gui/__init__.py for the trade-off and compensating controls."""
     r = client.get("/login")
     csp = _parse_csp(r.headers)
-    assert "'unsafe-inline'" not in csp.get("script-src", ""), \
-        "script-src must not contain 'unsafe-inline'"
+    assert "'unsafe-inline'" in csp.get("script-src", ""), \
+        "script-src must allow 'unsafe-inline' (see src/gui/__init__.py CSP comment)"
 
 
 def test_csp_style_src_allows_unsafe_inline(client):
-    """style-src intentionally allows 'unsafe-inline' so that the 344+ inline
-    style="..." attributes throughout the templates are honoured. Style
-    injection cannot execute scripts, so this is the widely-accepted middle
-    ground; script-src remains strict (covered by the test above)."""
+    """style-src allows 'unsafe-inline' for the 344+ inline style="..."
+    attributes throughout the templates. Style injection cannot execute
+    scripts."""
     r = client.get("/login")
     csp = _parse_csp(r.headers)
     assert "'unsafe-inline'" in csp.get("style-src", ""), \
         "style-src must allow 'unsafe-inline' (see src/gui/__init__.py CSP comment)"
 
 
-def test_csp_script_src_has_nonce(client):
+def test_csp_no_nonce_anywhere(client):
+    """Per CSP Level 3, a nonce in any directive suppresses 'unsafe-inline'
+    in that same directive. Since both script-src and style-src rely on
+    'unsafe-inline', neither directive may carry a nonce."""
     r = client.get("/login")
     csp = _parse_csp(r.headers)
-    assert "'nonce-" in csp.get("script-src", ""), \
-        f"script-src must contain a nonce; got: {csp.get('script-src')!r}"
-
-
-def test_csp_style_src_has_no_nonce(client):
-    """Per CSP Level 3, 'unsafe-inline' is ignored when a nonce is also
-    present in the same directive. Since style-src needs 'unsafe-inline'
-    for the 344+ inline style="..." attributes in templates, it must NOT
-    carry a nonce."""
-    r = client.get("/login")
-    csp = _parse_csp(r.headers)
-    assert "'nonce-" not in csp.get("style-src", ""), \
-        f"style-src must not contain a nonce (would suppress 'unsafe-inline'); got: {csp.get('style-src')!r}"
+    for directive in ("script-src", "style-src"):
+        assert "'nonce-" not in csp.get(directive, ""), \
+            f"{directive} must not contain a nonce (would suppress 'unsafe-inline'); got: {csp.get(directive)!r}"
 
 
 def test_server_header_removed(client):
