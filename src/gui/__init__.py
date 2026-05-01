@@ -3598,8 +3598,19 @@ def _run_https(app, host: str, port: int, cert_file: str, key_file: str) -> None
     ctx = _build_ssl_context(_tls_cfg)
     ctx.load_cert_chain(cert_file, key_file)
 
-    adapter = _SSLAdapter(cert_file, key_file)
-    adapter.context = ctx
+    # M3: avoid cheroot's default-context creation by skipping BuiltinSSLAdapter.__init__
+    # entirely and supplying the pre-hardened context. The grandparent Adapter.__init__
+    # only stores certificate/private_key/chain attributes. The `context` setter wires
+    # cheroot's SNI callback into ctx.
+    # SSL_SERVER_* WSGI env vars are not consumed anywhere in this codebase
+    # (verified by grep over src/ and tests/), so we skip rebuilding _server_env.
+    class _HardenedSSLAdapter(_SSLAdapter):
+        def __init__(self, certificate, private_key, ctx):  # noqa: D401
+            super(_SSLAdapter, self).__init__(certificate, private_key)
+            self.context = ctx
+            self._server_env = {}
+
+    adapter = _HardenedSSLAdapter(cert_file, key_file, ctx)
 
     logger.info("Starting HTTPS server via cheroot on {}:{}", host, port)
     server = _cheroot_wsgi.Server((host, port), app, numthreads=10)
