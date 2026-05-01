@@ -58,8 +58,8 @@ If you only need the PCE web console for occasional manual queries, you don't ne
 | **Multi-Channel Alerts** | Email (SMTP), LINE Notifications, and Webhooks dispatched simultaneously |
 | **Internationalization** | Full English + Traditional Chinese (繁體中文) across CLI, Web GUI, reports, and alerts |
 
-> [!WARNING]
-> **SIEM Status (Preview)** — the built-in SIEM forwarder is currently in **Preview**. Existing deployments can keep running for compatibility, but new production rollout is not recommended until runtime pipeline gaps are closed.
+> [!NOTE]
+> **SIEM Forwarder** — built-in CEF / JSON / RFC5424 syslog / Splunk HEC forwarding over UDP / TCP / TLS / HTTPS, with per-destination DLQ and exponential backoff. New cache rows are enqueued inline at ingest time. See **[SIEM Integration](docs/SIEM_Integration.md)**.
 
 ---
 

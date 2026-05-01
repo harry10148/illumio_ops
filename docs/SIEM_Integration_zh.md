@@ -20,14 +20,7 @@
 
 ## SIEM 轉送器
 
-> [!WARNING]
-> 狀態：**預覽**（2026-04-23）。
-> 現有部署可繼續使用 SIEM 轉送以維持相容性，但完整正式環境推出應等到執行管線缺口補齊後再進行。
->
-> Task.md 中追蹤的已知缺口：
-> - 執行時攝入路徑尚未自動排入 SIEM 派送列。
-> - 排程器派送路徑尚未接線至完整的端對端消費迴圈。
-> - 酬載建置失敗目前可能導致列留在持久性 `pending` 狀態。
+SIEM 轉送器為正式版（GA）。Cache 寫入（事件與流量）在同一個 SQL transaction 內即排入 dispatch 列，因此 SIEM 派送延遲只受 `dispatch_tick_seconds`（預設 5 秒）限制，與 ingest 頻率無關。排程器的 `enqueue_new_records()` 任務保留為補洞用安全網 — 在新增或啟用目的地時補上歷史列，以及處理 crash recovery。
 
 ## 架構
 

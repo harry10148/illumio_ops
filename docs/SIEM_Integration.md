@@ -20,14 +20,7 @@
 
 ## SIEM Forwarder
 
-> [!WARNING]
-> Status: **Preview** (2026-04-23).
-> Existing deployments may continue to use SIEM forwarding for compatibility, but full production rollout should wait until runtime pipeline gaps are closed.
->
-> Known gaps tracked in Task.md:
-> - Runtime ingest path does not yet auto-enqueue SIEM dispatch rows.
-> - Scheduler dispatch path is not yet wired to a full end-to-end consumer loop.
-> - Payload-build failures can currently leave rows in persistent `pending` state.
+The SIEM forwarder is generally available. Cache writes (events and traffic flows) enqueue dispatch rows inline within the same SQL transaction, so SIEM delivery latency is bounded by `dispatch_tick_seconds` (default 5s) regardless of ingest cadence. The scheduler-driven `enqueue_new_records()` job remains as a safety-net backfill — it covers historical rows when a destination is newly added or enabled, and crash recovery.
 
 ## Architecture
 
