@@ -2872,12 +2872,19 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     def api_shutdown():
         if persistent_mode:
             return jsonify({"ok": False, "error": "Shutdown not allowed in persistent mode"}), 403
-            
-        func = request.environ.get('werkzeug.server.shutdown')
-        if func:
-            func()
-        else:
-            os._exit(0)
+
+        def _delayed_exit():
+            import time as _t
+            _t.sleep(0.5)  # Let the response flush to the client
+            import signal as _signal
+            # SIGINT (not SIGTERM): cheroot's _run_http catches KeyboardInterrupt
+            # and runs server.stop() in finally, allowing atexit hooks (sqlite WAL
+            # checkpoint, APScheduler.shutdown) to run. SIGTERM would skip atexit
+            # because no SIGTERM handler is installed in the --gui startup paths
+            # where this endpoint is reachable.
+            os.kill(os.getpid(), _signal.SIGINT)
+
+        threading.Thread(target=_delayed_exit, daemon=True).start()
         return jsonify({"ok": True})
 
     # ??? Rule Scheduler API ????????????????????????????????????????????????
