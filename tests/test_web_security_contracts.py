@@ -34,6 +34,32 @@ def app_client(tmp_path, monkeypatch):
     return app.test_client(), cm
 
 
+@pytest.fixture
+def app_client_initial(tmp_path):
+    """app_client variant with must_change_password=True and a known _initial_password.
+    Mirrors the existing app_client fixture (build_app, TESTING=True) so CSRF /
+    limiter behavior matches."""
+    from src.config import ConfigManager, hash_password
+    initial_pw = "initial-test-pw-1234"
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({
+        "api": {"url": "https://pce.test", "org_id": "1", "key": "k", "secret": "s"},
+        "web_gui": {
+            "username": "illumio",
+            "password": hash_password(initial_pw),
+            "_initial_password": initial_pw,
+            "must_change_password": True,
+            "secret_key": "",
+            "allowed_ips": [],
+        },
+    }), encoding="utf-8")
+    from src.gui import build_app
+    cm = ConfigManager(str(cfg))
+    app = build_app(cm)
+    app.config["TESTING"] = True
+    return app.test_client(), cm, initial_pw
+
+
 def test_login_valid_credentials_sets_session(app_client):
     client, _cm = app_client
     r = client.post("/api/login", json={"username": "illumio", "password": "illumio"})
@@ -190,3 +216,111 @@ def test_gui_init_has_no_str_e_leaks_in_routes():
     # Catch any common identifier name in str(...) inside an error field
     leaks = re.findall(r'jsonify\(\{[^}]*"error"\s*:\s*str\((?:e|exc|err|ex)\)', text)
     assert not leaks, f"Found {len(leaks)} `str(<exc>)` leak(s) in src/gui/__init__.py: {leaks[:3]}"
+
+
+# ----------------------------------------------------------------------------
+# M4: unified error handler & first-login force-change-password contracts
+# ----------------------------------------------------------------------------
+
+def test_unified_error_handler_returns_generic_500(app_client, monkeypatch):
+    """M4: an unhandled exception inside a route must return generic JSON,
+    not leak the traceback. The unified handler at @app.errorhandler(Exception)
+    is responsible.
+
+    Strategy: patch ``src.gui._resolve_reports_dir`` to raise. That call
+    happens BEFORE the route's inner try/except, so the exception
+    propagates up to the unified handler.
+    """
+    client, _cm = app_client
+    r = client.post('/api/login', json={'username': 'illumio', 'password': 'illumio'})
+    assert r.status_code == 200
+
+    sentinel = "TRACEBACK-SECRET-DO-NOT-LEAK"
+
+    import src.gui as _gui_mod
+
+    def _explode(*a, **kw):
+        raise RuntimeError(sentinel)
+
+    monkeypatch.setattr(_gui_mod, '_resolve_reports_dir', _explode)
+    r = client.get('/api/dashboard/audit_summary')
+    body = r.get_json(silent=True) or {}
+    response_text = r.get_data(as_text=True)
+    # Must be 500 from the unified handler (not 200/short-circuited)
+    assert r.status_code == 500, \
+        f"expected 500 from unified handler, got {r.status_code}: {response_text[:200]}"
+    # Sentinel must not appear anywhere in the response
+    assert sentinel not in (body.get('error') or ''), \
+        f"Sentinel leaked into response error field: {body}"
+    assert sentinel not in response_text, \
+        f"Sentinel leaked into response body: {response_text[:200]}"
+    # Must include a request_id so operators can correlate logs
+    assert body.get('request_id'), \
+        f"unified handler should include request_id for log correlation: {body}"
+
+
+def test_unified_error_handler_preserves_http_exceptions(app_client):
+    """M4: 404/405 etc. (HTTPException) must not be swallowed into 500."""
+    client, _cm = app_client
+    # Log in first so the security gate doesn't intercept with 401/redirect
+    # before Flask gets a chance to resolve the missing route.
+    r = client.post('/api/login', json={'username': 'illumio', 'password': 'illumio'})
+    assert r.status_code == 200, f"login failed: {r.get_json()}"
+
+    r = client.get('/this-route-does-not-exist')
+    assert r.status_code == 404, \
+        f"missing route returned {r.status_code} not 404 — HTTPException may be swallowed by unified handler"
+
+
+def test_first_login_must_change_password_blocks_api(app_client_initial):
+    """M4: when must_change_password=True, regular API endpoints must
+    redirect/reject until the password is changed.
+
+    The current gate in security_check returns HTTP 423 (Locked) with
+    ``{"ok": False, "error": "must_change_password", "code": 423}``."""
+    client, _cm, initial_pw = app_client_initial
+    r = client.post('/api/login', json={'username': 'illumio', 'password': initial_pw})
+    assert r.status_code == 200, f"login failed: {r.get_json()}"
+
+    r = client.get('/api/status')
+    body = r.get_json(silent=True) or {}
+    assert (
+        r.status_code in (302, 403, 423)
+        or body.get('must_change_password') is True
+        or body.get('error') == 'must_change_password'
+    ), (
+        f"first-login user reached /api/status without changing password "
+        f"(status={r.status_code}, body={body})"
+    )
+
+
+def test_password_change_clears_must_change_flag(app_client_initial):
+    """M4: changing the password should clear must_change_password
+    AND persist the change to disk."""
+    client, cm, initial_pw = app_client_initial
+    r = client.post('/api/login', json={'username': 'illumio', 'password': initial_pw})
+    assert r.status_code == 200
+    csrf_token = (r.get_json() or {}).get('csrf_token', '')
+
+    headers = {'X-CSRF-Token': csrf_token} if csrf_token else {}
+    r = client.post('/api/security',
+                    json={
+                        'old_password': initial_pw,
+                        'new_password': 'NewStrongPass123!',
+                        'confirm_password': 'NewStrongPass123!',
+                    },
+                    headers=headers)
+    assert r.status_code == 200, f"password change failed: {r.status_code} {r.get_json()}"
+
+    # In-memory check
+    assert not cm.config.get('web_gui', {}).get('must_change_password'), \
+        "must_change_password not cleared in-memory after change"
+    assert '_initial_password' not in cm.config.get('web_gui', {}), \
+        "_initial_password not cleared in-memory after change"
+
+    # Persistence check: re-read from disk to confirm the route called cm.save()
+    cm.load()
+    assert not cm.config.get('web_gui', {}).get('must_change_password'), \
+        "must_change_password not persisted (still True after reload from disk)"
+    assert '_initial_password' not in cm.config.get('web_gui', {}), \
+        "_initial_password not persisted as removed (still present after reload from disk)"

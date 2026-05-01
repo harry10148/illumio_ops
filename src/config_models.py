@@ -127,14 +127,18 @@ class WebGuiTls(_Base):
     http_redirect_port: int = Field(default=80, ge=1, le=65535)
 
 class WebGuiSettings(_Base):
-    # extra="ignore" for forward-compat: new keys added in future config
-    # versions are silently ignored rather than causing validation failure.
-    model_config = ConfigDict(extra="ignore")
+    # extra="allow" so that operational flags like ``_initial_password`` and
+    # ``must_change_password`` (set during first-boot in ConfigManager) survive
+    # schema validation round-trip. Previously this was extra="ignore", which
+    # silently stripped both flags and made the force-change-password gate in
+    # security_check dead code (M4).
+    model_config = ConfigDict(extra="allow")
     username: str = "illumio"
     password: str = "illumio"
     secret_key: str = ""
     allowed_ips: list[str] = Field(default_factory=list)
     tls: WebGuiTls = Field(default_factory=WebGuiTls)
+    must_change_password: bool = False
 
 class PceProfile(_Base):
     """Extra=allow since PCE profile shape may evolve; only require id + url."""
