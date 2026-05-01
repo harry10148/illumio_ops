@@ -632,6 +632,22 @@ def main():
     except Exception:
         pass  # intentional fallback: preview warning must not block CLI startup
 
+    gui_cfg = _early_cm.config.get("web_gui", {})
+    if gui_cfg.get("_initial_password"):
+        # L2: show the auto-generated initial password once, then leave it
+        # in config until first successful login. The login handler removes
+        # it via cm.save().
+        pw = gui_cfg["_initial_password"]
+        sys.stderr.write("\n" + "=" * 60 + "\n")
+        sys.stderr.write(t("initial_password_banner",
+                           default="INITIAL ADMIN PASSWORD (will only be shown once after this run):") + "\n")
+        sys.stderr.write(f"  username: {gui_cfg.get('username', 'illumio')}\n")
+        sys.stderr.write(f"  password: {pw}\n")
+        sys.stderr.write(t("initial_password_hint",
+                           default="Change it immediately at the Settings page after first login.") + "\n")
+        sys.stderr.write("=" * 60 + "\n\n")
+        sys.stderr.flush()
+
     from src.module_log import ModuleLog
     _logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
     ModuleLog.init(os.path.normpath(_logs_dir))

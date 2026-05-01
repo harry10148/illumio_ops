@@ -2121,5 +2121,7 @@
   "gui_ph_ex_dst": "例如 8.8.8.8",
   "gui_ph_ex_any_label": "例如 env=Dev",
   "gui_ph_ex_any_ip": "例如 192.168.0.0/16",
-  "gui_ph_query_name": "例如：Core Services 前幾大客戶"
+  "gui_ph_query_name": "例如：Core Services 前幾大客戶",
+  "initial_password_banner": "初始管理員密碼（本次啟動僅顯示一次）：",
+  "initial_password_hint": "首次登入後請立即至「設定」頁面變更密碼。"
 }
