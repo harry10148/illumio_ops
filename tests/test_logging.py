@@ -120,3 +120,31 @@ def test_log_does_not_redact_non_secret_fields(tmp_path):
     assert 'partition_key=tenant-foo' in text, "partition_key should not be redacted"
     assert 'port=8443' in text, "port should not be redacted"
     assert '[REDACTED]' not in text, "no redaction marker should appear in this output"
+
+
+def test_no_print_in_daemon_modules():
+    """M5 regression guard: analyzer and reporter run in daemon mode and
+    must not print() to stdout. Exception: Analyzer.run_debug_mode is an
+    interactive debug REPL whose stdout output is the contract — it is
+    surfaced both by the CLI menu (sel == 8) and by the GUI debug API
+    via redirect_stdout, so its print() calls are intentionally retained.
+    """
+    import re
+    from pathlib import Path
+    src_root = Path(__file__).resolve().parents[1] / 'src'
+    for fn in ('analyzer.py', 'reporter.py'):
+        text = (src_root / fn).read_text(encoding='utf-8')
+        # Strip docstrings and comments naively
+        stripped = re.sub(r'"""[\s\S]*?"""', '', text)
+        stripped = re.sub(r"'''[\s\S]*?'''", '', stripped)
+        stripped = re.sub(r'#.*$', '', stripped, flags=re.M)
+        # Excise the interactive debug REPL block: from the def line through
+        # (but not including) the next top-level `def ` at the same indent.
+        if fn == 'analyzer.py':
+            stripped = re.sub(
+                r'(^|\n)(    def run_debug_mode\b[\s\S]*?)(?=\n    def |\Z)',
+                r'\1',
+                stripped,
+            )
+        prints = re.findall(r'(?<![a-zA-Z_])print\s*\(', stripped)
+        assert not prints, f"{fn} contains {len(prints)} print() call(s); use logger instead"

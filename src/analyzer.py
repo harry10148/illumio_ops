@@ -447,10 +447,10 @@ class Analyzer:
         if not pce_health_rules:
             return True
 
-        print(f"{t('checking_pce_health')}...", end=" ", flush=True)
+        logger.debug(t('checking_pce_health'))
         h_status, h_msg = self.api.check_health()
         if h_status != 200:
-            print(f"{Colors.FAIL}{t('status_error')}{Colors.ENDC}")
+            logger.error(t('status_error'))
             logger.warning(f"PCE health check failed: {h_status} - {h_msg[:200]}")
             self.stats.record_pce_error("health", h_msg[:200], status=h_status)
             for rule in pce_health_rules:
@@ -462,7 +462,7 @@ class Analyzer:
                         "details": h_msg[:200]
                     })
         else:
-            print(f"{Colors.GREEN}{t('status_ok')}{Colors.ENDC}")
+            logger.info(t('status_ok'))
             logger.info("PCE health check OK.")
             self.stats.record_pce_success("health", status=h_status, message=h_msg[:120])
         return True
@@ -510,7 +510,7 @@ class Analyzer:
         event alerts are dispatched directly inside this method for cohesion
         with the existing reporter.add_event_alert() call site.
         """
-        print(f"{t('checking_events')}...")
+        logger.info(t('checking_events'))
         event_triggers = []
         events = []
         event_batch = None
@@ -520,17 +520,17 @@ class Analyzer:
                 logger.info("Analyzer event path: cache ({} rows)", len(events))
             except Exception as e:
                 logger.error(f"Cache event poll failed: {e}")
-                print(f"{Colors.FAIL}{t('api_fetch_events_error', error=str(e))}{Colors.ENDC}")
+                logger.error(t('api_fetch_events_error', error=str(e)))
         else:
             try:
                 events, event_batch = self._legacy_event_pull()
             except Exception as e:
                 logger.error(f"Event polling failed; watermark preserved at {self.state.get('event_watermark')}: {e}")
-                print(f"{Colors.FAIL}{t('api_fetch_events_error', error=str(e))}{Colors.ENDC}")
+                logger.error(t('api_fetch_events_error', error=str(e)))
                 self.stats.record_pce_error("events", str(e))
 
         if events:
-            print(t('found_events', count=len(events)))
+            logger.info(t('found_events', count=len(events)))
             logger.info(f"Found {len(events)} events.")
             now_utc = datetime.datetime.now(datetime.timezone.utc)
             normalized_by_id = {}
@@ -678,7 +678,7 @@ class Analyzer:
                     f_copy['_metric_fmt'] = str(conn_val)
                     res['top_matches'].append(f_copy)
 
-        print(t('found_traffic', count=count_processed))
+        logger.info(t('found_traffic', count=count_processed))
         logger.info(f"Processed {count_processed} traffic flows.")
 
         # Return a flat list of (rule, result) pairs for all rules
@@ -744,7 +744,7 @@ class Analyzer:
                         cooldown_minutes=cd_minutes,
                         next_allowed_at=format_utc(next_allowed_at),
                     )
-                    print(f"{Colors.WARNING}{t('alert_cooldown', rule=rule['name'])}{Colors.ENDC}")
+                    logger.warning(t('alert_cooldown', rule=rule['name']))
                     logger.info(f"Rule '{rule['name']}' in cooldown.")
                     return False
             except ValueError:
@@ -759,11 +759,11 @@ class Analyzer:
                 next_allowed_at=throttle_meta.get("next_allowed_at", ""),
                 suppressed=throttle_meta.get("suppressed", 0),
             )
-            print(f"{Colors.WARNING}{rule['name']} suppressed by throttle {throttle_meta.get('throttle', '')}{Colors.ENDC}")
+            logger.warning(f"{rule['name']} suppressed by throttle {throttle_meta.get('throttle', '')}")
             logger.info("Rule '%s' suppressed by throttle %s.", rule["name"], throttle_meta.get("throttle"))
             return False
 
-        print(f"{Colors.FAIL}{t('alert_trigger', rule=rule['name'])}{Colors.ENDC}")
+        logger.warning(t('alert_trigger', rule=rule['name']))
         logger.warning(f"Alert triggered: {rule['name']}")
         if "alert_history" not in self.state:
             self.state["alert_history"] = {}
@@ -991,6 +991,9 @@ class Analyzer:
         return matches[:500]
 
     def run_debug_mode(self, mins=None, pd_sel=None, interactive=None):
+        # Interactive debug REPL: stdout is the contract here. The CLI menu
+        # streams it to the user; the GUI debug API captures it via
+        # redirect_stdout. Keep print() (do not swap to logger).
         print(f"\n{Colors.HEADER}{t('debug_mode_title')}{Colors.ENDC}")
 
         # Auto-detect minutes if not provided
@@ -1021,7 +1024,7 @@ class Analyzer:
 
         # 2. Fetch Traffic
         print(f"\n{Colors.CYAN}[2/2] {t('submitting_query', start=start_dt.strftime('%H:%M'), end=now.strftime('%H:%M'))}{Colors.ENDC}")
-        
+
         # Determine PDs for traffic query
         if pd_sel is None:
             print(f"\n{t('policy_decision')}")
@@ -1149,7 +1152,7 @@ class Analyzer:
 
                 threshold = float(rule.get("threshold_count", 0))
                 is_trigger = val > threshold if rtype == "bandwidth" else val >= threshold
-                
+
                 status = f"{Colors.FAIL}{t('would_trigger')}{Colors.ENDC}" if is_trigger else f"{Colors.GREEN}{t('pass')}{Colors.ENDC}"
                 print(t('eval_result', status=status, threshold=threshold))
 

@@ -9,7 +9,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from src.alerts import build_output_plugin, get_output_registry, render_alert_template
 from src.events import normalize_event, persist_dispatch_results
-from src.utils import Colors
 from src.i18n import t
 
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1315,7 +1314,7 @@ class Reporter:
             else cfg.get("recipients", [])
         )
         if not recipients:
-            print(f"{Colors.WARNING}{t('no_recipients')}{Colors.ENDC}")
+            logger.warning(t('no_recipients'))
             return False
 
         # Zip non-.zip files in-memory; skip files that exceed the size limit
@@ -1352,7 +1351,7 @@ class Reporter:
                 part.add_header("Content-Disposition", f'attachment; filename="{attach_name}"')
                 attach_parts.append(part)
             except (IOError, OSError) as e:
-                print(f"{Colors.WARNING}Warning: could not attach {path}: {e}{Colors.ENDC}")
+                logger.warning(f"Warning: could not attach {path}: {e}")
 
         if skipped:
             limit_mb = _MAX_ATTACH_BYTES // 1024 // 1024
@@ -1388,10 +1387,10 @@ class Reporter:
                 s.login(smtp_conf.get("user"), smtp_conf.get("password"))
             s.sendmail(cfg["sender"], recipients, msg.as_string())
             s.quit()
-            print(f"{Colors.GREEN}{t('mail_sent', host=host, port=port)}{Colors.ENDC}")
+            logger.info(t('mail_sent', host=host, port=port))
             return True
         except Exception as e:
-            print(f"{Colors.FAIL}{t('mail_failed', error=e)}{Colors.ENDC}")
+            logger.error(t('mail_failed', error=e))
             return False
 
     def send_report_email(self, subject, html_body, attachment_path=None):
@@ -1413,7 +1412,7 @@ class Reporter:
 
         cfg = self.cm.config["email"]
         if not cfg["recipients"]:
-            print(f"{Colors.WARNING}{t('no_recipients')}{Colors.ENDC}")
+            logger.warning(t('no_recipients'))
             return False
 
         msg = MIMEMultipart()
@@ -1434,7 +1433,7 @@ class Reporter:
                 )
                 msg.attach(part)
             except (IOError, OSError) as e:
-                print(f"{Colors.WARNING}Warning: could not attach file {attachment_path}: {e}{Colors.ENDC}")
+                logger.warning(f"Warning: could not attach file {attachment_path}: {e}")
 
         try:
             smtp_conf = self.cm.config.get("smtp", {})
@@ -1451,8 +1450,8 @@ class Reporter:
                 s.login(smtp_conf.get("user"), smtp_conf.get("password"))
             s.sendmail(cfg["sender"], cfg["recipients"], msg.as_string())
             s.quit()
-            print(f"{Colors.GREEN}{t('mail_sent', host=host, port=port)}{Colors.ENDC}")
+            logger.info(t('mail_sent', host=host, port=port))
             return True
         except Exception as e:
-            print(f"{Colors.FAIL}{t('mail_failed', error=e)}{Colors.ENDC}")
+            logger.error(t('mail_failed', error=e))
             return False
