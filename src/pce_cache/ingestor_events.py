@@ -8,7 +8,7 @@ from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from src.pce_cache.models import PceEvent
+from src.pce_cache.models import PceEvent, SiemDispatch
 from src.pce_cache.watermark import WatermarkStore
 
 
@@ -21,11 +21,13 @@ class EventsIngestor:
         session_factory: sessionmaker,
         watermark: WatermarkStore,
         async_threshold: int = 10000,
+        siem_destinations: Optional[list[str]] = None,
     ):
         self._api = api
         self._sf = session_factory
         self._wm = watermark
         self._async_threshold = async_threshold
+        self._siem_dests = list(siem_destinations or [])
 
     def run_once(self, *, force_async: bool = False) -> int:
         since = self._since_cursor()
@@ -81,6 +83,17 @@ class EventsIngestor:
                         ingested_at=now,
                     )
                     s.add(row)
+                    if self._siem_dests:
+                        s.flush()
+                        for dest in self._siem_dests:
+                            s.add(SiemDispatch(
+                                source_table="pce_events",
+                                source_id=row.id,
+                                destination=dest,
+                                status="pending",
+                                retries=0,
+                                queued_at=now,
+                            ))
             except IntegrityError:
                 continue
             count += 1

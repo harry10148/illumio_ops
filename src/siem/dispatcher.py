@@ -209,7 +209,15 @@ def enqueue_new_records(
     session_factory: sessionmaker,
     destinations: list[str],
 ) -> int:
-    """Enqueue cache rows not yet in siem_dispatch. Returns count of new rows created."""
+    """Safety-net backfill: enqueue any cache rows that ingestors didn't enqueue inline.
+
+    Ingestors enqueue rows in the same transaction as the cache write, so this
+    function should normally find nothing. It exists to cover (a) destinations
+    being newly added/enabled (historical rows weren't enqueued at write time),
+    (b) crash recovery, and (c) operator-driven backfill.
+
+    Returns count of new dispatch rows created.
+    """
     if not destinations:
         return 0
 
@@ -238,4 +246,10 @@ def enqueue_new_records(
         for source_id in new_ids:
             enqueue(session_factory, source_table, source_id, destinations)
             total += 1
+    if total:
+        logger.info(
+            "siem safety-net backfill enqueued {} rows (ingestors should normally cover this; "
+            "expected after destination add/enable or crash recovery)",
+            total,
+        )
     return total

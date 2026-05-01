@@ -71,6 +71,17 @@ def tick_rule_schedules(cm) -> None:
         mlog.error(f"Rule schedule tick failed: {exc}")
 
 
+def _enabled_siem_destinations(cm, source_type: str) -> list[str]:
+    """Return enabled destination names that subscribe to the given source_type."""
+    siem_cfg = cm.models.siem
+    if not siem_cfg.enabled:
+        return []
+    return [
+        d.name for d in (siem_cfg.destinations or [])
+        if d.enabled and source_type in (d.source_types or [])
+    ]
+
+
 def run_events_ingest(cm) -> None:
     try:
         from sqlalchemy import create_engine
@@ -86,7 +97,8 @@ def run_events_ingest(cm) -> None:
         api = ApiClient(cm)
         ing = EventsIngestor(api=api, session_factory=sf,
                               watermark=WatermarkStore(sf),
-                              async_threshold=cfg.async_threshold_events)
+                              async_threshold=cfg.async_threshold_events,
+                              siem_destinations=_enabled_siem_destinations(cm, "audit"))
         count = ing.run_once()
         logger.info("Events ingest: {} rows inserted", count)
     except Exception as exc:
@@ -108,7 +120,8 @@ def run_traffic_ingest(cm) -> None:
         api = ApiClient(cm)
         ing = TrafficIngestor(api=api, session_factory=sf,
                                watermark=WatermarkStore(sf),
-                               max_results=cfg.traffic_sampling.max_rows_per_batch)
+                               max_results=cfg.traffic_sampling.max_rows_per_batch,
+                               siem_destinations=_enabled_siem_destinations(cm, "traffic"))
         count = ing.run_once()
         logger.info("Traffic ingest: {} rows inserted", count)
     except Exception as exc:

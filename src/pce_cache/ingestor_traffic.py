@@ -9,7 +9,7 @@ from loguru import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from src.pce_cache.models import PceTrafficFlowRaw
+from src.pce_cache.models import PceTrafficFlowRaw, SiemDispatch
 from src.pce_cache.traffic_filter import TrafficFilter, TrafficSampler
 from src.pce_cache.watermark import WatermarkStore
 
@@ -25,6 +25,7 @@ class TrafficIngestor:
         traffic_filter: Optional[TrafficFilter] = None,
         sample_ratio_allowed: int = 1,
         max_results: int = 200000,
+        siem_destinations: Optional[list[str]] = None,
     ):
         self._api = api
         self._sf = session_factory
@@ -32,6 +33,7 @@ class TrafficIngestor:
         self._filter = traffic_filter or TrafficFilter()
         self._sampler = TrafficSampler(ratio_allowed=sample_ratio_allowed)
         self._max_results = max_results
+        self._siem_dests = list(siem_destinations or [])
 
     def run_once(self) -> int:
         since = self._since_cursor()
@@ -102,6 +104,17 @@ class TrafficIngestor:
                         ingested_at=now,
                     )
                     s.add(row)
+                    if self._siem_dests:
+                        s.flush()
+                        for dest in self._siem_dests:
+                            s.add(SiemDispatch(
+                                source_table="pce_traffic_flows_raw",
+                                source_id=row.id,
+                                destination=dest,
+                                status="pending",
+                                retries=0,
+                                queued_at=now,
+                            ))
             except IntegrityError:
                 continue
             count += 1
