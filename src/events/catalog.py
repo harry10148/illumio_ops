@@ -294,3 +294,317 @@ KNOWN_EVENT_TYPES |= LOCAL_EXTENSION_EVENT_TYPES
 
 def is_known_event_type(event_type: str) -> bool:
     return event_type in KNOWN_EVENT_TYPES
+
+
+# ---------------------------------------------------------------------------
+# Wizard-facing event catalog (extracted from src/settings/_legacy.py, H6).
+# ---------------------------------------------------------------------------
+
+# 1. Legacy stub dict — seeds _LEGACY_EVENT_CATALOG / _EVENT_CATEGORY_OVERRIDES
+#    before the full catalog is built.  Renamed from the original FULL_EVENT_CATALOG
+#    stub to avoid a forward-reference conflict with the real FULL_EVENT_CATALOG below.
+_LEGACY_STUB = {
+    "General": {"*": "event_all_events"},
+    "Agent Health": {
+        "system_task.agent_missed_heartbeats_check": "event_agent_missed_heartbeats",
+        "system_task.agent_offline_check": "event_agent_offline",
+        "lost_agent.found": "event_lost_agent_found",
+        "agent.service_not_available": "event_agent_service_not_available",
+    },
+    "Agent Security": {
+        "agent.tampering": "event_agent_tampering",
+        "agent.clone_detected": "event_agent_clone_detected",
+        "agent.activate": "event_agent_activate",
+        "agent.deactivate": "event_agent_deactivate",
+    },
+    "User Access": {
+        "user.authenticate": "event_user_authenticate",
+        "user.sign_in": "event_user_sign_in",
+        "user.sign_out": "event_user_sign_out",
+        "user.login_session_terminated": "event_user_login_session_terminated",
+        "user.pce_session_terminated": "event_user_pce_session_terminated",
+    },
+    "Agent Health Detail": {
+        "agent.goodbye": "event_agent_goodbye",
+        "agent.suspend": "event_agent_suspend",
+        "agent.refresh_policy": "event_agent_refresh_policy",
+    },
+    "Auth & API": {
+        "request.authentication_failed": "event_api_auth_failed",
+        "request.authorization_failed": "event_api_authz_failed",
+        "api_key.create": "event_api_key_create",
+        "api_key.delete": "event_api_key_delete",
+    },
+    "Policy": {
+        "rule_set.delete": "event_ruleset_delete",
+        "rule_set.create": "event_ruleset_create",
+        "rule_set.update": "event_ruleset_update",
+        "sec_rule.create": "event_rule_create",
+        "sec_rule.update": "event_rule_update",
+        "sec_rule.delete": "event_rule_delete",
+        "sec_policy.create": "event_policy_prov",
+    },
+    "System": {
+        "cluster.update": "event_cluster_update",
+    },
+}
+
+# 2. Intermediate constants built from _LEGACY_STUB
+_LEGACY_EVENT_CATALOG = _LEGACY_STUB
+_EVENT_CATEGORY_OVERRIDES = {
+    event_id: category
+    for category, events in _LEGACY_EVENT_CATALOG.items()
+    for event_id in events
+}
+_EVENT_DESCRIPTION_OVERRIDES = {
+    event_id: description
+    for events in _LEGACY_EVENT_CATALOG.values()
+    for event_id, description in events.items()
+}
+
+# 3. Builder configuration
+_CATEGORY_ORDER = [
+    "General",
+    "Agent Health",
+    "Agent Operations",
+    "Agent Security",
+    "User Access",
+    "Auth & API",
+    "Policy",
+    "Containers & Workloads",
+    "Network & Integrations",
+    "Platform & System",
+    "Inventory & Identity",
+]
+_HIDDEN_EVENT_TYPES = {
+    "agent.reguest_policy",
+}
+_STATUS_FILTER_EVENT_TYPES = {
+    "request.authentication_failed",
+    "request.authorization_failed",
+    "request.internal_server_error",
+    "request.service_unavailable",
+    "request.unknown_server_error",
+    "user.authenticate",
+    "user.login",
+    "user.logout",
+    "user.sign_in",
+    "user.sign_out",
+    "user.verify_mfa",
+}
+_SEVERITY_FILTER_EVENT_TYPES = set(_STATUS_FILTER_EVENT_TYPES)
+
+# 4. Helper functions
+def _humanize_event_id(event_id: str) -> str:
+    if event_id == "*":
+        return "All events"
+    text = event_id.replace(".", " ").replace("_", " ").strip()
+    if not text:
+        return event_id
+    return " ".join(part.capitalize() for part in text.split())
+
+def _event_category(event_id: str) -> str:
+    if event_id == "*":
+        return "General"
+    if event_id.startswith(("ip_tables_rule.", "sec_policy_pending.")):
+        return "Policy"
+    if event_id.startswith(("security_principals.", "security_principal.")):
+        return "Inventory & Identity"
+    if event_id.startswith(("system_task.", "database.", "event_settings.", "settings.", "org.", "cluster.", "job.", "license.")):
+        return "Platform & System"
+    if event_id.startswith(("agent.", "agents.", "lost_agent.")):
+        if any(token in event_id for token in ("tampering", "clone", "missed_heartbeats", "offline")):
+            return "Agent Security"
+        if event_id.startswith((
+            "agent.generate_maintenance_token",
+            "agent.machine_identifier",
+            "agent.refresh_token",
+            "agent.reguest_policy",
+            "agent.request_policy",
+            "agent.request_upgrade",
+            "agent.update",
+            "agent.update_",
+            "agent.upload_",
+            "agent.activate",
+            "agent.deactivate",
+            "agent.unsuspend",
+            "agents.clear_conditions",
+            "agents.unpair",
+            "agent_support_report_request.",
+        )):
+            return "Agent Operations"
+        return "Agent Health"
+    if event_id in _EVENT_CATEGORY_OVERRIDES:
+        category = _EVENT_CATEGORY_OVERRIDES[event_id]
+        if category == "Agent Health Detail":
+            return "Agent Health"
+        if category == "System":
+            return "Platform & System"
+        return category
+    if event_id.startswith(("user.", "users.", "user_local_profile.")):
+        return "User Access"
+    if event_id.startswith((
+        "request.",
+        "api_key.",
+        "auth_security_principal.",
+        "authentication_settings.",
+        "ldap_config.",
+        "login_proxy_",
+        "password_policy.",
+        "radius_config.",
+        "saml_",
+        "security_principal.",
+    )):
+        return "Auth & API"
+    if event_id.startswith((
+        "rule_set.",
+        "rule_sets.",
+        "sec_rule.",
+        "sec_policy.",
+        "access_restriction.",
+        "enforcement_boundary.",
+        "firewall_settings.",
+        "ip_list.",
+        "ip_lists.",
+        "label.",
+        "label_group.",
+        "labels.",
+        "pairing_profile.",
+        "pairing_profiles.",
+        "permission.",
+        "service.",
+        "services.",
+        "service_binding.",
+        "service_bindings.",
+        "service_account.",
+        "trusted_proxy_ips.",
+    )):
+        return "Policy"
+    if event_id.startswith((
+        "container_cluster.",
+        "container_workload.",
+        "container_workload_profile.",
+        "ven_settings.",
+        "ven_software",
+        "workload.",
+        "workload_interface.",
+        "workload_interfaces.",
+        "workload_service_report.",
+        "workload_settings.",
+        "workloads.",
+    )):
+        return "Containers & Workloads"
+    if event_id.startswith((
+        "network.",
+        "network_device.",
+        "network_devices.",
+        "network_endpoint.",
+        "network_enforcement_node.",
+        "network_enforcement_nodes.",
+        "nfc.",
+        "secure_connect_gateway.",
+        "slb.",
+        "syslog_destination.",
+        "traffic_collector_setting.",
+        "virtual_server.",
+        "virtual_service.",
+        "virtual_services.",
+    )):
+        return "Network & Integrations"
+    if event_id.startswith((
+        "domain.",
+        "group.",
+        "resource.",
+        "support_report.",
+        "agent_support_report_request.",
+        "vulnerability.",
+        "vulnerability_report.",
+    )):
+        return "Inventory & Identity"
+    return "General"
+
+def _event_translation_key(event_id: str) -> str:
+    if event_id in _EVENT_DESCRIPTION_OVERRIDES:
+        return _EVENT_DESCRIPTION_OVERRIDES[event_id]
+    return "event_label_" + event_id.replace(".", "_")
+
+def _build_full_event_catalog() -> dict[str, dict[str, str]]:
+    buckets: dict[str, dict[str, str]] = {category: {} for category in _CATEGORY_ORDER}
+    for event_id in sorted({"*"} | set(KNOWN_EVENT_TYPES)):
+        if event_id in _HIDDEN_EVENT_TYPES:
+            continue
+        category = _event_category(event_id)
+        buckets.setdefault(category, {})
+        buckets[category][event_id] = _event_translation_key(event_id)
+    return {category: events for category, events in buckets.items() if events}
+
+# 5. Final computed constants — module-load-time
+FULL_EVENT_CATALOG = _build_full_event_catalog()
+ACTION_EVENTS = sorted(event_id for event_id in KNOWN_EVENT_TYPES if event_id in _STATUS_FILTER_EVENT_TYPES)
+SEVERITY_FILTER_EVENTS = sorted(event_id for event_id in KNOWN_EVENT_TYPES if event_id in _SEVERITY_FILTER_EVENT_TYPES)
+DISCOVERY_EVENTS = sorted(set(KNOWN_EVENT_TYPES) - set(ACTION_EVENTS))
+
+# 6. Description / tips lookup dicts
+EVENT_DESCRIPTION_KEYS = {
+    "agent.goodbye":                              "event_desc_agent_goodbye",
+    "agent.service_not_available":                "event_desc_agent_service_not_available",
+    "agent.suspend":                              "event_desc_agent_suspend",
+    "lost_agent.found":                           "event_desc_lost_agent_found",
+    "agent.tampering":                            "event_desc_agent_tampering",
+    "agent.clone_detected":                       "event_desc_agent_clone_detected",
+    "agent.activate_clone":                       "event_desc_agent_activate_clone",
+    "user.sign_in":                               "event_desc_user_sign_in",
+    "user.sign_out":                              "event_desc_user_sign_out",
+    "user.login_session_terminated":              "event_desc_user_login_session_terminated",
+    "user.use_expired_password":                  "event_desc_user_use_expired_password",
+    "user.pce_session_terminated":                "event_desc_user_pce_session_terminated",
+    "request.authentication_failed":              "event_desc_request_authentication_failed",
+    "request.authorization_failed":               "event_desc_request_authorization_failed",
+    "sec_policy.create":                          "event_desc_sec_policy_create",
+    "enforcement_boundary.create":                "event_desc_enforcement_boundary_create",
+    "enforcement_boundary.delete":                "event_desc_enforcement_boundary_delete",
+    "firewall_settings.update":                   "event_desc_firewall_settings_update",
+    "system_task.agent_missed_heartbeats_check":  "event_desc_system_task_agent_missed_heartbeats",
+    "system_task.agent_offline_check":            "event_desc_system_task_agent_offline_check",
+    "workloads.unpair":                           "event_desc_workloads_unpair",
+    "network_enforcement_node.missed_heartbeats": "event_desc_nen_missed_heartbeats",
+    "network_enforcement_node.degraded":          "event_desc_nen_degraded",
+}
+
+EVENT_TIPS_KEYS = {
+    "*":                                          "event_tips_all",
+    "agent.goodbye":                              "event_tips_agent_goodbye",
+    "agent.service_not_available":                "event_tips_agent_service_not_available",
+    "agent.suspend":                              "event_tips_agent_suspend",
+    "agent.refresh_policy":                       "event_tips_agent_refresh_policy",
+    "agent.activate":                             "event_tips_agent_activate",
+    "agent.deactivate":                           "event_tips_agent_deactivate",
+    "agent.tampering":                            "event_tips_agent_tampering",
+    "agent.clone_detected":                       "event_tips_agent_clone_detected",
+    "lost_agent.found":                           "event_tips_lost_agent_found",
+    "system_task.agent_missed_heartbeats_check":  "event_tips_system_task_agent_missed_heartbeats_check",
+    "system_task.agent_offline_check":            "event_tips_system_task_agent_offline_check",
+    "user.authenticate":                          "event_tips_user_authenticate",
+    "user.sign_in":                               "event_tips_user_sign_in",
+    "user.sign_out":                              "event_tips_user_sign_out",
+    "user.login_session_terminated":              "event_tips_user_login_session_terminated",
+    "user.pce_session_terminated":                "event_tips_user_pce_session_terminated",
+    "request.authentication_failed":              "event_tips_request_authentication_failed",
+    "request.authorization_failed":               "event_tips_request_authorization_failed",
+    "api_key.create":                             "event_tips_api_key_create",
+    "api_key.delete":                             "event_tips_api_key_delete",
+    "rule_set.create":                            "event_tips_rule_set_create",
+    "rule_set.update":                            "event_tips_rule_set_update",
+    "rule_set.delete":                            "event_tips_rule_set_delete",
+    "sec_rule.create":                            "event_tips_sec_rule_create",
+    "sec_rule.update":                            "event_tips_sec_rule_update",
+    "sec_rule.delete":                            "event_tips_sec_rule_delete",
+    "sec_policy.create":                          "event_tips_sec_policy_create",
+    "enforcement_boundary.create":                "event_tips_enforcement_boundary_create",
+    "enforcement_boundary.delete":                "event_tips_enforcement_boundary_delete",
+    "firewall_settings.update":                   "event_tips_firewall_settings_update",
+    "cluster.update":                             "event_tips_cluster_update",
+    "workloads.unpair":                           "event_tips_workloads_unpair",
+    "network_enforcement_node.missed_heartbeats": "event_tips_nen_missed_heartbeats",
+    "network_enforcement_node.degraded":          "event_tips_nen_degraded",
+}
