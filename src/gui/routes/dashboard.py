@@ -358,7 +358,12 @@ def make_dashboard_blueprint(
                     "draft_pd": item.get('draft_policy_decision', ''),
                 })
 
-            return jsonify({"ok": True, "data": top10, "total": len(sorted_v)})
+            return jsonify({
+                "ok": True,
+                "data": top10,
+                "total": len(sorted_v),
+                "source": getattr(base_ana, "last_query_source", "api"),
+            })
         except Exception as e:
             return _err_with_log("dashboard_top10", e)
 

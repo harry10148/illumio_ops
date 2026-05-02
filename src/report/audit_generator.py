@@ -688,7 +688,8 @@ class AuditGenerator:
         if fmt in ('html', 'all'):
             path = AuditHtmlExporter(
                 result.module_results, df=result.dataframe,
-                date_range=result.date_range, detail_level=_REPORT_DETAIL_LEVEL, lang=lang,
+                date_range=result.date_range, data_source=result.source,
+                detail_level=_REPORT_DETAIL_LEVEL, lang=lang,
             ).export(output_dir)
             paths.append(path)
             self._write_report_metadata(path, result, file_format='html')

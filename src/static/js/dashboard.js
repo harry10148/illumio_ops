@@ -1570,9 +1570,9 @@ async function deleteTop10Query(idx) {
 /* ── Top 10 cache helpers ── */
 function _top10CacheKey(idx) { return 'top10_cache_' + idx; }
 
-function _saveTop10Cache(idx, data, total) {
+function _saveTop10Cache(idx, data, total, source) {
   try {
-    localStorage.setItem(_top10CacheKey(idx), JSON.stringify({ data, total, ts: Date.now() }));
+    localStorage.setItem(_top10CacheKey(idx), JSON.stringify({ data, total, ts: Date.now(), source: source || 'api' }));
   } catch (_) { /* quota exceeded — ignore */ }
 }
 
@@ -1586,12 +1586,35 @@ function _restoreCachedTop10(idx) {
   try {
     const c = JSON.parse(raw);
     if (c.data && c.data.length) {
-      _renderTop10Body(idx, c.data, c.total, c.ts);
+      _renderTop10Body(idx, c.data, c.total, c.ts, c.source || 'api');
     } else {
       const ms = $(`d-qstate-${idx}`);
-      if (ms) ms.textContent = (_t('gui_top10_no_records')) + '  (' + _fmtCacheTs(c.ts) + ')';
+      if (ms) _setStatusWithSourceBadge(ms,
+        (_t('gui_top10_no_records')) + '  (' + _fmtCacheTs(c.ts) + ')',
+        c.source || 'api');
     }
   } catch (_) { /* corrupt cache — ignore */ }
+}
+
+// Render a small chip indicating where the data came from. Built via DOM
+// methods (createElement + textContent) to avoid innerHTML XSS surface.
+function _setStatusWithSourceBadge(el, statusText, source) {
+  el.textContent = '';
+  const s = (source || 'api').toLowerCase();
+  const colorMap = { cache: '#22C55E', mixed: '#EAB308', api: '#60A5FA' };
+  const titleMap = {
+    cache: _t('gui_source_badge_cache'),
+    mixed: _t('gui_source_badge_mixed'),
+    api: _t('gui_source_badge_api'),
+  };
+  const badge = document.createElement('span');
+  badge.textContent = s;
+  badge.title = titleMap[s] || titleMap.api;
+  badge.style.cssText = 'display:inline-block;background:' + (colorMap[s] || colorMap.api) +
+    ';color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;' +
+    'letter-spacing:0.3px;text-transform:uppercase;vertical-align:middle;margin-right:6px;';
+  el.appendChild(badge);
+  el.appendChild(document.createTextNode(statusText));
 }
 
 function _fmtCacheTs(ts) {
@@ -1600,7 +1623,7 @@ function _fmtCacheTs(ts) {
   return d.toLocaleString();
 }
 
-function _renderTop10Body(idx, data, total, ts) {
+function _renderTop10Body(idx, data, total, ts, source) {
   const ms = $(`d-qstate-${idx}`), bd = $(`d-qbody-${idx}`);
   if (!ms || !bd) return;
 
@@ -1681,7 +1704,7 @@ function _renderTop10Body(idx, data, total, ts) {
   bd.innerHTML = html;
   let status = (_t('gui_top10_found')).replace('{count}', total);
   if (ts) status += '  (' + _fmtCacheTs(ts) + ')';
-  ms.textContent = status;
+  _setStatusWithSourceBadge(ms, status, source || 'api');
   initTableResizers();
 }
 
@@ -1706,12 +1729,12 @@ async function runTop10Query(idx) {
     if (!r.ok) throw new Error(r.error || _t('gui_ev_unknown_error'));
 
     if (r.data && r.data.length) {
-      _saveTop10Cache(idx, r.data, r.total);
-      _renderTop10Body(idx, r.data, r.total, Date.now());
+      _saveTop10Cache(idx, r.data, r.total, r.source);
+      _renderTop10Body(idx, r.data, r.total, Date.now(), r.source);
     } else {
-      _saveTop10Cache(idx, [], 0);
+      _saveTop10Cache(idx, [], 0, r.source);
       bd.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--dim);padding:20px;">${_t('gui_top10_no_records')}</td></tr>`;
-      ms.textContent = (_t('gui_done')) + '  (' + _fmtCacheTs(Date.now()) + ')';
+      _setStatusWithSourceBadge(ms, (_t('gui_done')) + '  (' + _fmtCacheTs(Date.now()) + ')', r.source);
     }
   } catch (e) {
     ms.textContent = (_t('error_generic')).replace('{error}', e.message);
