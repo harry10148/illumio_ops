@@ -220,12 +220,12 @@ def test_unified_error_handler_returns_generic_500(app_client, monkeypatch):
 
     sentinel = "TRACEBACK-SECRET-DO-NOT-LEAK"
 
-    import src.gui as _gui_mod
+    import src.gui.routes.dashboard as _dashboard_mod
 
     def _explode(*a, **kw):
         raise RuntimeError(sentinel)
 
-    monkeypatch.setattr(_gui_mod, '_resolve_reports_dir', _explode)
+    monkeypatch.setattr(_dashboard_mod, '_resolve_reports_dir', _explode)
     r = client.get('/api/dashboard/audit_summary')
     body = r.get_json(silent=True) or {}
     response_text = r.get_data(as_text=True)
