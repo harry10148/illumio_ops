@@ -26,6 +26,11 @@ class TestApiClientNativeTrafficBuilder(unittest.TestCase):
         self.client._label_href_cache = {"role:web": "/orgs/1/labels/1"}
         self.client._label_group_href_cache = {"lg:web": "/orgs/1/sec_policy/draft/label_groups/3"}
         self.client._iplist_href_cache = {"corp-net": "/orgs/1/sec_policy/draft/ip_lists/2"}
+        # Stub the network refresh path: resolvers force-refresh the lookup cache on miss
+        # (labels._resolve_*_to_actor → _ensure_query_lookup_cache(force_refresh=True) →
+        # update_label_cache), which hits the real PCE host. Tests with intentional cache
+        # misses (env:prod, named-iplist) need this stub to stay offline.
+        self.client.update_label_cache = MagicMock(return_value=None)
         self._temp_dir = tempfile.TemporaryDirectory()
         self.client._state_file = os.path.join(self._temp_dir.name, "state.json")
 

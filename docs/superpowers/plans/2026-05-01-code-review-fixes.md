@@ -10,6 +10,67 @@
 
 ---
 
+## Implementation Status (Updated 2026-05-02)
+
+Branch `code-review-fixes` is 33 commits ahead of `main`. Detailed checkboxes below are kept as-is for posterity; this section is the source of truth for batch-level state.
+
+**Batch 1 — 安全急迫 — DONE (7/7)**
+- ✅ 1.1 H1 constant-time login → `b1c3d7a`
+- ⚠️ 1.2 H2 require old_password → `25f9fbf` then **REVERSED** in `e22dc5c` (2026-05-02). Authenticated session is now sufficient for credential/settings changes; CLI `web_gui_security_menu` (option 1) is the canonical forgot-password recovery path. `PasswordChangeForm` removed; i18n keys `gui_old_password` / `gui_err_invalid_old_pass` deleted.
+- ✅ 1.3 H3 stop leaking exception strings → `3b88f80`
+- ✅ 1.4 M4 unified handler & first-login force-change tests → `ee228ec`
+- ✅ 1.5 M8 logout CSRF → `97f7086`
+- ✅ 1.6 L1 secret_key empty-string fallback → `c70a9c8`
+- ✅ 1.7 L4 loguru sink secret redaction → `09357b1`
+
+**Batch 2 — 行為一致性 — DONE (6/7, M6 deferral honored)**
+- ✅ 2.1 M5 print → logger in analyzer/reporter → `81e5a3e`
+- ✅ 2.2/2.3 M6 legacy event/traffic warning → `401b97c` (full deletion still deferred behind feature-flag flip)
+- ✅ 2.4 M7 except-Exception-pass audit → `8094e13`
+- ✅ 2.5 L2 initial password banner → `30511cd`
+- ✅ 2.6 L3 graceful shutdown via SIGINT → `4110719`
+- ✅ 2.7 L6 mark TestResult dataclass not-a-test → `d8093c9`
+
+**Batch 3 — XSS / CSP / 範本 i18n — DONE (4/4)**
+- ✅ 3.1 M1 inline onclick → delegated dispatcher → `861f4c4` + follow-up `9643938` (change/input/keydown)
+- ✅ 3.2 M2 jsStr → DOM API in `rule-scheduler.js` → `24fe4e6`
+- ✅ 3.3 L5 i18n alert templates (line_digest, mail_wrapper) → `59a9625`
+- ✅ 3.4 M3 SSL context to BuiltinSSLAdapter at init → `28eadea`
+
+**Batch 5 — 測試與型別衛生 — NOT STARTED (0/7)**
+- ⬜ 5.1 M10 lift duplicated fixtures into `tests/conftest.py`
+- ⬜ 5.2 M9 split `test_gui_security.py` into 8 focused files
+- ⬜ 5.3 M11 type hints on Analyzer / ApiClient / Reporter public APIs
+- ⬜ 5.4 L8 `utils.py` reorg
+- ⬜ 5.5 L9 split `rules_engine.py` into per-rule modules
+- ⬜ 5.6 L10 unify daemon-startup path (argparse vs click)
+- ⬜ 5.7 L7 bundle CJK font for matplotlib
+
+**Batch 4 — 巨型重構 — DEFERRED (sub-plans not yet authored)**
+- ⬜ H4 `i18n.py` extraction (~2300 lines moved) — sub-plan needed
+- ⬜ H5 `gui/__init__.py` Blueprint split (~3700 lines moved) — sub-plan needed
+- ⬜ H6 `settings.py` rename / CLI menus split (~2200 lines moved) — sub-plan needed
+
+**Out-of-plan items completed on `code-review-fixes`** (kept for traceability — not in original review report):
+- SIEM forwarder GA + inline-enqueue ingest path (`96d770c`, `f5b612d`)
+- Bundle Montserrat locally; relax `style-src` CSP; drop nonce so `unsafe-inline` applies (`1494e2c`, `5f537ff`, `0d92b16`)
+- Preserve real secret when GUI re-POSTs masked settings (`f0f93e0`)
+- Integrations Overview auto-render + suppress TLS-warn spam (`816ae23`)
+- Split `alerts` into `config/alerts.json` and `.gitignore` it; widen CSP (`80159c3`, `a0c8b33`, `9fec888`)
+- First-run UX: default admin password `illumio` with must-change banner + forced inline change (`0a12b54`, `88760d6`, `dd26054`)
+- New `POST /api/cache/retention/run` endpoint (in `e22dc5c`)
+
+**Final Acceptance — outstanding**
+- mypy on `src/api_client.py src/analyzer.py src/reporter.py` (gated by Task 5.3)
+- Manual UI smoke at `https://localhost:5001` under TLS
+- Self-signed cert renew flow manual test
+- CHANGELOG entry for Batches 1–5
+- Merge `code-review-fixes` → `main` and tag release
+
+**Environment note (2026-05-02):** the venv at `venv/` was created when the repo lived at `/home/harry/dev/illumio-ops/`. Its script shebangs still point there, so invoke pytest as `venv/bin/python3 -m pytest` (not `venv/bin/pytest`). Either rebuild the venv or update the documented commands in this plan when convenient.
+
+---
+
 ## Scope Note
 
 The original review report covers six logically-distinct subsystems (auth, error handling, XSS, i18n, GUI structure, CLI structure, test hygiene). Per `superpowers:writing-plans` guidance, multi-subsystem specs should normally be broken into separate plans. We compromise: this single document contains five batches that are each self-contained, but **Batch 4** explicitly defers to three sub-plans that must be authored when their turn comes.
