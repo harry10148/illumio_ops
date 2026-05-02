@@ -6,6 +6,9 @@ import pytest
 
 from src import i18n
 from src import settings as settings_module
+import src.cli.menus.traffic as _traffic_module
+import src.cli.menus.bandwidth as _bandwidth_module
+import src.cli.menus._helpers as _helpers_module
 
 
 def _prepare_wizard(monkeypatch, answers):
@@ -19,10 +22,12 @@ def _prepare_wizard(monkeypatch, answers):
 
     confirms = iter(["", ""])
 
-    monkeypatch.setattr(settings_module.os, "system", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(_traffic_module.os, "system", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(_bandwidth_module.os, "system", lambda *_args, **_kwargs: None)
     monkeypatch.setattr("src.utils.draw_panel", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr("src.utils.safe_input", fake_safe_input)
-    monkeypatch.setattr(settings_module, "get_last_input_action", lambda: state["action"])
+    monkeypatch.setattr(_traffic_module, "safe_input", fake_safe_input)
+    monkeypatch.setattr(_bandwidth_module, "safe_input", fake_safe_input)
+    monkeypatch.setattr(_helpers_module, "get_last_input_action", lambda: state["action"])
     monkeypatch.setattr("builtins.input", lambda *_args, **_kwargs: next(confirms))
 
 
