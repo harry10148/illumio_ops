@@ -42,6 +42,33 @@ def _make_subscribers(cm):
         return None, None
 
 
+def _make_cache_reader(cm):
+    """Return a CacheReader when pce_cache is enabled and reachable, else None.
+
+    Used by ReportGenerator and AuditGenerator to short-circuit PCE API calls
+    when the requested time window is already covered by the local cache.
+    """
+    try:
+        if not cm.models.pce_cache.enabled:
+            return None
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from src.pce_cache.reader import CacheReader
+        from src.pce_cache.schema import init_schema
+        cfg = cm.models.pce_cache
+        engine = create_engine(f"sqlite:///{cfg.db_path}")
+        init_schema(engine)
+        sf = sessionmaker(engine)
+        return CacheReader(
+            session_factory=sf,
+            events_retention_days=int(getattr(cfg, "events_retention_days", 30)),
+            traffic_raw_retention_days=int(getattr(cfg, "traffic_raw_retention_days", 30)),
+        )
+    except Exception as exc:
+        logger.warning("Could not create cache reader: {}", exc)
+        return None
+
+
 # ─── Daemon / Monitor Loop ───────────────────────────────────────────────────
 #
 # Daemon startup logic now lives in src.cli._runtime so the argparse path
@@ -406,7 +433,8 @@ def _run_report_menu(cm):
             try:
                 api = ApiClient(cm)
                 reporter = Reporter(cm)
-                gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
+                gen = ReportGenerator(cm, api_client=api, config_dir=config_dir,
+                                      cache_reader=_make_cache_reader(cm))
 
                 if sel == 1:
                     result = gen.generate_from_api(start_date=api_start_date, end_date=api_end_date, filters=api_filters)
@@ -688,7 +716,8 @@ def _run_audit_report_menu(cm):
     print(f"\n{Colors.CYAN}{t('audit_generating')}{Colors.ENDC}")
     try:
         api = ApiClient(cm)
-        gen = AuditGenerator(cm, api_client=api, config_dir=config_dir)
+        gen = AuditGenerator(cm, api_client=api, config_dir=config_dir,
+                             cache_reader=_make_cache_reader(cm))
 
         result = gen.generate_from_api(start_date=start_date, end_date=end_date)
         if result.record_count > 0:

@@ -167,7 +167,9 @@ def make_reports_blueprint(
             api = ApiClient(cm)
             reporter = Reporter(cm)
 
-            gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
+            from src.main import _make_cache_reader
+            gen = ReportGenerator(cm, api_client=api, config_dir=config_dir,
+                                  cache_reader=_make_cache_reader(cm))
 
             source = d.get('source', 'api')
             _VALID_PROFILES = ("security_risk", "network_inventory")
@@ -272,7 +274,9 @@ def make_reports_blueprint(
             cm.load()
             config_dir = _resolve_config_dir()
             api = ApiClient(cm)
-            gen = AuditGenerator(cm, api_client=api, config_dir=config_dir)
+            from src.main import _make_cache_reader
+            gen = AuditGenerator(cm, api_client=api, config_dir=config_dir,
+                                 cache_reader=_make_cache_reader(cm))
 
             start_date = d.get('start_date')
             end_date = d.get('end_date')

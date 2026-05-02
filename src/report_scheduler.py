@@ -239,9 +239,11 @@ class ReportScheduler:
 
     def _generate_report(self, report_type, api, fmt, output_dir, start_date, end_date, name, filters=None):
         """Dispatch to the appropriate generator. Returns (result, paths) or (None, [])."""
+        from src.main import _make_cache_reader
         if report_type == "traffic":
             from src.report.report_generator import ReportGenerator
-            gen = ReportGenerator(self.cm, api_client=api, config_dir=self._config_dir)
+            gen = ReportGenerator(self.cm, api_client=api, config_dir=self._config_dir,
+                                  cache_reader=_make_cache_reader(self.cm))
             result = gen.generate_from_api(start_date=start_date, end_date=end_date, filters=filters)
             if result.record_count == 0:
                 logger.warning(f"[Scheduler] '{name}': no traffic data — skipping export")
@@ -252,7 +254,8 @@ class ReportScheduler:
 
         elif report_type == "audit":
             from src.report.audit_generator import AuditGenerator
-            gen = AuditGenerator(self.cm, api_client=api, config_dir=self._config_dir)
+            gen = AuditGenerator(self.cm, api_client=api, config_dir=self._config_dir,
+                                 cache_reader=_make_cache_reader(self.cm))
             result = gen.generate_from_api(start_date=start_date, end_date=end_date)
             if result.record_count == 0:
                 logger.warning(f"[Scheduler] '{name}': no audit data — skipping export")

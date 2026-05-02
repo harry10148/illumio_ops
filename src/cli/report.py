@@ -59,7 +59,9 @@ def generate_traffic_report(
     _root_dir, config_dir = _resolve_paths(output_dir)
     out = _resolve_output_dir(cm, output_dir)
 
-    gen = ReportGenerator(cm, api_client=api, config_dir=config_dir)
+    from src.main import _make_cache_reader
+    gen = ReportGenerator(cm, api_client=api, config_dir=config_dir,
+                          cache_reader=_make_cache_reader(cm))
     if source == "csv":
         if not file_path:
             raise click.ClickException("--file is required when --source csv is used")
@@ -95,7 +97,9 @@ def generate_audit_report(
     _root_dir, config_dir = _resolve_paths(output_dir)
     out = _resolve_output_dir(cm, output_dir)
 
-    gen = AuditGenerator(cm, api_client=api, config_dir=config_dir)
+    from src.main import _make_cache_reader
+    gen = AuditGenerator(cm, api_client=api, config_dir=config_dir,
+                         cache_reader=_make_cache_reader(cm))
     result = gen.generate_from_api(
         start_date=_iso_date(start_date, end_of_day=False),
         end_date=_iso_date(end_date, end_of_day=True),
