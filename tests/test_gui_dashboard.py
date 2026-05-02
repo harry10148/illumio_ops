@@ -42,7 +42,7 @@ def test_report_schedule_run_marks_schedule_running(client, app_persistent, monk
     cm.save()
 
     state_file = tmp_path / "state.json"
-    monkeypatch.setattr("src.gui._resolve_state_file", lambda: str(state_file))
+    monkeypatch.setattr("src.gui.routes.reports._resolve_state_file", lambda: str(state_file))
     started = threading.Event()
     release = threading.Event()
 
