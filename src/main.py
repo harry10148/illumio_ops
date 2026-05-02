@@ -163,7 +163,8 @@ def rule_management_menu(cm):
             rep = Reporter(cm)
             sub_events, sub_flows = _make_subscribers(cm)
             ana = Analyzer(cm, api, rep,
-                           subscriber_events=sub_events, subscriber_flows=sub_flows)
+                           subscriber_events=sub_events, subscriber_flows=sub_flows,
+                           cache_reader=_make_cache_reader(cm))
             ana.run_analysis()
             rep.send_alerts()
             input(
@@ -174,7 +175,8 @@ def rule_management_menu(cm):
             rep = Reporter(cm)
             sub_events, sub_flows = _make_subscribers(cm)
             ana = Analyzer(cm, api, rep,
-                           subscriber_events=sub_events, subscriber_flows=sub_flows)
+                           subscriber_events=sub_events, subscriber_flows=sub_flows,
+                           cache_reader=_make_cache_reader(cm))
             ana.run_debug_mode()
             input(
                 f"\n{Colors.CYAN}[?]{Colors.ENDC} {t('press_enter_to_continue')} {Colors.GREEN}❯{Colors.ENDC} "

@@ -30,8 +30,18 @@ _AUDIT_GEN_SITES = [
     ("src/report_scheduler.py", r"AuditGenerator\([^)]*cache_reader\s*="),
 ]
 
+# Analyzer call sites for query_flows / run_analysis paths (Top10, dashboard
+# widgets, scheduled monitor cycle). Must pass cache_reader= so query_flows
+# can short-circuit to the cache when fully covered.
+_ANALYZER_SITES = [
+    ("src/gui/routes/dashboard.py", r"Analyzer\(.*?cache_reader\s*="),
+    ("src/gui/routes/actions.py", r"Analyzer\(.*?cache_reader\s*="),
+    ("src/main.py", r"Analyzer\(.*?cache_reader\s*="),
+    ("src/scheduler/jobs.py", r"Analyzer\(.*?cache_reader\s*="),
+]
 
-@pytest.mark.parametrize("relpath,pattern", _REPORT_GEN_SITES + _AUDIT_GEN_SITES)
+
+@pytest.mark.parametrize("relpath,pattern", _REPORT_GEN_SITES + _AUDIT_GEN_SITES + _ANALYZER_SITES)
 def test_cache_reader_passed_at_call_site(relpath, pattern):
     text = (_REPO_ROOT / relpath).read_text(encoding="utf-8")
     # Allow the pattern to span multiple lines (DOTALL) since some call

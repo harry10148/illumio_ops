@@ -84,7 +84,8 @@ def calculate_volume_mb(flow: dict[str, Any]) -> tuple[float, str]:
 
 class Analyzer:
     def __init__(self, config_manager: Any, api_client: IApiClient, reporter: IReporter,
-                 subscriber_events: Any = None, subscriber_flows: Any = None) -> None:
+                 subscriber_events: Any = None, subscriber_flows: Any = None,
+                 cache_reader: Any = None) -> None:
         self.cm = config_manager
         # Stored as Any: IApiClient/IReporter Protocols only declare a subset
         # of the methods Analyzer actually calls (e.g. execute_traffic_query_stream,
@@ -93,6 +94,14 @@ class Analyzer:
         self.reporter: Any = reporter
         self._sub_events = subscriber_events
         self._sub_flows = subscriber_flows
+        # Optional cache reader for time-range traffic queries (Top10, dashboard
+        # widgets). When None, query_flows always hits the PCE API. When set
+        # and the requested window is fully covered, reads from cache instead
+        # — same hybrid pattern as ReportGenerator._fetch_traffic.
+        self._cache_reader: Any = cache_reader
+        # Records the data origin of the most recent query_flows() call:
+        # "cache" | "mixed" | "api". Useful for dashboard UI badges.
+        self.last_query_source: str = "api"
         now_str = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         self.state: dict[str, Any] = {
             "last_check": now_str,
@@ -790,6 +799,82 @@ class Analyzer:
             crit.append(f"Port:{rule['port']}")
         return ", ".join(crit)
 
+    def _fetch_query_flows(
+        self,
+        start_time: str,
+        end_time: str,
+        query_pds: list[str],
+        query_spec: Any,
+        needs_draft: bool,
+    ) -> tuple[Any, str]:
+        """Cache-aware fetch for query_flows. Returns (flow_iterable, source).
+
+        Mirrors ReportGenerator._fetch_traffic: full cache hit → cache;
+        partial → API fills the gap, cache covers the rest; otherwise → API.
+        Note: cache rows are pre-decoded PCE flow dicts, so they are drop-in
+        compatible with the downstream pipeline that consumes the API stream.
+        Filtering (native + fallback) still happens in check_flow_match below,
+        so cache returning unfiltered flows is safe.
+        """
+        # Without a cache reader, behaviour is identical to the pre-cache path.
+        if self._cache_reader is None:
+            stream = self.api.execute_traffic_query_stream(
+                start_time, end_time, query_pds,
+                filters=query_spec, compute_draft=needs_draft,
+            )
+            return stream, "api"
+
+        try:
+            start_dt = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ').replace(
+                tzinfo=datetime.timezone.utc,
+            )
+            end_dt = datetime.datetime.strptime(end_time, '%Y-%m-%dT%H:%M:%SZ').replace(
+                tzinfo=datetime.timezone.utc,
+            )
+        except (ValueError, TypeError):
+            stream = self.api.execute_traffic_query_stream(
+                start_time, end_time, query_pds,
+                filters=query_spec, compute_draft=needs_draft,
+            )
+            return stream, "api"
+
+        try:
+            state = self._cache_reader.cover_state("traffic", start_dt, end_dt)
+        except Exception as exc:
+            logger.warning("query_flows: cache cover_state failed ({}); using API", exc)
+            stream = self.api.execute_traffic_query_stream(
+                start_time, end_time, query_pds,
+                filters=query_spec, compute_draft=needs_draft,
+            )
+            return stream, "api"
+
+        if state == "full":
+            logger.info("query_flows: flows from cache ({} → {})", start_dt, end_dt)
+            return self._cache_reader.read_flows_raw(start_dt, end_dt), "cache"
+
+        if state == "partial":
+            cache_start = self._cache_reader.earliest_ingested_at("traffic")
+            if cache_start is not None and cache_start > start_dt:
+                gap_end = cache_start.strftime('%Y-%m-%dT%H:%M:%SZ')
+                logger.info(
+                    "query_flows: hybrid fetch — API gap [{} → {}), cache [{} → {}]",
+                    start_dt, cache_start, cache_start, end_dt,
+                )
+                gap_stream = self.api.execute_traffic_query_stream(
+                    start_time, gap_end, query_pds,
+                    filters=query_spec, compute_draft=needs_draft,
+                )
+                cached = self._cache_reader.read_flows_raw(cache_start, end_dt)
+                gap_list = list(gap_stream) if gap_stream else []
+                return gap_list + cached, "mixed"
+
+        # miss / partial-with-conflict: fall through to API
+        stream = self.api.execute_traffic_query_stream(
+            start_time, end_time, query_pds,
+            filters=query_spec, compute_draft=needs_draft,
+        )
+        return stream, "api"
+
     def query_flows(self, params: dict) -> list[dict[str, Any]]:
         """
         Generic traffic flow query utilizing identical metrics logic to run_debug_mode.
@@ -859,8 +944,8 @@ class Analyzer:
         # because the draft EB may affect flows whose reported PD is "allowed".
         query_pds = pds if not needs_draft else ["blocked", "potentially_blocked", "allowed"]
 
-        traffic_stream = self.api.execute_traffic_query_stream(
-            start_time, end_time, query_pds, filters=query_spec, compute_draft=needs_draft
+        traffic_stream, self.last_query_source = self._fetch_query_flows(
+            start_time, end_time, query_pds, query_spec, needs_draft,
         )
         if not traffic_stream:
             return []

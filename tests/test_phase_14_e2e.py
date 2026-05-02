@@ -48,8 +48,9 @@ def test_audit_report_cache_hit_no_api_call(session_factory):
     # only the now-1d event falls within [now-36h, now]
     start = datetime.now(timezone.utc) - timedelta(hours=36)
     end = datetime.now(timezone.utc)
-    events = gen._fetch_events(start, end)
+    events, source = gen._fetch_events(start, end)
     assert len(events) == 1
+    assert source == "cache"
     api.get_events.assert_not_called()
 
 
@@ -63,7 +64,8 @@ def test_audit_report_cache_miss_falls_back_to_api(session_factory):
     gen = AuditGenerator(api=api, cache_reader=rd)
     start = datetime.now(timezone.utc) - timedelta(days=150)
     end = datetime.now(timezone.utc) - timedelta(days=120)
-    gen._fetch_events(start, end)
+    events, source = gen._fetch_events(start, end)
+    assert source == "api"
     api.get_events.assert_called_once()
 
 

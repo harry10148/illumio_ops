@@ -41,6 +41,9 @@ class AuditReportResult:
     date_range: tuple = ('', '')
     module_results: dict = field(default_factory=dict)
     dataframe: object = None
+    # Where the events came from: "cache" (full cache hit), "mixed" (cache + API
+    # gap-fill for hybrid coverage), or "api" (cache disabled / miss / error).
+    source: str = "api"
 
 # ── Nested-field extraction helpers ──────────────────────────────────────────
 
@@ -425,16 +428,43 @@ class AuditGenerator:
         self._config_dir = config_dir
         self._cache = cache_reader
 
-    def _fetch_events(self, start: datetime.datetime, end: datetime.datetime) -> list:
-        """Fetch events from cache when fully covered, otherwise fall back to API."""
+    def _fetch_events(self, start: datetime.datetime, end: datetime.datetime) -> tuple[list, str]:
+        """Fetch events with cache-aware hybrid coverage.
+
+        Returns ``(events, source)`` where source is one of:
+          - ``"cache"`` — full coverage; everything came from the local cache
+          - ``"mixed"`` — partial coverage; API filled the gap before
+            ``cache_start``, cache covered ``[cache_start, end]``
+          - ``"api"`` — cache disabled, missed entirely, or unhealthy; all
+            events came from the PCE API
+        """
         if self._cache is not None:
             state = self._cache.cover_state("events", start, end)
             if state == "full":
                 logger.info("Audit report: events from cache ({} → {})", start, end)
-                return self._cache.read_events(start, end)
-            # partial or miss: fall through to API
+                return self._cache.read_events(start, end), "cache"
+            if state == "partial":
+                cache_start = self._cache.earliest_ingested_at("events")
+                if cache_start is not None and cache_start > start:
+                    logger.info(
+                        "Audit report: hybrid fetch — API gap [{} → {}), cache [{} → {}]",
+                        start, cache_start, cache_start, end,
+                    )
+                    start_str = start.isoformat().replace("+00:00", "Z")
+                    cache_start_str = cache_start.isoformat().replace("+00:00", "Z")
+                    try:
+                        gap = self.api.fetch_events(start_str, cache_start_str) or []
+                    except Exception as exc:
+                        logger.warning(
+                            "Audit hybrid: API gap fetch failed ({}); falling back to full API path", exc,
+                        )
+                        gap = None
+                    if gap is not None:
+                        cached = self._cache.read_events(cache_start, end)
+                        return gap + cached, "mixed"
+            # partial+earliest-conflict, or miss: fall through to API
         start_str = start.isoformat().replace("+00:00", "Z")
-        return self.api.get_events(since=start_str)
+        return self.api.get_events(since=start_str), "api"
 
     def generate_from_api(self, start_date: Optional[str] = None,
                           end_date: Optional[str] = None,
@@ -455,16 +485,16 @@ class AuditGenerator:
         print(t("rpt_audit_querying", start=start_date, end=end_date))
         _start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         _end_dt = datetime.datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-        events = self._fetch_events(_start_dt, _end_dt)
+        events, source = self._fetch_events(_start_dt, _end_dt)
 
         if not events:
             print(t("rpt_audit_no_events"))
-            return AuditReportResult(record_count=0)
+            return AuditReportResult(record_count=0, source=source)
 
         df = self._build_dataframe(events)
         print(t("rpt_audit_records", count=f"{len(df):,}"))
 
-        return self._run_pipeline(df, start_date, end_date)
+        return self._run_pipeline(df, start_date, end_date, source=source)
 
     @staticmethod
     def _build_dataframe(events: list) -> pd.DataFrame:
@@ -614,7 +644,7 @@ class AuditGenerator:
         return df
 
     def _run_pipeline(self, df: pd.DataFrame, start_date: str,
-                      end_date: str) -> AuditReportResult:
+                      end_date: str, source: str = "api") -> AuditReportResult:
         from src.report.analysis.audit.audit_mod01_health import audit_system_health
         from src.report.analysis.audit.audit_mod02_users import audit_user_activity
         from src.report.analysis.audit.audit_mod03_policy import audit_policy_changes
@@ -644,7 +674,8 @@ class AuditGenerator:
             record_count=len(df),
             date_range=(start_date[:10], end_date[:10]),
             module_results=results,
-            dataframe=df
+            dataframe=df,
+            source=source,
         )
 
     def export(self, result: AuditReportResult, fmt: str = 'html',

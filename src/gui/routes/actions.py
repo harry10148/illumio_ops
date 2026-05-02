@@ -46,7 +46,9 @@ def make_actions_blueprint(
             import datetime
 
             api = ApiClient(cm)
-            base_ana = Analyzer(cm, api, Reporter(cm))
+            from src.main import _make_cache_reader
+            base_ana = Analyzer(cm, api, Reporter(cm),
+                                cache_reader=_make_cache_reader(cm))
 
             mins = int(d.get("mins", 30))
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -261,9 +263,10 @@ def make_actions_blueprint(
         from src.api_client import ApiClient
         from src.reporter import Reporter
         from src.analyzer import Analyzer
+        from src.main import _make_cache_reader
         api = ApiClient(cm)
         rep = Reporter(cm)
-        ana = Analyzer(cm, api, rep)
+        ana = Analyzer(cm, api, rep, cache_reader=_make_cache_reader(cm))
         ana.run_analysis()
         rep.send_alerts()
         return jsonify({"ok": True, "output": t("gui_action_run_completed")})
@@ -276,9 +279,10 @@ def make_actions_blueprint(
         from src.api_client import ApiClient
         from src.reporter import Reporter
         from src.analyzer import Analyzer
+        from src.main import _make_cache_reader
         api = ApiClient(cm)
         rep = Reporter(cm)
-        ana = Analyzer(cm, api, rep)
+        ana = Analyzer(cm, api, rep, cache_reader=_make_cache_reader(cm))
         buf = io.StringIO()
         with redirect_stdout(buf):
             ana.run_debug_mode(mins=mins, pd_sel=pd_sel, interactive=False)

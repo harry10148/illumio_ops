@@ -12,7 +12,7 @@ def run_monitor_cycle(cm) -> None:
     from src.analyzer import Analyzer
     from src.reporter import Reporter
     from src.module_log import ModuleLog
-    from src.main import _make_subscribers
+    from src.main import _make_subscribers, _make_cache_reader
 
     mlog = ModuleLog.get("monitor")
     try:
@@ -21,7 +21,8 @@ def run_monitor_cycle(cm) -> None:
         rep = Reporter(cm)
         sub_events, sub_flows = _make_subscribers(cm)
         ana = Analyzer(cm, api, rep,
-                       subscriber_events=sub_events, subscriber_flows=sub_flows)
+                       subscriber_events=sub_events, subscriber_flows=sub_flows,
+                       cache_reader=_make_cache_reader(cm))
         ana.run_analysis()
         rep.send_alerts()
         mlog.info("Monitor cycle complete")

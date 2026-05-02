@@ -252,7 +252,9 @@ def make_dashboard_blueprint(
             import datetime
 
             api = ApiClient(cm)
-            base_ana = Analyzer(cm, api, Reporter(cm))
+            from src.main import _make_cache_reader
+            base_ana = Analyzer(cm, api, Reporter(cm),
+                                cache_reader=_make_cache_reader(cm))
 
             mins = int(d.get("mins", 30))
             now = datetime.datetime.now(datetime.timezone.utc)
