@@ -1,0 +1,3 @@
+# The root .gitignore excludes data/ (runtime state), but src/i18n/data/
+# contains versioned JSON assets, not runtime data.
+!data/
