@@ -99,40 +99,7 @@ _TOKEN_MAP_EN: dict[str, str] = _load_json_data("token_map_en.json")
 
 _TOKEN_MAP_ZH: dict[str, str] = _load_json_data("token_map_zh.json")
 
-_PHRASE_OVERRIDES = {
-    "No Reports": "尚無報表",
-    "Generate your first report using the buttons above.": "請使用上方按鈕產生第一份報表。",
-    "Delete Selected": "刪除已選項目",
-    'Delete "{filename}"?': '確定要刪除「{filename}」嗎？',
-    "Delete {count} reports?": "要刪除 {count} 份報表嗎？",
-    "Deleted {count} items": "已刪除 {count} 個項目",
-    "Some items failed to delete": "部分項目刪除失敗",
-    "Bulk delete failed": "批次刪除失敗",
-    "Bulk delete error: {error}": "批次刪除發生錯誤：{error}",
-    "Name is required.": "名稱為必填。",
-    "Loading rulesets...": "正在載入規則集...",
-    "Loading rules...": "正在載入規則...",
-    "Searching rules...": "正在搜尋規則...",
-    "No results found.": "找不到結果。",
-    "Request timed out": "請求逾時",
-    "Request timed out (PCE may be unreachable)": "請求逾時（PCE 可能無法連線）",
-    "Loading...": "載入中...",
-    "Run": "立即執行",
-    "Edit": "編輯",
-    "Enable": "啟用",
-    "Disable": "停用",
-    "Schedule": "排程",
-    "Edit Report Schedule": "編輯報表排程",
-    "Add Report Schedule": "新增報表排程",
-    "Schedule saved.": "排程已儲存。",
-    "Schedule updated.": "排程已更新。",
-    "Schedule deleted.": "排程已刪除。",
-    "Schedule started.": "排程已啟動。",
-    "Never run": "尚未執行",
-    "Success": "成功",
-    "Failed": "失敗",
-    "No report schedules.": "目前沒有報表排程。",
-}
+_PHRASE_OVERRIDES: dict[str, str] = _load_json_data("phrase_overrides.json")
 
 def _humanize_key_en(key: str) -> str:
     if key.startswith("event_label_"):
