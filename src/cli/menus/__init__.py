@@ -9,3 +9,7 @@ from src.cli.menus.system_health import add_system_health_menu  # noqa: F401
 from src.cli.menus.traffic import add_traffic_menu  # noqa: F401
 from src.cli.menus.bandwidth import add_bandwidth_volume_menu  # noqa: F401
 from src.cli.menus.manage_rules import manage_rules_menu  # noqa: F401
+from src.cli.menus.alert import alert_settings_menu  # noqa: F401
+from src.cli.menus.web_gui import web_gui_security_menu  # noqa: F401
+from src.cli.menus.report_schedule import manage_report_schedules_menu  # noqa: F401
+from src.cli.menus._root import settings_menu  # noqa: F401
