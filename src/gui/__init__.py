@@ -328,6 +328,10 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
     from src.gui.routes.rule_scheduler import make_rule_scheduler_blueprint
     app.register_blueprint(make_rule_scheduler_blueprint(cm, login_required))
 
+    # ── Admin Blueprint ────────────────────────────────────────────────────────
+    from src.gui.routes.admin import make_admin_blueprint
+    app.register_blueprint(make_admin_blueprint(cm, limiter, login_required, persistent_mode))
+
     @app.errorhandler(_RstDrop)
     def handle_rst_drop(e):
         # Socket is already closed with RST ??return an empty Response object
@@ -392,48 +396,6 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
             response.headers['Cache-Control'] = 'no-store'
         return response
 
-    @app.route('/api/shutdown', methods=['POST'])
-    @limiter.limit("5 per hour")
-    def api_shutdown():
-        if persistent_mode:
-            return jsonify({"ok": False, "error": "Shutdown not allowed in persistent mode"}), 403
-
-        def _delayed_exit():
-            import time as _t
-            _t.sleep(0.5)  # Let the response flush to the client
-            import signal as _signal
-            # SIGINT (not SIGTERM): cheroot's _run_http catches KeyboardInterrupt
-            # and runs server.stop() in finally, allowing atexit hooks (sqlite WAL
-            # checkpoint, APScheduler.shutdown) to run. SIGTERM would skip atexit
-            # because no SIGTERM handler is installed in the --gui startup paths
-            # where this endpoint is reachable.
-            os.kill(os.getpid(), _signal.SIGINT)
-
-        threading.Thread(target=_delayed_exit, daemon=True).start()
-        return jsonify({"ok": True})
-
-    # ??? Module Log API ??????????????????????????????????????????????????????
-    @app.route('/api/logs')
-    def api_log_list():
-        from src.module_log import ModuleLog, MODULES
-        modules = ModuleLog.list_modules()
-        # Ensure all known modules appear even if not yet initialized
-        present = {m["name"] for m in modules}
-        for name, label in MODULES.items():
-            if name not in present:
-                modules.append({"name": name, "label": label, "count": 0})
-        return jsonify({"ok": True, "modules": modules})
-
-    @app.route('/api/logs/<module_name>')
-    def api_log_get(module_name):
-        from src.module_log import ModuleLog, MODULES
-        if module_name not in MODULES:
-            return jsonify({"ok": False, "error": "Unknown module"}), 404
-        n = min(int(request.args.get('n', 200)), 500)
-        ml = ModuleLog.get(module_name)
-        return jsonify({"ok": True, "module": module_name, "entries": ml.get_recent(n)})
-
-    # ??? End Rule Scheduler API ????????????????????????????????????????????
 
     try:
         from src.siem.web import bp as siem_bp
