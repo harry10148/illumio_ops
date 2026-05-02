@@ -242,7 +242,7 @@ def collect_referenced_keys() -> dict[str, list[tuple[str, int]]]:
     """Return {key: [(file, line), ...]} for every i18n key referenced in code."""
     refs: dict[str, list[tuple[str, int]]] = {}
     for path in _iter_files((".py", ".html", ".js")):
-        if path in I18N_SOURCE_FILES:
+        if path in I18N_SOURCE_FILES or (SRC / "i18n") in path.parents:
             continue
         text = _read(path)
         for line_no, line in enumerate(text.splitlines(), start=1):
@@ -413,7 +413,7 @@ def _is_bilingual_allowed(rel: str, full_line: str) -> bool:
 def audit_hardcoded_cjk() -> list[Finding]:
     findings: list[Finding] = []
     for path in _iter_files((".py",)):
-        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES:
+        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES or (SRC / "i18n") in path.parents:
             continue
         rel = _rel(path)
         src_lines = _read(path).splitlines()
@@ -433,7 +433,7 @@ def audit_hardcoded_cjk() -> list[Finding]:
                 detail=snippet,
             ))
     for path in _iter_files((".js", ".html")):
-        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES:
+        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES or (SRC / "i18n") in path.parents:
             continue
         rel = _rel(path)
         src_lines = _read(path).splitlines()
