@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import datetime
 import json
 import gc
 import os
 import sys
+from typing import Any, Iterator
 from loguru import logger
 from collections import Counter
 from src.events import (
@@ -29,7 +32,7 @@ STATE_FILE = os.path.join(ROOT_DIR, "logs", "state.json")
 
 # ─── Standalone Calculators (shared by Analyzer and Report modules) ──────────
 
-def calculate_mbps(flow):
+def calculate_mbps(flow: dict[str, Any]) -> tuple[float, str, float, float]:
     """
     Compute bandwidth in Mbps from a PCE traffic flow record.
     Priority 1: delta bytes (dst_dbo+dst_dbi) / ddms  → Mbps (Interval)
@@ -60,7 +63,7 @@ def calculate_mbps(flow):
         return val, "(Avg)", total_bytes, tdms
     return 0.0, "", 0.0, 0.0
 
-def calculate_volume_mb(flow):
+def calculate_volume_mb(flow: dict[str, Any]) -> tuple[float, str]:
     """
     Compute data volume in MB from a PCE traffic flow record.
     Priority 1: delta bytes (dst_dbo+dst_dbi)  → MB (Interval)
@@ -80,15 +83,18 @@ def calculate_volume_mb(flow):
 # ─── Analyzer Class ───────────────────────────────────────────────────────────
 
 class Analyzer:
-    def __init__(self, config_manager, api_client: IApiClient, reporter: IReporter,
-                 subscriber_events=None, subscriber_flows=None):
+    def __init__(self, config_manager: Any, api_client: IApiClient, reporter: IReporter,
+                 subscriber_events: Any = None, subscriber_flows: Any = None) -> None:
         self.cm = config_manager
-        self.api = api_client
-        self.reporter = reporter
+        # Stored as Any: IApiClient/IReporter Protocols only declare a subset
+        # of the methods Analyzer actually calls (e.g. execute_traffic_query_stream,
+        # add_traffic_alert). TODO: expand the Protocols if we want stricter checking.
+        self.api: Any = api_client
+        self.reporter: Any = reporter
         self._sub_events = subscriber_events
         self._sub_flows = subscriber_flows
         now_str = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-        self.state = {
+        self.state: dict[str, Any] = {
             "last_check": now_str,
             "event_watermark": now_str,
             "history": {},
@@ -106,7 +112,7 @@ class Analyzer:
         self.stats = StatsTracker(self.state)
         self.alert_throttler = AlertThrottler(self.state)
 
-    def load_state(self):
+    def load_state(self) -> None:
         try:
             data = load_state_file(STATE_FILE)
             if not data:
@@ -133,7 +139,7 @@ class Analyzer:
         except Exception as e:
             logger.warning(f"Error loading state file: {e}. Starting fresh.")
 
-    def save_state(self):
+    def save_state(self) -> None:
         now = datetime.datetime.now(datetime.timezone.utc)
         self.state["last_check"] = self.state.get("event_watermark") or format_utc(now)
 
@@ -176,7 +182,7 @@ class Analyzer:
             self.state["unknown_events"] = dict(ranked[:100])
 
         try:
-            def _merge(existing):
+            def _merge(existing: dict[str, Any]) -> dict[str, Any]:
                 merged = dict(existing)
                 merged.update(self.state)
                 return merged
@@ -185,15 +191,15 @@ class Analyzer:
         except (IOError, OSError) as e:
             logger.error(f"Error saving state: {e}")
 
-    def calculate_mbps(self, flow):
+    def calculate_mbps(self, flow: dict[str, Any]) -> tuple[float, str, float, float]:
         """Delegate to module-level calculate_mbps(). See src.analyzer.calculate_mbps."""
         return calculate_mbps(flow)
 
-    def calculate_volume_mb(self, flow):
+    def calculate_volume_mb(self, flow: dict[str, Any]) -> tuple[float, str]:
         """Delegate to module-level calculate_volume_mb(). See src.analyzer.calculate_volume_mb."""
         return calculate_volume_mb(flow)
 
-    def check_flow_match(self, rule, f, start_time_limit):
+    def check_flow_match(self, rule: dict[str, Any], f: dict[str, Any], start_time_limit: datetime.datetime | None) -> bool:
         # Dynamic Sliding Window Check
         if start_time_limit:
             ts_str = f.get("timestamp")
@@ -240,7 +246,7 @@ class Analyzer:
         if rule.get("proto"):
             f_proto = f.get("proto") or f.get("service", {}).get("proto")
             try:
-                if not f_proto or int(f_proto) != int(rule.get("proto")):
+                if not f_proto or int(f_proto) != int(rule["proto"]):
                     return False
             except (ValueError, TypeError):
                 return False
@@ -296,7 +302,7 @@ class Analyzer:
 
         return True
 
-    def _check_flow_labels(self, flow_side, filter_str):
+    def _check_flow_labels(self, flow_side: dict[str, Any], filter_str: str) -> bool:
         if not filter_str:
             return True
         # Support both "key=value" and "key:value" separators
@@ -310,7 +316,7 @@ class Analyzer:
                 return False
         return False
 
-    def _check_ip_filter(self, flow_side, filter_val):
+    def _check_ip_filter(self, flow_side: dict[str, Any], filter_val: str) -> bool:
         if not filter_val:
             return True
         if flow_side.get('ip') == filter_val:
@@ -320,7 +326,7 @@ class Analyzer:
                 return True
         return False
 
-    def get_traffic_details_key(self, flow):
+    def get_traffic_details_key(self, flow: dict[str, Any]) -> str:
         src = flow.get('src', {})
         dst = flow.get('dst', {})
         svc = flow.get('service', {})
@@ -329,7 +335,7 @@ class Analyzer:
         port = svc.get('port', 'All') or flow.get('dst_port', 'All')
         return f"{s_name} -> {d_name} [{port}]"
 
-    def _record_event_matches(self, rule_id, events, now_utc):
+    def _record_event_matches(self, rule_id: Any, events: list[dict[str, Any]], now_utc: datetime.datetime) -> None:
         rid = str(rule_id)
         if rid not in self.state["history"]:
             self.state["history"][rid] = []
@@ -341,7 +347,7 @@ class Analyzer:
                 "event_id": event_identity(event),
             })
 
-    def _event_count_in_window(self, rule_id, window_start):
+    def _event_count_in_window(self, rule_id: Any, window_start: datetime.datetime) -> int:
         total = 0
         for rec in self.state.get("history", {}).get(str(rule_id), []):
             try:
@@ -353,7 +359,7 @@ class Analyzer:
             total += int(rec.get('c', 1))
         return total
 
-    def _fetch_event_batch(self):
+    def _fetch_event_batch(self) -> Any:
         watermark = self.state.get("event_watermark") or self.state.get("last_check")
         seen_events = self.state.get("event_seen", {})
         batch = self.event_poller.fetch_batch(watermark, seen_events=seen_events)
@@ -371,7 +377,7 @@ class Analyzer:
             self.state["event_overflow"] = {}
         return batch
 
-    def _update_parser_observability(self, normalized_events):
+    def _update_parser_observability(self, normalized_events: list[dict[str, Any]]) -> None:
         total = len(normalized_events)
         known = sum(1 for event in normalized_events if event.get("known_event_type"))
         stats = {
@@ -467,7 +473,7 @@ class Analyzer:
             self.stats.record_pce_success("health", status=h_status, message=h_msg[:120])
         return True
 
-    def run_analysis(self):
+    def run_analysis(self) -> None:
         logger.info("Starting analysis cycle.")
         # 1. Health Check (only runs when a system rule with filter_value=pce_health is configured)
         self._run_health_check()
@@ -488,7 +494,7 @@ class Analyzer:
         logger.info("Analysis cycle completed.")
         gc.collect()
 
-    def _legacy_event_pull(self):
+    def _legacy_event_pull(self) -> tuple[list[dict[str, Any]], Any]:
         """Fetch events from the PCE API (legacy path used when no cache subscriber)."""
         logger.warning(
             "[deprecated] _legacy_event_pull called — pce_cache path should be "
@@ -591,7 +597,7 @@ class Analyzer:
 
         return event_triggers
 
-    def _legacy_fetch_traffic(self):
+    def _legacy_fetch_traffic(self) -> tuple[Any, datetime.datetime]:
         """Fetch traffic from the PCE API (legacy path used when no cache subscriber)."""
         logger.warning(
             "[deprecated] _legacy_fetch_traffic called — pce_cache path should be "
@@ -631,7 +637,7 @@ class Analyzer:
         traffic_stream, now_utc = self._legacy_fetch_traffic()
         return traffic_stream, tr_rules, now_utc
 
-    def _run_rule_engine(self, traffic_stream, tr_rules: list, now_utc) -> list:
+    def _run_rule_engine(self, traffic_stream: Any, tr_rules: list, now_utc: datetime.datetime) -> list:
         """Iterate over traffic flows and accumulate per-rule match results.
 
         Args:
@@ -643,7 +649,7 @@ class Analyzer:
             List of (rule, result_dict) pairs for ALL rules, each paired with
             its accumulated result containing max_val and top_matches.
         """
-        rule_results = {r['id']: {'max_val': 0.0, 'top_matches': []} for r in tr_rules}
+        rule_results: dict[Any, dict[str, Any]] = {r['id']: {'max_val': 0.0, 'top_matches': []} for r in tr_rules}
 
         count_processed = 0
         for f in traffic_stream:
@@ -733,7 +739,7 @@ class Analyzer:
                 else:
                     self.reporter.add_traffic_alert(alert_data)
 
-    def _check_cooldown(self, rule):
+    def _check_cooldown(self, rule: dict[str, Any]) -> bool:
         rid = str(rule["id"])
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         last_alert = self.state.get("alert_history", {}).get(rid)
@@ -778,13 +784,13 @@ class Analyzer:
         self.state["alert_history"][rid] = now_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
         return True
 
-    def _build_criteria_str(self, rule):
+    def _build_criteria_str(self, rule: dict[str, Any]) -> str:
         crit = [f"Threshold: > {rule['threshold_count']}"]
         if rule.get('port'):
             crit.append(f"Port:{rule['port']}")
         return ", ".join(crit)
 
-    def query_flows(self, params: dict):
+    def query_flows(self, params: dict) -> list[dict[str, Any]]:
         """
         Generic traffic flow query utilizing identical metrics logic to run_debug_mode.
         params schema:
@@ -863,7 +869,7 @@ class Analyzer:
 
         now_dt = datetime.datetime.now(datetime.timezone.utc)
         try:
-            start_dt = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)
+            start_dt = datetime.datetime.strptime(start_time, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=datetime.timezone.utc)  # type: ignore[arg-type]
         except (ValueError, TypeError):
             start_dt = now_dt - datetime.timedelta(minutes=30)
             
@@ -998,7 +1004,7 @@ class Analyzer:
         matches.sort(key=lambda x: x.get('_metric_val', 0), reverse=True)
         return matches[:500]
 
-    def run_debug_mode(self, mins=None, pd_sel=None, interactive=None):
+    def run_debug_mode(self, mins: int | None = None, pd_sel: int | None = None, interactive: bool | None = None) -> None:
         # Interactive debug REPL: stdout is the contract here. The CLI menu
         # streams it to the user; the GUI debug API captures it via
         # redirect_stdout. Keep print() (do not swap to logger).
@@ -1090,7 +1096,7 @@ class Analyzer:
                     matches.append(e)
                 
                 print(t('time_filter_results', total=len(events), win=rule_win, rem=len(matches)))
-                val = len(matches)
+                val: float = len(matches)
                 threshold = float(rule.get("threshold_count", 1))
                 is_trigger = val >= threshold
 

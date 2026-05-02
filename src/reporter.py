@@ -1,6 +1,9 @@
-﻿import datetime
+﻿from __future__ import annotations
+
+import datetime
 import json
 import html
+from typing import Any, Callable
 from loguru import logger
 import os
 import re
@@ -16,13 +19,13 @@ ROOT_DIR = os.path.dirname(PKG_DIR)
 STATE_FILE = os.path.join(ROOT_DIR, "logs", "state.json")
 
 class Reporter:
-    def __init__(self, config_manager):
+    def __init__(self, config_manager: Any) -> None:
         self.cm = config_manager
-        self.health_alerts = []
-        self.event_alerts = []
-        self.traffic_alerts = []
-        self.metric_alerts = []
-        self.last_dispatch_results = []
+        self.health_alerts: list[dict[str, Any]] = []
+        self.event_alerts: list[dict[str, Any]] = []
+        self.traffic_alerts: list[dict[str, Any]] = []
+        self.metric_alerts: list[dict[str, Any]] = []
+        self.last_dispatch_results: list[dict[str, Any]] = []
 
     def _now_str(self) -> str:
         """Return current time formatted in the configured timezone."""
@@ -30,7 +33,7 @@ class Reporter:
         try:
             if not tz_str or tz_str == 'local':
                 offset = datetime.datetime.now(datetime.timezone.utc).astimezone().utcoffset()
-                tz = datetime.timezone(offset)
+                tz = datetime.timezone(offset)  # type: ignore[arg-type]
             elif tz_str == 'UTC':
                 tz = datetime.timezone.utc
             elif tz_str.startswith('UTC+') or tz_str.startswith('UTC-'):
@@ -41,25 +44,25 @@ class Reporter:
                 tz = datetime.timezone.utc
             now = datetime.datetime.now(tz)
             offset_s = now.strftime('%z')
-            sign = offset_s[0]; hh = offset_s[1:3]; mm = offset_s[3:5]
-            tz_label = f"UTC{sign}{hh}:{mm}" if mm != '00' else f"UTC{sign}{hh}"
+            sign_ch = offset_s[0]; hh = offset_s[1:3]; mm = offset_s[3:5]
+            tz_label = f"UTC{sign_ch}{hh}:{mm}" if mm != '00' else f"UTC{sign_ch}{hh}"
             return now.strftime('%Y-%m-%d %H:%M') + f' ({tz_label})'
         except Exception:
             return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')  # intentional fallback: return UTC time if timezone offset calculation fails
 
-    def add_health_alert(self, alert):
+    def add_health_alert(self, alert: dict[str, Any]) -> None:
         self.health_alerts.append(alert)
 
-    def add_event_alert(self, alert):
+    def add_event_alert(self, alert: dict[str, Any]) -> None:
         self.event_alerts.append(alert)
 
-    def add_traffic_alert(self, alert):
+    def add_traffic_alert(self, alert: dict[str, Any]) -> None:
         self.traffic_alerts.append(alert)
 
-    def add_metric_alert(self, alert):
+    def add_metric_alert(self, alert: dict[str, Any]) -> None:
         self.metric_alerts.append(alert)
 
-    def _get_output_plugin(self, name: str):
+    def _get_output_plugin(self, name: str) -> Any:
         try:
             return build_output_plugin(name, self.cm)
         except KeyError:
@@ -75,11 +78,11 @@ class Reporter:
         return str(self.cm.config.get("api", {}).get("url", "")).strip()
 
     @staticmethod
-    def _clean_text(value) -> str:
+    def _clean_text(value: Any) -> str:
         return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(value or ""))
 
     @classmethod
-    def _compact_text(cls, value) -> str:
+    def _compact_text(cls, value: Any) -> str:
         return re.sub(r"\s+", " ", cls._clean_text(value)).strip()
 
     # ------------------------------------------------------------------ #
@@ -158,7 +161,7 @@ class Reporter:
         return f"{base}/#{href}" if href else base
 
     @staticmethod
-    def _summarize_notification_info(info) -> str:
+    def _summarize_notification_info(info: Any) -> str:
         if not isinstance(info, dict):
             return ""
         parts = []
@@ -323,13 +326,13 @@ class Reporter:
         )
         return json.loads(rendered)
 
-    def generate_pretty_snapshot_html(self, data_list):
+    def generate_pretty_snapshot_html(self, data_list: list[dict[str, Any]]) -> str:
         import re
 
-        def clean_ansi(text):
+        def clean_ansi(text: Any) -> str:
             return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(text))
 
-        def esc(text):
+        def esc(text: Any) -> str:
             return html.escape(clean_ansi(text), quote=True)
 
         # Snapshot column labels resolved via i18n so alert emails follow
@@ -350,7 +353,7 @@ class Reporter:
             no_data = esc(t("alert_snap_no_data"))
             return f"<div style='padding:10px 12px; color:#6b7280; font-size:12px;'>{no_data}</div>"
 
-        def actor_view(item, is_source=True):
+        def actor_view(item: dict[str, Any], is_source: bool = True) -> str:
             actor = item.get("source" if is_source else "destination", {})
             raw = item.get("src" if is_source else "dst", {})
             svc = item.get("service", {})
@@ -457,10 +460,10 @@ class Reporter:
         table_html += "</table>"
         return table_html
 
-    def _build_plain_text_report(self):
+    def _build_plain_text_report(self) -> str:
         import re
 
-        def clean_ansi(text):
+        def clean_ansi(text: Any) -> str:
             return re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(text))
 
         body = f"{t('report_header')}\n"
@@ -506,7 +509,7 @@ class Reporter:
             body += "\n"
         return body
 
-    def send_alerts(self, force_test=False, channels=None):
+    def send_alerts(self, force_test: bool = False, channels: list[str] | None = None) -> list[dict[str, Any]]:
         if (
             not any(
                 [
@@ -600,7 +603,7 @@ class Reporter:
 
     def _build_line_message(self, subj: str) -> str:
         """Build a LINE-friendly alert digest aligned to the vendor event content baseline."""
-        records = t("alert_field_records")
+        records: str = t("alert_field_records")
 
         def section_header(title: str, count: int) -> str:
             return f"\n【{title}】{count} {records}"
@@ -714,19 +717,19 @@ class Reporter:
             metric_section="\n".join(metric_section_lines),
         ).strip()
 
-    def _send_line(self, subj):
+    def _send_line(self, subj: str) -> dict[str, Any]:
         plugin = self._get_output_plugin("line")
         if not plugin:
             return {"channel": "line", "status": "failed", "target": "", "error": "plugin unavailable"}
         return plugin.send(self, subj)
 
-    def _send_webhook(self, subj):
+    def _send_webhook(self, subj: str) -> dict[str, Any]:
         plugin = self._get_output_plugin("webhook")
         if not plugin:
             return {"channel": "webhook", "status": "failed", "target": "", "error": "plugin unavailable"}
         return plugin.send(self, subj)
 
-    def _render_vendor_event_detail_html(self, alert: dict, esc) -> str:
+    def _render_vendor_event_detail_html(self, alert: dict, esc: Callable[[Any], str]) -> str:
         payload = self._build_event_alert_payload(alert)
         if not payload["events"]:
             return ""
@@ -839,7 +842,7 @@ class Reporter:
     # ── Event detail renderer ────────────────────────────────────────────────
 
     @staticmethod
-    def _render_event_detail_html(events: list, esc, parsed_events: list | None = None) -> str:
+    def _render_event_detail_html(events: list, esc: Callable[[Any], str], parsed_events: list | None = None) -> str:
         """Convert raw Illumio event list into structured human-readable HTML cards."""
         if not events:
             return ""
@@ -936,7 +939,7 @@ class Reporter:
         _COL_AFTER  = t('alert_change_col_after')
         _EVT_FALLBACK = t('alert_verb_event_fallback')
 
-        def _fmt_val(v):
+        def _fmt_val(v: Any) -> str:
             if v is None:
                 return _CHANGE_NONE
             if isinstance(v, bool):
@@ -956,7 +959,7 @@ class Reporter:
                 return f"{label}{suffix}"
             return str(v)[:120]
 
-        def _diff_rows(before, after):
+        def _diff_rows(before: dict[str, Any] | None, after: dict[str, Any] | None) -> str:
             if not (before and after):
                 return ''
             skip = {'href', 'updated_at', 'created_at', 'created_by', 'update_type'}
@@ -1043,7 +1046,7 @@ class Reporter:
             if parsed.get('action'):
                 extras.append(t('alert_ext_action', name=parsed.get('action')))
             if parsed.get('parser_notes'):
-                extras.append(t('alert_ext_parser_notes', notes=", ".join(parsed.get('parser_notes'))))
+                extras.append(t('alert_ext_parser_notes', notes=", ".join(parsed.get('parser_notes'))))  # type: ignore[arg-type]
 
             status_color = '#166644' if status == 'success' else '#BE122F'
             status_label = _STATUS_LABELS.get(status.lower(), status.upper())
@@ -1079,11 +1082,11 @@ class Reporter:
 
     # ── Mail sender ──────────────────────────────────────────────────────────
 
-    def _build_mail_html(self, subj):
-        def esc(text):
+    def _build_mail_html(self, subj: str) -> str:
+        def esc(text: Any) -> str:
             return html.escape(str(text), quote=True)
 
-        def fmt_multiline(text):
+        def fmt_multiline(text: Any) -> str:
             normalized = str(text).replace("<br>", "\n")
             return esc(normalized).replace("\n", "<br>")
 
@@ -1280,14 +1283,14 @@ class Reporter:
             metric_section_html=metric_section_html,
         )
 
-    def _send_mail(self, subj):
+    def _send_mail(self, subj: str) -> dict[str, Any]:
         plugin = self._get_output_plugin("mail")
         if not plugin:
             return {"channel": "mail", "status": "failed", "target": "", "error": "plugin unavailable"}
         return plugin.send(self, subj)
 
-    def send_scheduled_report_email(self, subject, html_body, attachment_paths=None,
-                                     custom_recipients=None):
+    def send_scheduled_report_email(self, subject: str, html_body: str, attachment_paths: list[str] | None = None,
+                                     custom_recipients: list[str] | None = None) -> bool:
         """
         Send a scheduled report email with multiple optional file attachments.
         Uses custom_recipients if provided; otherwise falls back to email.recipients.
@@ -1393,7 +1396,7 @@ class Reporter:
             logger.error(t('mail_failed', error=e))
             return False
 
-    def send_report_email(self, subject, html_body, attachment_path=None):
+    def send_report_email(self, subject: str, html_body: str, attachment_path: str | None = None) -> bool:
         """
         Send a traffic flow report email with an optional file attachment.
         Used by the Report feature — does NOT affect existing alert email flow.
