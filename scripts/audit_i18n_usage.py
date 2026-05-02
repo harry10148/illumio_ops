@@ -55,7 +55,7 @@ REPORT_PATH = Path(__file__).resolve().parent / "audit_i18n_report.md"
 
 # Files that ARE the translation tables — scanning them for CJK would be noise.
 I18N_SOURCE_FILES = {
-    SRC / "i18n.py",
+    SRC / "i18n" / "_legacy.py",
     SRC / "i18n_en.json",
     SRC / "i18n_zh_TW.json",
     SRC / "report" / "exporters" / "report_i18n.py",
@@ -242,7 +242,7 @@ def collect_referenced_keys() -> dict[str, list[tuple[str, int]]]:
     """Return {key: [(file, line), ...]} for every i18n key referenced in code."""
     refs: dict[str, list[tuple[str, int]]] = {}
     for path in _iter_files((".py", ".html", ".js")):
-        if path in I18N_SOURCE_FILES or (SRC / "i18n") in path.parents:
+        if path in I18N_SOURCE_FILES:
             continue
         text = _read(path)
         for line_no, line in enumerate(text.splitlines(), start=1):
@@ -413,7 +413,7 @@ def _is_bilingual_allowed(rel: str, full_line: str) -> bool:
 def audit_hardcoded_cjk() -> list[Finding]:
     findings: list[Finding] = []
     for path in _iter_files((".py",)):
-        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES or (SRC / "i18n") in path.parents:
+        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES:
             continue
         rel = _rel(path)
         src_lines = _read(path).splitlines()
@@ -433,7 +433,7 @@ def audit_hardcoded_cjk() -> list[Finding]:
                 detail=snippet,
             ))
     for path in _iter_files((".js", ".html")):
-        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES or (SRC / "i18n") in path.parents:
+        if path in I18N_SOURCE_FILES or path in BILINGUAL_DATA_FILES:
             continue
         rel = _rel(path)
         src_lines = _read(path).splitlines()
