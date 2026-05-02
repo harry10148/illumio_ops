@@ -593,6 +593,152 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now illumio-ops
 ```
 
+#### Red Hat / CentOS — 離線 Bundle（air-gapped 安裝）
+
+當目標主機沒有網際網路、無法存取 PyPI 或任何套件鏡像時請使用此方法。Bundle
+內建可攜式 CPython 3.12 直譯器與所有預先建置的 Python wheel — 目標主機完全
+不需要 `dnf`、`python3` 或網路。
+
+> **注意：** 離線 bundle 不支援 PDF 報告(`--format pdf`),其他格式
+> (HTML、XLSX、CSV)正常運作。
+
+##### 建置 Bundle(在任何具網路的 Linux 或 WSL 機器上)
+
+```bash
+git clone <repo-url>
+cd illumio-ops
+bash scripts/build_offline_bundle.sh
+# 輸出:dist/illumio_ops-<version>-offline-linux-x86_64.tar.gz
+```
+
+把 `.tar.gz` 傳輸到 air-gapped RHEL 主機(USB、跳板機 SCP 等)。
+
+##### 首次安裝
+
+```bash
+tar xzf illumio_ops-<version>-offline-linux-x86_64.tar.gz
+cd illumio_ops-<version>
+
+# 安裝前檢驗主機環境(任何 FAIL 都會以 exit 1 結束)
+bash ./preflight.sh
+
+# 安裝到 /opt/illumio_ops、註冊 systemd unit
+sudo ./install.sh
+
+# 填入 PCE API 憑證(config.json 已從範本建立)
+sudo nano /opt/illumio_ops/config/config.json
+
+# 啟用並啟動服務
+sudo systemctl enable --now illumio-ops
+sudo systemctl status illumio-ops      # 應顯示 Active: active (running)
+```
+
+##### 升級到新版本
+
+`install.sh` 會偵測既有安裝並**絕不覆蓋**:
+- `config/config.json` — 你的 PCE API 憑證
+- `config/rule_schedules.json` — 你自訂的規則排程
+
+```bash
+# 1. 停止執行中的服務
+sudo systemctl stop illumio-ops
+
+# 2. 解壓新 bundle(與舊版並存沒關係)
+tar xzf illumio_ops-<new-version>-offline-linux-x86_64.tar.gz
+cd illumio_ops-<new-version>
+
+# 3. 執行 install.sh — config.json 與 rule_schedules.json 會保留
+sudo ./install.sh
+
+# 4. 重啟
+sudo systemctl start illumio-ops
+sudo systemctl status illumio-ops
+
+# 5. 確認新版本
+/opt/illumio_ops/python/bin/python3 /opt/illumio_ops/illumio_ops.py --version
+```
+
+> **若 `report_config.yaml` 有自訂內容:** 升級會把它替換成 bundle 內附的版本
+> (可能會新增分析參數)。升級前先備份,升級後再合回你的修改:
+> ```bash
+> sudo cp /opt/illumio_ops/config/report_config.yaml \
+>         /opt/illumio_ops/config/report_config.yaml.bak
+> # 接著執行 sudo ./install.sh,再把你的修改合回去
+> ```
+
+##### 驗證離線 build 完整性
+
+```bash
+# 確認 weasyprint 不存在,且其他套件全部 import 成功
+/opt/illumio_ops/python/bin/python3 \
+    /opt/illumio_ops/scripts/verify_deps.py --offline-bundle
+```
+
+#### Windows — 離線 Bundle(air-gapped 安裝)
+
+**前置需求:** NSSM(Non-Sucking Service Manager)— 從 https://nssm.cc/download
+下載,把 `nssm.exe` 放到系統 PATH 或 bundle 的 `deploy\` 資料夾。
+
+> **注意:** 離線 bundle 不支援 PDF 報告(`--format pdf`),其他格式
+> (HTML、XLSX、CSV)正常運作。
+
+##### 建置 Bundle(在任何具網路的 Linux 或 WSL 機器上)
+
+```bash
+git clone <repo-url>
+cd illumio-ops
+bash scripts/build_offline_bundle.sh
+# 輸出:dist/illumio_ops-<version>-offline-windows-x86_64.zip
+```
+
+把 `.zip` 傳輸到 air-gapped Windows 主機。
+
+##### 首次安裝(以系統管理員執行 PowerShell)
+
+```powershell
+# 解壓 bundle(Windows 11 / Server 2019+ 內建 Expand-Archive)
+Expand-Archive illumio_ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
+
+# 安裝前檢驗主機環境(任何 FAIL 都會以 exit 1 結束)
+cd C:\illumio_ops-<version>
+.\preflight.ps1
+
+# 安裝到 C:\illumio_ops、註冊 IllumioOps Windows 服務
+.\install.ps1
+
+# 填入 PCE API 憑證
+notepad C:\illumio_ops\config\config.json
+
+# 確認服務已啟動
+Get-Service IllumioOps
+```
+
+##### 升級到新版本(以系統管理員執行 PowerShell)
+
+`install.ps1` 會偵測既有安裝並**絕不覆蓋** `config\config.json`
+與 `config\rule_schedules.json`。
+
+```powershell
+# 1. 停止服務
+Stop-Service IllumioOps
+
+# 2. 解壓新 bundle
+Expand-Archive illumio_ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
+
+# 3. 執行 install.ps1 — 設定自動保留
+cd C:\illumio_ops-<new-version>
+.\install.ps1
+
+# 4. 確認
+Get-Service IllumioOps   # 應顯示 Running
+```
+
+> **若 `report_config.yaml` 有自訂內容:** 升級前先備份:
+> ```powershell
+> Copy-Item C:\illumio_ops\config\report_config.yaml `
+>           C:\illumio_ops\config\report_config.yaml.bak
+> # 接著執行 .\install.ps1,再把修改合回去
+> ```
 
 ---
 

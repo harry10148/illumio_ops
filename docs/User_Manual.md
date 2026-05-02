@@ -593,6 +593,156 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now illumio-ops
 ```
 
+#### Red Hat / CentOS — Offline Bundle (air-gapped install)
+
+Use this method when the target host has no internet access and cannot reach
+PyPI or any package mirror. The bundle includes a portable CPython 3.12
+interpreter and all pre-built Python wheels — no `dnf`, no `python3`, no
+network required on the target host.
+
+> **Note:** PDF reports (`--format pdf`) are not available in the offline
+> bundle. All other formats (HTML, XLSX, CSV) work normally.
+
+##### Build the bundle (on any internet-connected Linux or WSL machine)
+
+```bash
+git clone <repo-url>
+cd illumio-ops
+bash scripts/build_offline_bundle.sh
+# Output: dist/illumio_ops-<version>-offline-linux-x86_64.tar.gz
+```
+
+Transfer the `.tar.gz` to the air-gapped RHEL host (USB, SCP via a jump host,
+etc.).
+
+##### First-time installation
+
+```bash
+tar xzf illumio_ops-<version>-offline-linux-x86_64.tar.gz
+cd illumio_ops-<version>
+
+# Validate the host environment before installing (exits 1 on any FAIL)
+bash ./preflight.sh
+
+# Install to /opt/illumio_ops, register systemd unit
+sudo ./install.sh
+
+# Fill in PCE API credentials (config.json was created from the example template)
+sudo nano /opt/illumio_ops/config/config.json
+
+# Enable and start the service
+sudo systemctl enable --now illumio-ops
+sudo systemctl status illumio-ops      # should show Active: active (running)
+```
+
+##### Upgrading to a new version
+
+`install.sh` detects an existing installation and **never overwrites**:
+- `config/config.json` — your PCE API credentials
+- `config/rule_schedules.json` — your custom rule schedules
+
+```bash
+# 1. Stop the running service
+sudo systemctl stop illumio-ops
+
+# 2. Extract the new bundle (alongside the old one is fine)
+tar xzf illumio_ops-<new-version>-offline-linux-x86_64.tar.gz
+cd illumio_ops-<new-version>
+
+# 3. Run install.sh — config.json and rule_schedules.json are preserved
+sudo ./install.sh
+
+# 4. Restart
+sudo systemctl start illumio-ops
+sudo systemctl status illumio-ops
+
+# 5. Verify the new version
+/opt/illumio_ops/python/bin/python3 /opt/illumio_ops/illumio_ops.py --version
+```
+
+> **If `report_config.yaml` was customised:** the upgrade replaces it with the
+> bundled version (which may add new analysis parameters). Back it up before
+> upgrading and re-apply your changes afterwards:
+> ```bash
+> sudo cp /opt/illumio_ops/config/report_config.yaml \
+>         /opt/illumio_ops/config/report_config.yaml.bak
+> # then run sudo ./install.sh, then merge your changes back
+> ```
+
+##### Verify offline build integrity
+
+```bash
+# Confirm weasyprint is absent and all other packages imported successfully
+/opt/illumio_ops/python/bin/python3 \
+    /opt/illumio_ops/scripts/verify_deps.py --offline-bundle
+```
+
+#### Windows — Offline Bundle (air-gapped install)
+
+**Prerequisites:** NSSM (Non-Sucking Service Manager) — download from
+https://nssm.cc/download and place `nssm.exe` in your system PATH or in the
+bundle's `deploy\` folder.
+
+> **Note:** PDF reports (`--format pdf`) are not available in the offline
+> bundle. All other formats (HTML, XLSX, CSV) work normally.
+
+##### Build the bundle (on any internet-connected Linux or WSL machine)
+
+```bash
+git clone <repo-url>
+cd illumio-ops
+bash scripts/build_offline_bundle.sh
+# Output: dist/illumio_ops-<version>-offline-windows-x86_64.zip
+```
+
+Transfer the `.zip` to the air-gapped Windows host.
+
+##### First-time installation (run PowerShell as Administrator)
+
+```powershell
+# Extract the bundle (built-in Windows 11 / Server 2019+)
+Expand-Archive illumio_ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
+
+# Validate the host environment before installing (exits 1 on any FAIL)
+cd C:\illumio_ops-<version>
+.\preflight.ps1
+
+# Install to C:\illumio_ops, register IllumioOps Windows service
+.\install.ps1
+
+# Fill in PCE API credentials
+notepad C:\illumio_ops\config\config.json
+
+# Verify the service is running
+Get-Service IllumioOps
+```
+
+##### Upgrading to a new version (PowerShell as Administrator)
+
+`install.ps1` detects an existing installation and **never overwrites**
+`config\config.json` or `config\rule_schedules.json`.
+
+```powershell
+# 1. Stop the service
+Stop-Service IllumioOps
+
+# 2. Extract new bundle
+Expand-Archive illumio_ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
+
+# 3. Run install.ps1 — config preserved automatically
+cd C:\illumio_ops-<new-version>
+.\install.ps1
+
+# 4. Verify
+Get-Service IllumioOps   # should show Running
+```
+
+> **If `report_config.yaml` was customised:** back it up before upgrading:
+> ```powershell
+> Copy-Item C:\illumio_ops\config\report_config.yaml `
+>           C:\illumio_ops\config\report_config.yaml.bak
+> # then run .\install.ps1, then merge changes back
+> ```
 
 ---
 
