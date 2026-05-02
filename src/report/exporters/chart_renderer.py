@@ -24,6 +24,7 @@ from __future__ import annotations
 import io
 from loguru import logger
 import math
+from pathlib import Path
 from typing import Any
 
 import matplotlib
@@ -33,11 +34,22 @@ import matplotlib
 if matplotlib.get_backend().lower() != "agg":
     matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib import rcParams
+from matplotlib import font_manager, rcParams
 import plotly.graph_objects as go
 import plotly.offline as plotly_offline
 
-# CJK font fallback for matplotlib — ensures zh_TW titles/labels render
+# Bundle a CJK-capable font so offline-isolated deployments don't depend on
+# an OS-level font install. Loaded before rcParams so the family lookup
+# below resolves to the bundled face.
+_BUNDLED_CJK_FONT = (
+    Path(__file__).resolve().parents[2] / "static" / "fonts" / "NotoSansCJKtc-Regular.otf"
+)
+if _BUNDLED_CJK_FONT.exists():
+    font_manager.fontManager.addfont(str(_BUNDLED_CJK_FONT))
+
+# CJK font fallback for matplotlib — ensures zh_TW titles/labels render.
+# Order: bundled Noto Sans CJK TC first; OS-installed faces (Win / macOS)
+# next; finally the default sans-serif as a safety net.
 rcParams["font.family"] = ["Noto Sans CJK TC", "Microsoft JhengHei",
                             "PingFang TC", "Heiti TC", "sans-serif"]
 rcParams["axes.unicode_minus"] = False  # minus sign glitch fix
