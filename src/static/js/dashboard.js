@@ -979,11 +979,14 @@ async function _doGenerateTraffic() {
       const fmtEl2 = document.getElementById('m-gen-format');
       const profileEl = document.getElementById('m-gen-profile');
       const langEl = document.getElementById('m-gen-lang');
+      const clipEl = document.getElementById('m-gen-clip-to-cache');
+      const clipToCache = !!(clipEl && clipEl.checked);
       const r = await post('/api/reports/generate', {
         source: 'api', format: fmtEl2 ? fmtEl2.value : 'all',
         start_date: startDate, end_date: endDate,
         traffic_report_profile: profileEl ? profileEl.value : 'security_risk',
         lang: langEl ? langEl.value : 'en',
+        clip_to_cache: clipToCache,
         ...(reportFilters ? { filters: reportFilters } : {}),
       });
       clearTimeout(_stepTimer);

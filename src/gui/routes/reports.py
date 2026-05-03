@@ -230,7 +230,8 @@ def make_reports_blueprint(
                     if not any(v for v in report_filters.values() if v):
                         report_filters = None
 
-                result = gen.generate_from_api(start_date=start_date, end_date=end_date, filters=report_filters, traffic_report_profile=traffic_report_profile, lang=lang)
+                clip_to_cache = str(d.get('clip_to_cache', '')).lower() in ('true', '1', 'on')
+                result = gen.generate_from_api(start_date=start_date, end_date=end_date, filters=report_filters, traffic_report_profile=traffic_report_profile, lang=lang, clip_to_cache=clip_to_cache)
 
             if result.record_count == 0:
                 return jsonify({"ok": False, "error": t("gui_no_traffic_data")})

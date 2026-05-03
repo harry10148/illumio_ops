@@ -834,6 +834,8 @@
   "gui_report_profile_label": "Traffic Report Profile",
   "gui_report_profile_network_inventory": "Network Inventory",
   "gui_report_profile_security_risk": "Security Risk",
+  "gui_clip_to_cache_label": "Clip to cache range (skip API gap)",
+  "gui_clip_to_cache_hint": "When on, the report start/end is silently clipped to what the local cache actually has. Avoids extra PCE API calls when PCE retention is shorter than your request window.",
   "gui_reports_empty": "Use the buttons above to generate your first report.",
   "gui_reports_empty_title": "No reports",
   "gui_reports_loading": "Loading reports...",

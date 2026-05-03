@@ -834,6 +834,8 @@
   "gui_report_profile_label": "流量報表 Profile",
   "gui_report_profile_network_inventory": "網路盤點",
   "gui_report_profile_security_risk": "安全風險",
+  "gui_clip_to_cache_label": "依快取範圍自動裁切（跳過 API 補洞）",
+  "gui_clip_to_cache_hint": "啟用後，報表的起訖會自動裁切到本地快取實際擁有的範圍。當 PCE 留存比你查詢區間短時，可避免無效的 API 呼叫。",
   "gui_reports_empty": "請使用上方按鈕產生第一份報表。",
   "gui_reports_empty_title": "尚無報表",
   "gui_reports_loading": "正在載入報表...",

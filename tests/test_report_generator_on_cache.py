@@ -168,3 +168,45 @@ def test_report_generator_analysis_modules_receive_plain_list(tmp_path):
     # The orchestrator unpacks result["raw"] for the analysis modules
     assert isinstance(result["raw"], list)
     assert len(result["raw"]) == 2
+
+
+def test_generate_from_api_clip_to_cache_clips_start_to_cache_data(tmp_path):
+    """clip_to_cache=True must clip the request start to earliest_data_timestamp,
+    so the API call covers no leading gap and source ends up 'cache'."""
+    from src.report.report_generator import ReportGenerator
+    api = _make_mock_api()
+    api.get_last_traffic_query_diagnostics = MagicMock(return_value={})
+    cache_start = datetime.now(timezone.utc) - timedelta(days=3)
+    cache = _make_cache_reader(cover_state="partial", earliest=cache_start)
+    # Allow cover_state to look at the actual start passed in
+    def _cover(source, s, e):
+        return "full" if s >= cache_start else "partial"
+    cache.cover_state.side_effect = _cover
+    gen = ReportGenerator(api=api, cache_reader=cache,
+                          config_manager=MagicMock(config={"settings": {}}))
+    start = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat().replace("+00:00", "Z")
+    end = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    result = gen.generate_from_api(start_date=start, end_date=end, clip_to_cache=True)
+    # cover_state was forced to be re-evaluated against clipped start;
+    # cache.cover_state should now be called with clipped start ≥ cache_start
+    args, _ = cache.cover_state.call_args
+    clipped_start = args[1]
+    assert clipped_start >= cache_start - timedelta(seconds=1)
+    api.fetch_traffic_for_report.assert_not_called()  # cover_state full → no API
+
+
+def test_generate_from_api_clip_to_cache_default_off_does_not_clip(tmp_path):
+    """clip_to_cache defaults False — request range is NOT mutated, hybrid
+    fetch still runs as before."""
+    from src.report.report_generator import ReportGenerator
+    api = _make_mock_api()
+    api.get_last_traffic_query_diagnostics = MagicMock(return_value={})
+    cache_start = datetime.now(timezone.utc) - timedelta(days=3)
+    cache = _make_cache_reader(cover_state="partial", earliest=cache_start)
+    gen = ReportGenerator(api=api, cache_reader=cache,
+                          config_manager=MagicMock(config={"settings": {}}))
+    start = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat().replace("+00:00", "Z")
+    end = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    gen.generate_from_api(start_date=start, end_date=end)
+    # Default behavior: API call is made for the leading gap
+    api.fetch_traffic_for_report.assert_called_once()

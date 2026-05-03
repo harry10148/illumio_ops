@@ -209,7 +209,8 @@ class ReportGenerator:
                           filters: Optional[dict] = None,
                           traffic_report_profile: str = "security_risk",
                           detail_level: str = _REPORT_DETAIL_LEVEL,
-                          lang: str = "en") -> ReportResult:
+                          lang: str = "en",
+                          clip_to_cache: bool = False) -> ReportResult:
         """Fetch traffic from PCE API and run the full analysis pipeline.
 
         filters: optional dict with traffic filter keys (src_labels, dst_labels,
@@ -235,6 +236,24 @@ class ReportGenerator:
 
         start_dt = datetime.datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         end_dt = datetime.datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+
+        # Clip the request window to actual cache data range when requested.
+        # Lets the user opt out of the leading-gap API call when PCE has
+        # nothing older than what the cache already holds.
+        if clip_to_cache and self._cache is not None:
+            cache_earliest = self._cache.earliest_data_timestamp("traffic")
+            if cache_earliest is not None and cache_earliest > start_dt:
+                logger.info(
+                    "ReportGenerator: clip_to_cache clipping start {} → {}",
+                    start_dt, cache_earliest,
+                )
+                start_dt = cache_earliest
+                start_date = start_dt.isoformat().replace("+00:00", "Z")
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            if end_dt > now_utc:
+                end_dt = now_utc
+                end_date = end_dt.isoformat().replace("+00:00", "Z")
+
         if ruleset_needs_draft_pd(DRAFT_PD_RULES):
             filters = dict(filters or {})
             filters["requires_draft_pd"] = True
