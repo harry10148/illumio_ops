@@ -27,13 +27,19 @@ migrate_from_underscore_root() {
     local OLD_USER="${OLD_USER:-illumio_ops}"
     local NEW_USER="${NEW_USER:-illumio-ops}"
     local MIGRATE_SERVICE_NAME="${MIGRATE_SERVICE_NAME:-illumio-ops}"
+    # NOTE: USERMOD_CMD/GROUPMOD_CMD are invoked unquoted to allow the default
+    # "usermod -l" / "groupmod -n" to word-split into command + flag. Do not
+    # override with a value whose path contains whitespace.
     local USERMOD_CMD="${USERMOD_CMD:-usermod -l}"
     local GROUPMOD_CMD="${GROUPMOD_CMD:-groupmod -n}"
 
     # Fix 5 (M1): root check must be first — all mutation steps require root.
-    # Skip the check in test mode, which we detect by the OLD_ROOT/NEW_ROOT
-    # paths both being non-default. Production paths always trip the check.
-    if [[ "$OLD_ROOT" == "/opt/illumio_ops" && "$NEW_ROOT" == "/opt/illumio-ops" ]]; then
+    # Skip the EUID check only when both OLD_ROOT and NEW_ROOT are overridden
+    # (test mode). Production never sets these env vars and so always trips the
+    # check. A partial override (one default, one custom) still requires root —
+    # that prevents accidental privilege bypass when an operator points the
+    # installer at a custom path.
+    if [[ "$OLD_ROOT" == "/opt/illumio_ops" || "$NEW_ROOT" == "/opt/illumio-ops" ]]; then
         if [[ $EUID -ne 0 ]]; then
             echo "ERROR: migration requires root (run install.sh with sudo)." >&2
             exit 1
