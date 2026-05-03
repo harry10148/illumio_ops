@@ -32,6 +32,15 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 $SRC = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # ── Migration: C:\illumio_ops → C:\illumio-ops ────────────────────────────────
+function Invoke-NssmSet {
+    param([string[]]$NssmArgs)
+    & nssm set @NssmArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: nssm set $NssmArgs failed (exit $LASTEXITCODE)" -ForegroundColor Red
+        exit 1
+    }
+}
+
 function Invoke-MigrateFromUnderscoreRoot {
     $OldRoot = "C:\illumio_ops"
     $NewRoot = "C:\illumio-ops"
@@ -41,14 +50,16 @@ function Invoke-MigrateFromUnderscoreRoot {
     # This means the script was killed after Move-Item but before nssm/marker.
     if (-not (Test-Path $OldRoot)) {
         if ((Test-Path $NewRoot) -and -not (Test-Path "$NewRoot\MIGRATED_FROM")) {
-            $currentAppDir = (& nssm get IllumioOps AppDirectory 2>$null) -join ""
+            # Fix I1: trim \r that nssm includes in its stdout on Windows
+            $currentAppDir = ((& nssm get IllumioOps AppDirectory 2>$null) -join "").Trim()
             if ($currentAppDir -eq $OldRoot) {
                 Write-Host "==> Detected partial migration: re-running nssm reconfiguration" -ForegroundColor Yellow
-                & nssm set IllumioOps AppDirectory  $NewRoot
-                & nssm set IllumioOps Application   "$NewRoot\python\python.exe"
-                & nssm set IllumioOps AppParameters "$NewRoot\illumio-ops.py --monitor --interval 10"
-                & nssm set IllumioOps AppStdout     "$NewRoot\logs\service_stdout.log"
-                & nssm set IllumioOps AppStderr     "$NewRoot\logs\service_stderr.log"
+                # Fix I3: check exit code on every nssm set via helper
+                Invoke-NssmSet IllumioOps,AppDirectory,$NewRoot
+                Invoke-NssmSet IllumioOps,Application,"$NewRoot\python\python.exe"
+                Invoke-NssmSet IllumioOps,AppParameters,"$NewRoot\illumio-ops.py --monitor --interval 10"
+                Invoke-NssmSet IllumioOps,AppStdout,"$NewRoot\logs\service_stdout.log"
+                Invoke-NssmSet IllumioOps,AppStderr,"$NewRoot\logs\service_stderr.log"
                 Set-Content "$NewRoot\MIGRATED_FROM" $OldRoot
                 Write-Host "==> Partial migration completed; $NewRoot\MIGRATED_FROM written." -ForegroundColor Green
                 Write-Host "    NOTE: service was stopped for migration. Restart with 'Start-Service IllumioOps' after install.ps1 finishes." -ForegroundColor Yellow
@@ -56,6 +67,8 @@ function Invoke-MigrateFromUnderscoreRoot {
                 # nssm already points at NewRoot — just the marker is missing
                 Set-Content "$NewRoot\MIGRATED_FROM" $OldRoot
                 Write-Host "==> Detected complete migration without marker; wrote marker." -ForegroundColor Yellow
+                # Fix M1: add stopped-service warning consistent with the other two branches
+                Write-Host "    NOTE: service was stopped for migration. Restart with 'Start-Service IllumioOps' after install.ps1 finishes." -ForegroundColor Yellow
             }
         }
         # OldRoot is gone; nothing left to migrate (or we just finished above)
@@ -83,6 +96,8 @@ function Invoke-MigrateFromUnderscoreRoot {
     if ($svc.Status -eq 'Running') {
         try {
             Stop-Service IllumioOps -ErrorAction Stop
+            # Fix M2: wait for the process to fully exit before Move-Item touches the directory
+            $svc.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
         } catch {
             Write-Host "ERROR: Failed to stop IllumioOps service; cannot migrate while running." -ForegroundColor Red
             Write-Host "       Diagnose: Get-Service IllumioOps; Get-EventLog -LogName System -Source 'Service Control Manager' -Newest 5" -ForegroundColor Red
@@ -92,14 +107,23 @@ function Invoke-MigrateFromUnderscoreRoot {
 
     # ── Step 6: Move directory ────────────────────────────────────────────────
     Write-Host "==> Migrating $OldRoot to $NewRoot" -ForegroundColor Cyan
-    Move-Item $OldRoot $NewRoot
+    # Fix I2: fail fast on Move-Item errors (e.g. locked files)
+    try {
+        Move-Item $OldRoot $NewRoot -ErrorAction Stop
+    } catch {
+        Write-Host "ERROR: Failed to move $OldRoot to $NewRoot." -ForegroundColor Red
+        Write-Host "       Cause: $_" -ForegroundColor Red
+        Write-Host "       Common cause: file locked by another process. Diagnose with handle.exe." -ForegroundColor Red
+        exit 1
+    }
 
     # ── Step 7: Reconfigure NSSM ──────────────────────────────────────────────
-    & nssm set IllumioOps AppDirectory  $NewRoot
-    & nssm set IllumioOps Application   "$NewRoot\python\python.exe"
-    & nssm set IllumioOps AppParameters "$NewRoot\illumio-ops.py --monitor --interval 10"
-    & nssm set IllumioOps AppStdout     "$NewRoot\logs\service_stdout.log"
-    & nssm set IllumioOps AppStderr     "$NewRoot\logs\service_stderr.log"
+    # Fix I3: check exit code on every nssm set via helper
+    Invoke-NssmSet IllumioOps,AppDirectory,$NewRoot
+    Invoke-NssmSet IllumioOps,Application,"$NewRoot\python\python.exe"
+    Invoke-NssmSet IllumioOps,AppParameters,"$NewRoot\illumio-ops.py --monitor --interval 10"
+    Invoke-NssmSet IllumioOps,AppStdout,"$NewRoot\logs\service_stdout.log"
+    Invoke-NssmSet IllumioOps,AppStderr,"$NewRoot\logs\service_stderr.log"
 
     # ── Step 8: Write marker ──────────────────────────────────────────────────
     Set-Content "$NewRoot\MIGRATED_FROM" $OldRoot
