@@ -35,11 +35,13 @@ fi
 if systemctl --version &>/dev/null; then pass "systemd: available"
 else fail "systemd: not found — required for service registration"; fi
 
-# 4. Disk space >= 500 MB at /opt
+# 4. Disk space >= 2 GB at /opt
+# Bundle ~150 MB + extracted PBS runtime ~250 MB + site-packages ~415 MB +
+# logs/cache/reports headroom for 24/7 operation → 2 GB minimum.
 AVAIL_KB=$(df /opt 2>/dev/null | tail -1 | awk '{print $4}' || echo 0)
 AVAIL_MB=$((AVAIL_KB / 1024))
-if [ "$AVAIL_MB" -ge 500 ]; then pass "Disk at /opt: ${AVAIL_MB} MB (>= 500 MB required)"
-else fail "Disk at /opt: ${AVAIL_MB} MB — need >= 500 MB"; fi
+if [ "$AVAIL_MB" -ge 2048 ]; then pass "Disk at /opt: ${AVAIL_MB} MB (>= 2048 MB required)"
+else fail "Disk at /opt: ${AVAIL_MB} MB — need >= 2048 MB"; fi
 
 # 5. rsync (used by install.sh)
 if command -v rsync &>/dev/null; then pass "rsync: available"

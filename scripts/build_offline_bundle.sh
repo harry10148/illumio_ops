@@ -19,6 +19,26 @@ PBS_PYTHON="3.12.7"
 PBS_LINUX_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_TAG}/cpython-${PBS_PYTHON}+${PBS_TAG}-x86_64-unknown-linux-gnu-install_only.tar.gz"
 PBS_WIN_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PBS_TAG}/cpython-${PBS_PYTHON}+${PBS_TAG}-x86_64-pc-windows-msvc-install_only.tar.gz"
 
+# Verify a downloaded file against its PBS-published .sha256 sidecar.
+# Not perfect supply-chain protection (same origin), but catches network
+# corruption and most tampering. For stronger guarantees pin the hash here.
+verify_sha256() {
+    local file="$1" url="$2"
+    local sha_file="${file}.sha256"
+    echo "==> Verifying SHA256 for $(basename "$file")"
+    curl -fL "${url}.sha256" -o "$sha_file"
+    local expected actual
+    expected=$(awk '{print $1}' "$sha_file")
+    actual=$(sha256sum "$file" | awk '{print $1}')
+    if [[ "$expected" != "$actual" ]]; then
+        echo "ERROR: SHA256 mismatch for $(basename "$file")" >&2
+        echo "  expected: $expected" >&2
+        echo "  actual:   $actual" >&2
+        exit 1
+    fi
+    echo "    OK ($expected)"
+}
+
 mkdir -p "$DIST_DIR"
 
 # ── Shared helper: stage app files (no credentials) ───────────────────────────
@@ -49,7 +69,11 @@ build_linux() {
     rm -rf "$BUILD" && mkdir -p "$BUILD"
 
     echo "==> [Linux] Downloading PBS ${PBS_PYTHON}"
-    curl -fL "$PBS_LINUX_URL" | tar xz -C "$BUILD"
+    local PBS_TAR="$BUILD/pbs-linux.tar.gz"
+    curl -fL "$PBS_LINUX_URL" -o "$PBS_TAR"
+    verify_sha256 "$PBS_TAR" "$PBS_LINUX_URL"
+    tar xzf "$PBS_TAR" -C "$BUILD"
+    rm -f "$PBS_TAR" "${PBS_TAR}.sha256"
 
     echo "==> [Linux] Downloading manylinux_2_17_x86_64 wheels"
     mkdir -p "$BUILD/wheels"
@@ -90,7 +114,11 @@ build_windows() {
     rm -rf "$BUILD" && mkdir -p "$BUILD"
 
     echo "==> [Windows] Downloading PBS ${PBS_PYTHON} for Windows"
-    curl -fL "$PBS_WIN_URL" | tar xz -C "$BUILD"
+    local PBS_TAR="$BUILD/pbs-win.tar.gz"
+    curl -fL "$PBS_WIN_URL" -o "$PBS_TAR"
+    verify_sha256 "$PBS_TAR" "$PBS_WIN_URL"
+    tar xzf "$PBS_TAR" -C "$BUILD"
+    rm -f "$PBS_TAR" "${PBS_TAR}.sha256"
 
     echo "==> [Windows] Downloading win_amd64 wheels"
     mkdir -p "$BUILD/wheels"
