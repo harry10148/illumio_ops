@@ -54,7 +54,6 @@ def _filter_existing_font_families(candidates: list[str]) -> list[str]:
     Microsoft JhengHei, Heiti TC) on Linux triggers a findfont warning per
     family per chart render — 30+ warning lines per report.
     """
-    from matplotlib import font_manager
     kept: list[str] = []
     for fam in candidates:
         if fam == "sans-serif":
@@ -62,8 +61,8 @@ def _filter_existing_font_families(candidates: list[str]) -> list[str]:
         try:
             font_manager.findfont(fam, fallback_to_default=False)
             kept.append(fam)
-        except Exception:
-            pass  # not on this system; drop silently
+        except ValueError:
+            logger.debug("font.family candidate {!r} not installed; dropping", fam)
     kept.append("sans-serif")
     return kept
 
