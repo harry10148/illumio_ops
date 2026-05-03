@@ -59,6 +59,15 @@ _PALETTE = [
     "#38BDF8", "#F43F51", "#10B981", "#F59E0B", "#6366F1",
 ]
 
+
+def _pie_autopct(pct: float, *, threshold: float = 1.0) -> str:
+    """Suppress autopct labels for slices below `threshold` percent.
+
+    Tiny slices crowd labels at the same angular position, producing the
+    overlapping '0.0%5.5%0.0%' clusters seen in the sample report.
+    """
+    return f"{pct:.1f}%" if pct >= threshold else ""
+
 _BASE_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
@@ -238,8 +247,15 @@ def render_matplotlib_png(spec: dict[str, Any]) -> bytes:
         ax.set_xlabel(spec.get("x_label", ""))
         ax.set_ylabel(spec.get("y_label", ""))
     elif chart_type == "pie":
-        ax.pie(data.get("values", []), labels=data.get("labels", []),
-               autopct="%1.1f%%", startangle=90)
+        ax.pie(
+            data.get("values", []),
+            labels=data.get("labels", []),
+            autopct=_pie_autopct,
+            startangle=90,
+            pctdistance=0.78,        # pull % labels slightly inward
+            labeldistance=1.08,      # push slice labels outward
+            textprops={"fontsize": 9},
+        )
         ax.axis("equal")
     elif chart_type == "line":
         ax.plot(data.get("x", []), data.get("y", []), marker="o")
