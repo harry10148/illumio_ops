@@ -128,3 +128,19 @@ def test_pie_autopct_filter():
     # Caller can opt into higher threshold
     assert _pie_autopct(0.5, threshold=1.0) == ""
     assert _pie_autopct(1.5, threshold=1.0) == "1.5%"
+
+
+def test_filter_existing_font_families_keeps_sans_serif_safety_net():
+    from src.report.exporters.chart_renderer import _filter_existing_font_families
+    # 'sans-serif' is a generic family name matplotlib always honours.
+    out = _filter_existing_font_families(["DefinitelyNotAFontXYZ", "sans-serif"])
+    assert out[-1] == "sans-serif"
+    assert "DefinitelyNotAFontXYZ" not in out
+
+
+def test_filter_existing_font_families_keeps_real_font_when_present():
+    """If a known matplotlib default like DejaVu Sans is installed, it survives."""
+    from src.report.exporters.chart_renderer import _filter_existing_font_families
+    out = _filter_existing_font_families(["DejaVu Sans", "sans-serif"])
+    # DejaVu Sans is bundled with matplotlib itself, so always present.
+    assert "DejaVu Sans" in out

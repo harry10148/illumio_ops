@@ -47,11 +47,34 @@ _BUNDLED_CJK_FONT = (
 if _BUNDLED_CJK_FONT.exists():
     font_manager.fontManager.addfont(str(_BUNDLED_CJK_FONT))
 
+def _filter_existing_font_families(candidates: list[str]) -> list[str]:
+    """Drop families matplotlib cannot resolve, always keep 'sans-serif' last.
+
+    Without this filter, listing macOS/Windows-only families (PingFang TC,
+    Microsoft JhengHei, Heiti TC) on Linux triggers a findfont warning per
+    family per chart render — 30+ warning lines per report.
+    """
+    from matplotlib import font_manager
+    kept: list[str] = []
+    for fam in candidates:
+        if fam == "sans-serif":
+            continue  # added at end
+        try:
+            font_manager.findfont(fam, fallback_to_default=False)
+            kept.append(fam)
+        except Exception:
+            pass  # not on this system; drop silently
+    kept.append("sans-serif")
+    return kept
+
+
 # CJK font fallback for matplotlib — ensures zh_TW titles/labels render.
-# Order: bundled Noto Sans CJK TC first; OS-installed faces (Win / macOS)
-# next; finally the default sans-serif as a safety net.
-rcParams["font.family"] = ["Noto Sans CJK TC", "Microsoft JhengHei",
-                            "PingFang TC", "Heiti TC", "sans-serif"]
+# Filtered to fonts actually installed so we don't spam warnings on Linux
+# where Microsoft JhengHei / PingFang TC / Heiti TC are absent.
+rcParams["font.family"] = _filter_existing_font_families([
+    "Noto Sans CJK TC", "Microsoft JhengHei", "PingFang TC", "Heiti TC",
+    "sans-serif",
+])
 rcParams["axes.unicode_minus"] = False  # minus sign glitch fix
 
 _PALETTE = [
