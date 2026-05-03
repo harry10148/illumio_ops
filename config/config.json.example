@@ -117,11 +117,11 @@
   },
   "web_gui": {
     "username": "illumio",
-    "password": "illumio",
-    "secret_key": "change-me-in-production",
+    "password": "",
+    "secret_key": "",
     "allowed_ips": [],
     "tls": {
-      "enabled": false,
+      "enabled": true,
       "cert_file": "",
       "key_file": "",
       "self_signed": true,

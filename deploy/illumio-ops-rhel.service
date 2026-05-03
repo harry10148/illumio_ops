@@ -11,7 +11,7 @@ Group=illumio_ops
 WorkingDirectory=/opt/illumio_ops
 # RHEL/CentOS: packages installed via dnf, system Python is used directly.
 #   dnf install python3-flask python3-pandas python3-PyYAML
-ExecStart=/usr/bin/python3 /opt/illumio_ops/illumio_ops.py --monitor --interval 10
+ExecStart=/usr/bin/python3 /opt/illumio_ops/illumio-ops.py --monitor --interval 10
 Restart=always
 RestartSec=10
 StandardOutput=journal

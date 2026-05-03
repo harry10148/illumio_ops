@@ -47,7 +47,7 @@ $DisplayName = "Illumio PCE Ops"
 $Description = "Monitors Illumio PCE for events, traffic anomalies, and health."
 $ProjectRoot = Split-Path -Parent $PSScriptRoot          # deploy/ -> project root
 if ($InstallRoot -ne "") { $ProjectRoot = $InstallRoot }
-$EntryScript = Join-Path $ProjectRoot "illumio_ops.py"
+$EntryScript = Join-Path $ProjectRoot "illumio-ops.py"
 $LogDir      = Join-Path $ProjectRoot "logs"
 
 # Python priority: 1) bundled PBS  2) venv  3) system
