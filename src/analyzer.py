@@ -860,16 +860,23 @@ class Analyzer:
                     "query_flows: hybrid fetch — API gap [{} → {}), cache [{} → {}]",
                     start_dt, cache_start, cache_start, end_dt,
                 )
-                gap_stream = self.api.execute_traffic_query_stream(
-                    start_time, gap_end, query_pds,
-                    filters=query_spec, compute_draft=needs_draft,
-                )
-                cached = self._cache_reader.read_flows_raw(cache_start, end_dt)
-                gap_list = list(gap_stream) if gap_stream else []
-                source = "mixed" if gap_list else "cache"
-                return gap_list + cached, source
+                try:
+                    gap_stream = self.api.execute_traffic_query_stream(
+                        start_time, gap_end, query_pds,
+                        filters=query_spec, compute_draft=needs_draft,
+                    )
+                    gap_list = list(gap_stream) if gap_stream is not None else []
+                except Exception as exc:
+                    logger.warning(
+                        "query_flows hybrid: API gap fetch failed ({}); falling back to full API path", exc,
+                    )
+                    gap_list = None
+                if gap_list is not None:
+                    cached = self._cache_reader.read_flows_raw(cache_start, end_dt)
+                    source = "mixed" if gap_list else "cache"
+                    return gap_list + cached, source
 
-        # miss / partial-with-conflict: fall through to API
+        # miss / partial-with-conflict / hybrid-failure: fall through to API
         stream = self.api.execute_traffic_query_stream(
             start_time, end_time, query_pds,
             filters=query_spec, compute_draft=needs_draft,

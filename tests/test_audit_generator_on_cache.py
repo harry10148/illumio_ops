@@ -15,6 +15,7 @@ def _make_cache_reader(cover_state="full", events=None, earliest=None):
     cr.cover_state.return_value = cover_state
     cr.read_events.return_value = events or [{"event_type": "policy.update", "timestamp": "2026-01-01T00:00:00Z"}]
     cr.earliest_ingested_at.return_value = earliest
+    cr.earliest_data_timestamp.return_value = earliest
     return cr
 
 
@@ -89,5 +90,45 @@ def test_audit_generator_falls_back_on_miss(tmp_path):
     start = datetime.now(timezone.utc) - timedelta(days=1)
     end = datetime.now(timezone.utc)
     events, source = gen._fetch_events(start, end)
+    api.get_events.assert_called_once()
+    assert source == "api"
+
+
+def test_fetch_events_partial_with_empty_api_gap_tags_as_cache(tmp_path):
+    """Audit hybrid: when PCE returns 0 events for the gap, source must
+    be 'cache' (not 'mixed' or 'api')."""
+    from src.report.audit_generator import AuditGenerator
+    api = _make_mock_api()
+    api.fetch_events.return_value = []  # API gap is empty
+    start = datetime.now(timezone.utc) - timedelta(days=7)
+    end = datetime.now(timezone.utc)
+    cache_start = datetime.now(timezone.utc) - timedelta(days=3)
+    cache = _make_cache_reader(cover_state="partial", earliest=cache_start)
+    cache.earliest_data_timestamp.return_value = cache_start
+    gen = AuditGenerator(api=api, cache_reader=cache)
+    events, source = gen._fetch_events(start, end)
+    api.fetch_events.assert_called_once()
+    cache.read_events.assert_called_once()
+    api.get_events.assert_not_called()
+    assert source == "cache"
+
+
+def test_fetch_events_partial_with_api_error_falls_back_to_api(tmp_path):
+    """Audit hybrid: when the API gap call raises, the partial branch must NOT
+    retag as 'cache' — it must fall through to the full API path. Otherwise
+    transient PCE errors silently masquerade as full cache hits."""
+    from src.report.audit_generator import AuditGenerator
+    api = _make_mock_api()
+    # First call (gap fetch) raises; second call (full fallthrough) succeeds.
+    api.fetch_events.side_effect = Exception("PCE timeout")
+    api.get_events.return_value = [{"event_type": "user.login", "timestamp": "2026-01-01T00:00:00Z"}]
+    start = datetime.now(timezone.utc) - timedelta(days=7)
+    end = datetime.now(timezone.utc)
+    cache_start = datetime.now(timezone.utc) - timedelta(days=3)
+    cache = _make_cache_reader(cover_state="partial", earliest=cache_start)
+    cache.earliest_data_timestamp.return_value = cache_start
+    gen = AuditGenerator(api=api, cache_reader=cache)
+    events, source = gen._fetch_events(start, end)
+    # Must fall through to api.get_events, not silently return cache data.
     api.get_events.assert_called_once()
     assert source == "api"

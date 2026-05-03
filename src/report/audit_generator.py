@@ -432,9 +432,10 @@ class AuditGenerator:
         """Fetch events with cache-aware hybrid coverage.
 
         Returns ``(events, source)`` where source is one of:
-          - ``"cache"`` — full coverage; everything came from the local cache
-          - ``"mixed"`` — partial coverage; API filled the gap before
-            ``cache_start``, cache covered ``[cache_start, end]``
+          - ``"cache"`` — full coverage, or partial coverage where the API gap
+            returned zero events (effective result is entirely from cache)
+          - ``"mixed"`` — partial coverage; API returned non-empty events for
+            the gap before ``cache_start``; cache covered ``[cache_start, end]``
           - ``"api"`` — cache disabled, missed entirely, or unhealthy; all
             events came from the PCE API
         """

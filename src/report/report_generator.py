@@ -166,7 +166,8 @@ class ReportGenerator:
                        filters: Optional[dict] = None) -> dict:
         """Return traffic flows with metadata. Uses cache when fully covered.
         On partial coverage where cache_start > request start, merges API gap
-        with cached data and tags source as 'mixed'.
+        with cached data; tags source as 'mixed' when the gap is non-empty,
+        or 'cache' when the API returns zero rows for the gap.
         """
         if self._cache is not None:
             state = self._cache.cover_state("traffic", start, end)

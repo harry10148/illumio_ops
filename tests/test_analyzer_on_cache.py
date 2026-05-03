@@ -6,6 +6,10 @@ Covered invariants:
   2. _run_event_analysis() falls back to legacy API path when subscriber_events is None
   3. _run_event_analysis() handles empty poll result without dispatching any alert
   4. _run_event_analysis() processes events from cache through the normalizer/matcher pipeline
+
+Also covers _fetch_query_flows hybrid (partial) path:
+  5. Empty API stream on hybrid → source='cache'
+  6. API stream exception on hybrid → falls back to full API path → source='api'
 """
 import datetime
 import unittest
@@ -33,6 +37,20 @@ def _make_analyzer(rules=None, subscriber_events=None, subscriber_flows=None):
     analyzer.load_state = MagicMock()
     analyzer.save_state = MagicMock()
     return analyzer
+
+
+def _make_cache_reader_for_flows(cover_state="partial", cache_start=None, flows=None):
+    """Build a cache reader mock suitable for _fetch_query_flows tests."""
+    cr = MagicMock()
+    cr.cover_state.return_value = cover_state
+    cr.earliest_data_timestamp.return_value = cache_start
+    cr.read_flows_raw.return_value = flows or [{"policy_decision": "allowed"}]
+    return cr
+
+
+_START = "2026-01-01T00:00:00Z"
+_END = "2026-01-08T00:00:00Z"
+_CACHE_START = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)  # middle of window
 
 
 def _event_rule(rule_id="ev1", threshold=1):
@@ -125,6 +143,63 @@ class TestAnalyzerOnCache(unittest.TestCase):
         az.reporter.add_event_alert.assert_called_once()
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["rule"], rule["name"])
+
+
+    # ─── _fetch_query_flows hybrid (partial) ──────────────────────────────────
+
+    def test_query_flows_partial_with_empty_api_stream_tags_as_cache(self):
+        """Analyzer hybrid: when execute_traffic_query_stream yields zero items
+        (success but empty), source must be 'cache' — the effective result is
+        entirely from the cache, so 'mixed' would be misleading."""
+        az = _make_analyzer()
+        az._cache_reader = _make_cache_reader_for_flows(
+            cover_state="partial", cache_start=_CACHE_START,
+        )
+        # Generator that yields nothing — always truthy, but drains to [].
+        az.api.execute_traffic_query_stream.return_value = iter([])
+        az.api.build_traffic_query_spec = MagicMock(return_value=MagicMock(
+            report_only_filters={}, requires_draft_pd=False,
+        ))
+
+        flows, source = az._fetch_query_flows(
+            _START, _END, ["allowed"], az.api.build_traffic_query_spec({}), False,
+        )
+
+        self.assertEqual(source, "cache")
+        # The cached flows should still be returned.
+        self.assertGreater(len(flows), 0)
+
+    def test_query_flows_partial_with_api_exception_falls_back_to_api(self):
+        """Analyzer hybrid: when execute_traffic_query_stream raises (gap call),
+        the partial branch must fall through to the full-API path, not silently
+        return cache data as source='cache'."""
+        az = _make_analyzer()
+        az._cache_reader = _make_cache_reader_for_flows(
+            cover_state="partial", cache_start=_CACHE_START,
+        )
+        # First call (gap) raises; second call (full fallthrough) returns a stream.
+        api_fallback_flow = {"policy_decision": "blocked"}
+        call_count = {"n": 0}
+
+        def _stream_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise Exception("PCE connection error")
+            return iter([api_fallback_flow])
+
+        az.api.execute_traffic_query_stream.side_effect = _stream_side_effect
+        az.api.build_traffic_query_spec = MagicMock(return_value=MagicMock(
+            report_only_filters={}, requires_draft_pd=False,
+        ))
+
+        flows, source = az._fetch_query_flows(
+            _START, _END, ["allowed"], az.api.build_traffic_query_spec({}), False,
+        )
+
+        self.assertEqual(source, "api")
+        # execute_traffic_query_stream should have been called twice:
+        # once for the gap (raises), once for the full-range fallthrough.
+        self.assertEqual(az.api.execute_traffic_query_stream.call_count, 2)
 
 
 if __name__ == "__main__":
