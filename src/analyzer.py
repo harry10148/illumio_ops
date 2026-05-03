@@ -853,7 +853,7 @@ class Analyzer:
             return self._cache_reader.read_flows_raw(start_dt, end_dt), "cache"
 
         if state == "partial":
-            cache_start = self._cache_reader.earliest_ingested_at("traffic")
+            cache_start = self._cache_reader.earliest_data_timestamp("traffic")
             if cache_start is not None and cache_start > start_dt:
                 gap_end = cache_start.strftime('%Y-%m-%dT%H:%M:%SZ')
                 logger.info(

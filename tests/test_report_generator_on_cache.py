@@ -26,6 +26,7 @@ def _make_cache_reader(cover_state="full", flows=None, earliest=None):
     cr.read_flows_raw.return_value = flows or [_make_flow()]
     cr.read_flows_agg.return_value = []
     cr.earliest_ingested_at.return_value = earliest
+    cr.earliest_data_timestamp.return_value = earliest
     return cr
 
 

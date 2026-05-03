@@ -178,7 +178,7 @@ class ReportGenerator:
                     "source": "cache",
                 }
             if state == "partial":
-                cache_start = self._cache.earliest_ingested_at("traffic")
+                cache_start = self._cache.earliest_data_timestamp("traffic")
                 if cache_start is not None and cache_start > start:
                     logger.info(
                         "Traffic report: hybrid fetch — API gap [{} → {}), cache [{} → {}]",

@@ -444,7 +444,7 @@ class AuditGenerator:
                 logger.info("Audit report: events from cache ({} → {})", start, end)
                 return self._cache.read_events(start, end), "cache"
             if state == "partial":
-                cache_start = self._cache.earliest_ingested_at("events")
+                cache_start = self._cache.earliest_data_timestamp("events")
                 if cache_start is not None and cache_start > start:
                     logger.info(
                         "Audit report: hybrid fetch — API gap [{} → {}), cache [{} → {}]",

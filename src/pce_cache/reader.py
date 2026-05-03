@@ -30,21 +30,38 @@ class CacheReader:
             return "miss"
         if start < cutoff:
             return "partial"
-        earliest = self.earliest_ingested_at(source)
+        earliest = self.earliest_data_timestamp(source)
         if earliest is None or start < earliest:
             return "partial"
         return "full"
 
     def earliest_ingested_at(self, source: str) -> datetime | None:
-        # Returns MIN(ingested_at), not MIN(last_detected/timestamp). After a backfill,
-        # flows with old last_detected but recent ingested_at will still return "today",
-        # causing cover_state to emit "partial" conservatively. This is intentional.
+        """MIN(ingested_at). Operational metric for ingest-lag monitoring.
+        NOT used by cover_state — see earliest_data_timestamp for that.
+        """
         table = PceEvent if source == "events" else PceTrafficFlowRaw
         with self._sf() as s:
             result = s.execute(select(func.min(table.ingested_at))).scalar()
             if result is None:
                 return None
             # SQLite aggregate functions return naive datetimes; restore UTC timezone
+            if result.tzinfo is None:
+                result = result.replace(tzinfo=timezone.utc)
+            return result
+
+    def earliest_data_timestamp(self, source: str) -> datetime | None:
+        """MIN(last_detected) for traffic, MIN(timestamp) for events.
+        Used by cover_state to judge cache coverage by ACTUAL data window,
+        not by when rows were inserted (which would defeat backfill workflows).
+        """
+        if source == "events":
+            col = PceEvent.timestamp
+        else:
+            col = PceTrafficFlowRaw.last_detected
+        with self._sf() as s:
+            result = s.execute(select(func.min(col))).scalar()
+            if result is None:
+                return None
             if result.tzinfo is None:
                 result = result.replace(tzinfo=timezone.utc)
             return result

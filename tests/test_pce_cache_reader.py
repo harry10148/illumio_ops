@@ -114,3 +114,28 @@ def test_cover_state_partial_when_cache_empty_and_range_in_retention(session_fac
     now = datetime.now(timezone.utc)
     rd = CacheReader(session_factory, events_retention_days=90, traffic_raw_retention_days=7)
     assert rd.cover_state("events", now - timedelta(hours=1), now) == "partial"
+
+
+def test_cover_state_full_when_backfill_old_data_with_recent_ingested_at(session_factory):
+    """Regression: backfill writes old `timestamp` but recent `ingested_at`.
+    cover_state must judge by data timestamp so request whose start ≥ data
+    start returns 'full', not 'partial'.
+    """
+    now = datetime.now(timezone.utc)
+    data_ts = now - timedelta(days=5)        # event happened 5 days ago
+    ingest_ts = now - timedelta(hours=1)     # but was backfilled an hour ago
+    with session_factory.begin() as s:
+        s.add(PceEvent(
+            pce_href="/orgs/1/events/backfill-1",
+            pce_event_id="backfill-1",
+            timestamp=data_ts,
+            event_type="policy.update",
+            severity="info",
+            status="success",
+            pce_fqdn="pce.example.com",
+            raw_json='{"event_type": "policy.update"}',
+            ingested_at=ingest_ts,
+        ))
+    rd = CacheReader(session_factory, events_retention_days=90, traffic_raw_retention_days=7)
+    # Request 4 days back — start (4d) ≥ data_ts (5d ago); cache covers it
+    assert rd.cover_state("events", now - timedelta(days=4), now) == "full"
