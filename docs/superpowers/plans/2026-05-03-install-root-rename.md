@@ -82,6 +82,54 @@ grep -rn 'illumio_ops-' docs/ README*.md | grep -v 'docs/superpowers/'   # expec
 
 Changes the install root used by `install.sh`, `install.ps1`, the systemd unit template, preflight, and uninstall. Existing `/opt/illumio_ops` installs are NOT touched in this batch (Batch 4 handles that).
 
+### Task 2.0: Fix tar root directory name to match docs (added 2026-05-03 from Batch 1 final review)
+
+**Files:** `scripts/build_offline_bundle.sh`
+
+**Background:** Batch 1 final review surfaced a pre-existing inconsistency: the build script packages the Linux tarball with root directory `offline-linux/` (because `BUILD="$REPO_ROOT/build/offline-linux"` and the `tar` invocation uses `$(basename "$BUILD")`), but the install docs tell operators `cd illumio-ops-<version>` after extraction. Operators following the docs hit `cd: No such file or directory`. Same for Windows ZIP. This task fixes the build script so the archive root matches what docs already promise.
+
+- [ ] **Step 1:** Change `build_linux()` and `build_windows()` to use a versioned BUILD dir name that matches `<archive-name-without-extension>`.
+
+The simplest approach: stage the build into a versioned name from the start. In `build_linux()` (around line 65) change:
+
+```bash
+local BUILD="$REPO_ROOT/build/offline-linux"
+```
+
+to:
+
+```bash
+local STAGE_NAME="illumio-ops-${VERSION}-offline-linux-x86_64"
+local BUILD="$REPO_ROOT/build/$STAGE_NAME"
+```
+
+Same pattern in `build_windows()` (around line 105) with `windows-x86_64` suffix.
+
+The existing `tar czf "$DIST_DIR/$ARCHIVE" -C "$(dirname "$BUILD")" "$(basename "$BUILD")"` then automatically uses the new versioned name as the archive root. Same for the Windows `zip -r` invocation.
+
+- [ ] **Step 2:** Verify the produced archive's root directory name matches what docs say:
+
+```bash
+bash scripts/build_offline_bundle.sh
+tar tzf dist/illumio-ops-*-offline-linux-x86_64.tar.gz | head -1
+# Expect: illumio-ops-<v>-offline-linux-x86_64/
+unzip -l dist/illumio-ops-*-offline-windows-x86_64.zip | head -5 | tail -1
+# Expect: illumio-ops-<v>-offline-windows-x86_64/
+```
+
+- [ ] **Step 3:** Confirm docs' `cd illumio-ops-<version>` instruction now works in practice (not just a string):
+
+```bash
+cd /tmp && tar xzf /path/to/dist/illumio-ops-<v>-offline-linux-x86_64.tar.gz
+test -d "illumio-ops-<v>-offline-linux-x86_64"   # Should exist
+```
+
+Note: the docs currently say `cd illumio-ops-<version>` (without the `-offline-linux-x86_64` suffix). After this fix, the archive root will be `illumio-ops-<v>-offline-linux-x86_64/`. Either:
+(a) update the docs to `cd illumio-ops-<version>-offline-linux-x86_64` (more accurate to what extraction actually produces), or
+(b) inside the build script, stage to `build/illumio-ops-<v>` (shorter) and rely on `tar`'s root being `illumio-ops-<v>/`.
+
+Option (a) is more honest — the archive name and extracted root match. Pick (a) when implementing this task and update Installation.md / _zh.md / User_Manual.md / _zh.md `cd` instructions to use the long form. The change is small (4 docs, ~6 lines each).
+
 ### Task 2.1: Update Linux install root default
 
 **Files:** `scripts/install.sh`, `scripts/uninstall.sh`, `scripts/preflight.sh`
