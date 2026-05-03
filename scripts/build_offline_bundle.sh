@@ -2,8 +2,8 @@
 # Build illumio_ops offline bundles for Linux and Windows.
 # Requires: curl, tar, zip, git, any Linux x86_64 with Python 3.10+.
 # Output:
-#   dist/illumio_ops-<version>-offline-linux-x86_64.tar.gz
-#   dist/illumio_ops-<version>-offline-windows-x86_64.zip
+#   dist/illumio-ops-<version>-offline-linux-x86_64.tar.gz
+#   dist/illumio-ops-<version>-offline-windows-x86_64.zip
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -64,7 +64,7 @@ stage_app() {
 # ── Linux bundle ──────────────────────────────────────────────────────────────
 build_linux() {
     local BUILD="$REPO_ROOT/build/offline-linux"
-    local ARCHIVE="illumio_ops-${VERSION}-offline-linux-x86_64.tar.gz"
+    local ARCHIVE="illumio-ops-${VERSION}-offline-linux-x86_64.tar.gz"
     echo "==> [Linux] Cleaning build dir"
     rm -rf "$BUILD" && mkdir -p "$BUILD"
 
@@ -104,7 +104,7 @@ build_linux() {
 # ── Windows bundle ─────────────────────────────────────────────────────────────
 build_windows() {
     local BUILD="$REPO_ROOT/build/offline-windows"
-    local ARCHIVE="illumio_ops-${VERSION}-offline-windows-x86_64.zip"
+    local ARCHIVE="illumio-ops-${VERSION}-offline-windows-x86_64.zip"
     local LINUX_PYTHON="$REPO_ROOT/build/offline-linux/python/bin/python3"
 
     [[ -x "$LINUX_PYTHON" ]] || \
@@ -155,4 +155,4 @@ build_windows
 
 echo ""
 echo "==> All bundles ready in dist/:"
-ls -lh "$DIST_DIR"/illumio_ops-"${VERSION}"-offline-*.{tar.gz,zip} 2>/dev/null || true
+ls -lh "$DIST_DIR"/illumio-ops-"${VERSION}"-offline-*.{tar.gz,zip} 2>/dev/null || true
