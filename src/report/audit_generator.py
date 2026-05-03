@@ -461,7 +461,8 @@ class AuditGenerator:
                         gap = None
                     if gap is not None:
                         cached = self._cache.read_events(cache_start, end)
-                        return gap + cached, "mixed"
+                        source = "mixed" if gap else "cache"
+                        return gap + cached, source
             # partial+earliest-conflict, or miss: fall through to API
         start_str = start.isoformat().replace("+00:00", "Z")
         return self.api.get_events(since=start_str), "api"

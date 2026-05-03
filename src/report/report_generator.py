@@ -191,7 +191,8 @@ class ReportGenerator:
                     ) or []
                     cached = self._cache.read_flows_raw(cache_start, end)
                     # agg data not available for hybrid results
-                    return {"raw": gap + cached, "agg": None, "source": "mixed"}
+                    source = "mixed" if gap else "cache"
+                    return {"raw": gap + cached, "agg": None, "source": source}
         flows = self.api.fetch_traffic_for_report(
             start_time_str=_fmt_iso(start),
             end_time_str=_fmt_iso(end),

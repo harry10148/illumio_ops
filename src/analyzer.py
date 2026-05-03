@@ -866,7 +866,8 @@ class Analyzer:
                 )
                 cached = self._cache_reader.read_flows_raw(cache_start, end_dt)
                 gap_list = list(gap_stream) if gap_stream else []
-                return gap_list + cached, "mixed"
+                source = "mixed" if gap_list else "cache"
+                return gap_list + cached, source
 
         # miss / partial-with-conflict: fall through to API
         stream = self.api.execute_traffic_query_stream(

@@ -139,6 +139,22 @@ def test_report_generator_source_propagated_to_result(tmp_path):
     assert result.data_source == "cache"
 
 
+def test_fetch_traffic_partial_with_empty_api_gap_tags_as_cache(tmp_path):
+    """When PCE returns zero rows for the gap, the result is effectively
+    full cache — source must be 'cache', not 'mixed'."""
+    from src.report.report_generator import ReportGenerator
+    api = _make_mock_api()  # already returns []
+    cache_start = datetime.now(timezone.utc) - timedelta(days=3)
+    cache = _make_cache_reader(cover_state="partial", earliest=cache_start)
+    gen = ReportGenerator(api=api, cache_reader=cache)
+    start = datetime.now(timezone.utc) - timedelta(days=7)
+    end = datetime.now(timezone.utc)
+    result = gen._fetch_traffic(start, end)
+    assert result["source"] == "cache"
+    api.fetch_traffic_for_report.assert_called_once()
+    cache.read_flows_raw.assert_called_once()
+
+
 def test_report_generator_analysis_modules_receive_plain_list(tmp_path):
     """The 15 analysis modules still receive a plain list[dict] — not the dict wrapper."""
     from src.report.report_generator import ReportGenerator
