@@ -31,6 +31,84 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 $SRC = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# ── Migration: C:\illumio_ops → C:\illumio-ops ────────────────────────────────
+function Invoke-MigrateFromUnderscoreRoot {
+    $OldRoot = "C:\illumio_ops"
+    $NewRoot = "C:\illumio-ops"
+
+    # ── Step 1: Partial-migration detection ───────────────────────────────────
+    # OldRoot is gone but NewRoot exists without a MIGRATED_FROM marker.
+    # This means the script was killed after Move-Item but before nssm/marker.
+    if (-not (Test-Path $OldRoot)) {
+        if ((Test-Path $NewRoot) -and -not (Test-Path "$NewRoot\MIGRATED_FROM")) {
+            $currentAppDir = (& nssm get IllumioOps AppDirectory 2>$null) -join ""
+            if ($currentAppDir -eq $OldRoot) {
+                Write-Host "==> Detected partial migration: re-running nssm reconfiguration" -ForegroundColor Yellow
+                & nssm set IllumioOps AppDirectory  $NewRoot
+                & nssm set IllumioOps Application   "$NewRoot\python\python.exe"
+                & nssm set IllumioOps AppParameters "$NewRoot\illumio-ops.py --monitor --interval 10"
+                & nssm set IllumioOps AppStdout     "$NewRoot\logs\service_stdout.log"
+                & nssm set IllumioOps AppStderr     "$NewRoot\logs\service_stderr.log"
+                Set-Content "$NewRoot\MIGRATED_FROM" $OldRoot
+                Write-Host "==> Partial migration completed; $NewRoot\MIGRATED_FROM written." -ForegroundColor Green
+                Write-Host "    NOTE: service was stopped for migration. Restart with 'Start-Service IllumioOps' after install.ps1 finishes." -ForegroundColor Yellow
+            } else {
+                # nssm already points at NewRoot — just the marker is missing
+                Set-Content "$NewRoot\MIGRATED_FROM" $OldRoot
+                Write-Host "==> Detected complete migration without marker; wrote marker." -ForegroundColor Yellow
+            }
+        }
+        # OldRoot is gone; nothing left to migrate (or we just finished above)
+        return
+    }
+
+    # ── Step 2: Already fully migrated ───────────────────────────────────────
+    if ((Test-Path $NewRoot) -and (Test-Path "$NewRoot\MIGRATED_FROM")) { return }
+
+    # ── Step 3: Dual-existence error ──────────────────────────────────────────
+    if (Test-Path $NewRoot) {
+        Write-Host "ERROR: Both $OldRoot and $NewRoot exist; manual cleanup required." -ForegroundColor Red
+        exit 1
+    }
+
+    # ── Step 4: Pre-flight — NSSM service must be registered ─────────────────
+    $svc = Get-Service IllumioOps -ErrorAction SilentlyContinue
+    if (-not $svc) {
+        Write-Host "ERROR: $OldRoot exists but IllumioOps service is not registered." -ForegroundColor Red
+        Write-Host "       Manual cleanup required: rename or remove $OldRoot, then re-run." -ForegroundColor Red
+        exit 1
+    }
+
+    # ── Step 5: Stop service with explicit failure handling ───────────────────
+    if ($svc.Status -eq 'Running') {
+        try {
+            Stop-Service IllumioOps -ErrorAction Stop
+        } catch {
+            Write-Host "ERROR: Failed to stop IllumioOps service; cannot migrate while running." -ForegroundColor Red
+            Write-Host "       Diagnose: Get-Service IllumioOps; Get-EventLog -LogName System -Source 'Service Control Manager' -Newest 5" -ForegroundColor Red
+            exit 1
+        }
+    }
+
+    # ── Step 6: Move directory ────────────────────────────────────────────────
+    Write-Host "==> Migrating $OldRoot to $NewRoot" -ForegroundColor Cyan
+    Move-Item $OldRoot $NewRoot
+
+    # ── Step 7: Reconfigure NSSM ──────────────────────────────────────────────
+    & nssm set IllumioOps AppDirectory  $NewRoot
+    & nssm set IllumioOps Application   "$NewRoot\python\python.exe"
+    & nssm set IllumioOps AppParameters "$NewRoot\illumio-ops.py --monitor --interval 10"
+    & nssm set IllumioOps AppStdout     "$NewRoot\logs\service_stdout.log"
+    & nssm set IllumioOps AppStderr     "$NewRoot\logs\service_stderr.log"
+
+    # ── Step 8: Write marker ──────────────────────────────────────────────────
+    Set-Content "$NewRoot\MIGRATED_FROM" $OldRoot
+    Write-Host "==> Migration complete; $NewRoot\MIGRATED_FROM records source path." -ForegroundColor Green
+
+    # ── Step 9: Warn that service is left stopped ─────────────────────────────
+    Write-Host "    NOTE: service was stopped for migration. Restart with 'Start-Service IllumioOps' after install.ps1 finishes." -ForegroundColor Yellow
+}
+
 # ── Uninstall ─────────────────────────────────────────────────────────────────
 if ($Action -eq "uninstall") {
     Write-Host "==> Removing NSSM service" -ForegroundColor Yellow
@@ -42,6 +120,10 @@ if ($Action -eq "uninstall") {
 }
 
 # ── Install / Upgrade ─────────────────────────────────────────────────────────
+if ($InstallRoot -eq "C:\illumio-ops") {
+    Invoke-MigrateFromUnderscoreRoot
+}
+
 $IsUpgrade = Test-Path (Join-Path $InstallRoot "config\config.json")
 
 Write-Host "==> Installing to $InstallRoot  (upgrade=$IsUpgrade)" -ForegroundColor Cyan
