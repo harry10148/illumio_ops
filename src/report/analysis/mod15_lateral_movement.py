@@ -435,6 +435,7 @@ def lateral_movement_risk(df: pd.DataFrame, top_n: int = 20, max_depth: int = 4)
     _network_chart_spec = {
         "type": "network",
         "title": "Lateral Movement Graph",
+        "title_key": "rpt_chart_lateral_movement_graph",
         "data": {
             "nodes": _chart_nodes,
             "edges": _chart_edges,

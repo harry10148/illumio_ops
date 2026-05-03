@@ -95,6 +95,7 @@ def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
     results['chart_spec'] = {
         'type': 'pie',
         'title': 'Policy Decision Breakdown',
+        'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
                 'Allowed',

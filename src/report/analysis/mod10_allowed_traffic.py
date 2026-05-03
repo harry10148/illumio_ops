@@ -73,8 +73,11 @@ def allowed_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
         'chart_spec': {
             'type': 'line',
             'title': 'Allowed Traffic Timeline',
+            'title_key': 'rpt_chart_allowed_traffic_timeline',
             'x_label': 'Port',
+            'x_label_key': 'rpt_chart_axis_port',
             'y_label': 'Connections',
+            'y_label_key': 'rpt_chart_axis_connections',
             'data': {
                 'x': port_labels,
                 'y': port_values,

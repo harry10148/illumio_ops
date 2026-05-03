@@ -190,7 +190,7 @@ def _append_module(story: list[Any], styles, name: str, module: dict[str, Any],
         try:
             from src.report.exporters.chart_renderer import render_matplotlib_png
             import tempfile
-            png = render_matplotlib_png(chart_spec)
+            png = render_matplotlib_png(chart_spec, lang=lang)
             with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as fh:
                 fh.write(png)
                 chart_path = fh.name

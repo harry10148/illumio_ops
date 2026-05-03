@@ -295,8 +295,11 @@ def enforcement_readiness(df: pd.DataFrame, workloads: list | None = None, top_n
         "chart_spec": {
             "type": "bar",
             "title": "Enforcement Readiness Factor Scores",
+            "title_key": "rpt_chart_readiness_factor_scores",
             "x_label": t("rpt_dimension", default="Factor"),
+            "x_label_key": "rpt_chart_axis_factor",
             "y_label": t("rpt_score", default="Score"),
+            "y_label_key": "rpt_chart_axis_score",
             "data": {"labels": factor_chart_labels, "values": factor_chart_values},
             "i18n": {"lang": get_language()},
         },

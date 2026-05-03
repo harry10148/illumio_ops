@@ -96,6 +96,7 @@ def traffic_overview(df: pd.DataFrame) -> dict:
     chart_spec = {
         'type': 'pie',
         'title': 'Policy Decision Breakdown',
+        'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
                 'Allowed',

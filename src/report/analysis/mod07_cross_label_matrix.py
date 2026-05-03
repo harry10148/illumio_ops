@@ -68,10 +68,15 @@ def cross_label_flow_matrix(df: pd.DataFrame, top_n: int = 20) -> dict:
                 row_labels = list(mat_df.iloc[:, 0].astype(str))
                 col_labels = list(mat_df.columns[1:].astype(str))
                 matrix_values = mat_df.iloc[:, 1:].values.tolist()
+                # Note: title literal carries the dynamic '(<key>)' suffix; the
+                # title_key resolves only the static base, so the localized PDF
+                # title omits the suffix. The label key (env/app/...) is still
+                # visible via the heatmap's row/column labels.
                 chart_spec = {
                     'type': 'heatmap',
                     'title': 'Cross-Label Traffic Matrix'
                              + f' ({key})',
+                    'title_key': 'rpt_chart_cross_label_matrix',
                     'data': {
                         'labels': col_labels,
                         'ylabels': row_labels,

@@ -82,8 +82,11 @@ def traffic_distribution(df: pd.DataFrame, top_n: int = 20) -> dict:
     result['chart_spec'] = {
         'type': 'bar',
         'title': 'Top 20 Ports by Flow Count',
+        'title_key': 'rpt_chart_top_ports',
         'x_label': t('rpt_port', default='Port'),
+        'x_label_key': 'rpt_chart_axis_port',
         'y_label': 'Connections',
+        'y_label_key': 'rpt_chart_axis_connections',
         'data': {'labels': port_labels, 'values': port_values},
         'i18n': {'lang': get_language()},
     }

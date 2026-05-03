@@ -82,6 +82,23 @@ _PALETTE = [
 ]
 
 
+def _resolve_chart_text(spec: dict[str, Any], field: str, *, lang: str = "en") -> str:
+    """Resolve a chart_spec text field, preferring `<field>_key` i18n lookup.
+
+    Lookup order:
+      1. spec[f"{field}_key"] -> STRINGS[key].get(lang) if both present
+      2. spec[field] (literal fallback for backward compat)
+      3. "" if neither present
+    """
+    key = spec.get(f"{field}_key")
+    if key:
+        from src.report.exporters.report_i18n import STRINGS
+        translated = STRINGS.get(key, {}).get(lang)
+        if translated:
+            return translated
+    return str(spec.get(field, ""))
+
+
 def _pie_autopct(pct: float, *, threshold: float = 0.0) -> str:
     """Suppress autopct labels for slices at or below `threshold` percent.
 
@@ -260,18 +277,26 @@ def render_plotly_html(spec: dict[str, Any], *, include_js: bool = True) -> str:
         show_link=False,
     )
 
-def render_matplotlib_png(spec: dict[str, Any]) -> bytes:
-    """Render chart spec as a PNG byte string (for PDF/Excel embedding)."""
+def render_matplotlib_png(spec: dict[str, Any], *, lang: str = "en") -> bytes:
+    """Render chart spec as a PNG byte string (for PDF/Excel embedding).
+
+    Title and axis labels are resolved through `_resolve_chart_text` so that
+    chart_specs carrying `title_key` / `x_label_key` / `y_label_key` render in
+    the requested language. Specs without those keys fall back to the literal
+    `title` / `x_label` / `y_label` for backward compatibility.
+    """
     chart_type = spec.get("type")
     data = spec.get("data", {})
-    title = spec.get("title", "")
+    title = _resolve_chart_text(spec, "title", lang=lang)
+    x_label = _resolve_chart_text(spec, "x_label", lang=lang)
+    y_label = _resolve_chart_text(spec, "y_label", lang=lang)
 
     fig, ax = plt.subplots(figsize=(8, 5), dpi=100)
 
     if chart_type == "bar":
         ax.bar(data.get("labels", []), data.get("values", []), color="#375379")
-        ax.set_xlabel(spec.get("x_label", ""))
-        ax.set_ylabel(spec.get("y_label", ""))
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
     elif chart_type == "pie":
         ax.pie(
             data.get("values", []),
@@ -285,8 +310,8 @@ def render_matplotlib_png(spec: dict[str, Any]) -> bytes:
         ax.axis("equal")
     elif chart_type == "line":
         ax.plot(data.get("x", []), data.get("y", []), marker="o")
-        ax.set_xlabel(spec.get("x_label", ""))
-        ax.set_ylabel(spec.get("y_label", ""))
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
     elif chart_type == "heatmap":
         import numpy as np
         raw_matrix = data.get("matrix", [[0]])

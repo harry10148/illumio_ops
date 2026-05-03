@@ -97,6 +97,7 @@ def pu_deny_effectiveness(
         chart_spec = {
             "type": "pie",
             "title": "Policy Decision Distribution",
+            "title_key": "rpt_chart_policy_decision_distribution",
             "data": {
                 "labels": ["Allow Rules", "Deny Rules (Active)", "Deny Rules (Unused)"],
                 "values": [total_allow, len(deny_hit), len(deny_unused)],

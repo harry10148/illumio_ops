@@ -625,6 +625,66 @@ STRINGS: _StringMap = _StringMap({
         "Static PDF summary. Use HTML or XLSX for full localized detail.",
         "此 PDF 為靜態摘要，完整多語系報表請使用 HTML 或 XLSX 格式。",
     ),
+    # --- Chart titles (PDF/Excel render path; resolved via title_key) ---
+    "rpt_chart_policy_decision_breakdown": _entry(
+        "Policy Decision Breakdown", "Policy 判定分布"),
+    "rpt_chart_policy_coverage_tiers": _entry(
+        "Policy Coverage Tiers", "Policy 涵蓋層級"),
+    "rpt_chart_ransomware_exposure": _entry(
+        "Ransomware Exposure by Risk Level", "依風險等級的勒索軟體暴露面"),
+    "rpt_chart_top_remote_access_ports": _entry(
+        "Top Remote Access Ports", "遠端存取連接埠排行"),
+    "rpt_chart_top_activity_by_process_user": _entry(
+        "Top Activity by Process/User", "依 Process/User 排行的活動"),
+    "rpt_chart_cross_label_matrix": _entry(
+        "Cross-Label Traffic Matrix", "跨 Label 流量矩陣"),
+    "rpt_chart_managed_vs_unmanaged": _entry(
+        "Managed vs Unmanaged Flows", "受管 vs 未受管流量"),
+    "rpt_chart_top_ports": _entry(
+        "Top 20 Ports by Flow Count", "Top 20 連接埠（依流量數）"),
+    "rpt_chart_allowed_traffic_timeline": _entry(
+        "Allowed Traffic Timeline", "允許流量時間軸"),
+    "rpt_chart_top_apps_by_data_volume": _entry(
+        "Top Apps by Data Volume", "依資料量排行的應用程式"),
+    "rpt_chart_maturity_dimensions": _entry(
+        "Microsegmentation Maturity Dimensions", "微分段成熟度面向"),
+    "rpt_chart_readiness_factor_scores": _entry(
+        "Enforcement Readiness Factor Scores", "Enforcement 就緒度因子分數"),
+    "rpt_chart_infrastructure_apps_by_tier": _entry(
+        "Infrastructure Apps by Tier", "依層級分類的基礎架構應用程式"),
+    "rpt_chart_lateral_movement_graph": _entry(
+        "Lateral Movement Graph", "Lateral Movement 連線圖"),
+    "rpt_chart_top_audit_event_types": _entry(
+        "Top Audit Event Types", "稽核事件類型排行"),
+    "rpt_chart_top_users_by_activity": _entry(
+        "Top Users by Activity", "依活動量排行的使用者"),
+    "rpt_chart_top_users_by_policy_changes": _entry(
+        "Top Users by Policy Changes", "依 Policy 異動排行的使用者"),
+    "rpt_chart_top_hit_rules": _entry(
+        "Top 10 Hit Rules", "命中前 10 名規則"),
+    "rpt_chart_policy_decision_distribution": _entry(
+        "Policy Decision Distribution", "Policy 判定分布"),
+    # --- Chart axis labels (resolved via x_label_key / y_label_key) ---
+    "rpt_chart_axis_flows": _entry("Flows", "流量數"),
+    "rpt_chart_axis_connections": _entry("Connections", "連線數"),
+    "rpt_chart_axis_bytes": _entry("Bytes", "Bytes"),
+    "rpt_chart_axis_count": _entry("Count", "數量"),
+    "rpt_chart_axis_event_count": _entry("Event Count", "事件數"),
+    "rpt_chart_axis_change_count": _entry("Change Count", "異動數"),
+    "rpt_chart_axis_hit_count": _entry("Hit Count", "命中數"),
+    "rpt_chart_axis_score": _entry("Score", "分數"),
+    "rpt_chart_axis_app_count": _entry("App Count", "應用程式數"),
+    "rpt_chart_axis_process": _entry("Process", "Process"),
+    "rpt_chart_axis_user": _entry("User", "使用者"),
+    "rpt_chart_axis_port": _entry("Port", "連接埠"),
+    "rpt_chart_axis_app": _entry("Application", "應用程式"),
+    "rpt_chart_axis_risk_level": _entry("Risk Level", "風險等級"),
+    "rpt_chart_axis_service": _entry("Service", "服務"),
+    "rpt_chart_axis_event_type": _entry("Event Type", "事件類型"),
+    "rpt_chart_axis_rule": _entry("Rule", "規則"),
+    "rpt_chart_axis_dimension": _entry("Dimension", "面向"),
+    "rpt_chart_axis_factor": _entry("Factor", "因子"),
+    "rpt_chart_axis_tier": _entry("Tier", "層級"),
     # Application Ringfence body strings
     "rpt_mod_ringfence_no_labels": _entry("No app labels available for ringfence analysis.", "找不到可用的 App Label，無法執行 Ringfence 分析。"),
     "rpt_mod_ringfence_no_apps": _entry("No apps found.", "找不到任何應用程式。"),

@@ -144,3 +144,29 @@ def test_filter_existing_font_families_keeps_real_font_when_present():
     out = _filter_existing_font_families(["DejaVu Sans", "sans-serif"])
     # DejaVu Sans is bundled with matplotlib itself, so always present.
     assert "DejaVu Sans" in out
+
+
+def test_render_matplotlib_resolves_title_key_for_lang():
+    """If chart_spec carries title_key, the renderer resolves it via STRINGS+lang."""
+    from src.report.exporters import chart_renderer
+    from src.report.exporters import report_i18n
+    # Inject a temporary i18n entry the renderer can resolve.
+    report_i18n.STRINGS["rpt_chart_test_title"] = {
+        "en": "English Title", "zh_TW": "中文標題",
+    }
+    spec = {
+        "type": "bar",
+        "title": "English Title",        # backward-compat literal
+        "title_key": "rpt_chart_test_title",
+        "data": {"labels": ["a"], "values": [1]},
+    }
+    out_en = chart_renderer._resolve_chart_text(spec, "title", lang="en")
+    out_zh = chart_renderer._resolve_chart_text(spec, "title", lang="zh_TW")
+    assert out_en == "English Title"
+    assert out_zh == "中文標題"
+
+
+def test_render_matplotlib_falls_back_to_literal_when_key_missing():
+    from src.report.exporters import chart_renderer
+    spec = {"type": "bar", "title": "Plain Title", "data": {"labels": [], "values": []}}
+    assert chart_renderer._resolve_chart_text(spec, "title", lang="zh_TW") == "Plain Title"

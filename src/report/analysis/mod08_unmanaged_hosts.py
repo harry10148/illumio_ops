@@ -77,6 +77,7 @@ def unmanaged_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
         'chart_spec': {
             'type': 'pie',
             'title': 'Managed vs Unmanaged Flows',
+            'title_key': 'rpt_chart_managed_vs_unmanaged',
             'data': {
                 'labels': [
                     t('rpt_managed', default='Managed'),
