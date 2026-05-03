@@ -47,9 +47,9 @@ else
     echo "    To fully remove:     sudo rm -rf $INSTALL_ROOT"
 fi
 
-if id illumio_ops &>/dev/null; then
-    userdel illumio_ops
-    echo "==> User illumio_ops removed"
+if id illumio-ops &>/dev/null; then
+    userdel illumio-ops
+    echo "==> User illumio-ops removed"
 fi
 
 echo "==> Uninstall complete."
