@@ -588,7 +588,7 @@ PDF) work; PDF uses pure-Python ReportLab and ships in the bundle.
 git clone <repo-url>
 cd illumio-ops
 bash scripts/build_offline_bundle.sh
-# Output: dist/illumio_ops-<version>-offline-linux-x86_64.tar.gz
+# Output: dist/illumio-ops-<version>-offline-linux-x86_64.tar.gz
 ```
 
 Transfer the `.tar.gz` to the air-gapped RHEL host (USB, SCP via a jump host,
@@ -597,8 +597,8 @@ etc.).
 ##### First-time installation
 
 ```bash
-tar xzf illumio_ops-<version>-offline-linux-x86_64.tar.gz
-cd illumio_ops-<version>
+tar xzf illumio-ops-<version>-offline-linux-x86_64.tar.gz
+cd illumio-ops-<version>
 
 # Validate the host environment before installing (exits 1 on any FAIL)
 bash ./preflight.sh
@@ -625,8 +625,8 @@ sudo systemctl status illumio-ops      # should show Active: active (running)
 sudo systemctl stop illumio-ops
 
 # 2. Extract the new bundle (alongside the old one is fine)
-tar xzf illumio_ops-<new-version>-offline-linux-x86_64.tar.gz
-cd illumio_ops-<new-version>
+tar xzf illumio-ops-<new-version>-offline-linux-x86_64.tar.gz
+cd illumio-ops-<new-version>
 
 # 3. Run install.sh — config.json and rule_schedules.json are preserved
 sudo ./install.sh
@@ -668,7 +668,7 @@ CSV, PDF) work; PDF uses pure-Python ReportLab and ships in the bundle.
 git clone <repo-url>
 cd illumio-ops
 bash scripts/build_offline_bundle.sh
-# Output: dist/illumio_ops-<version>-offline-windows-x86_64.zip
+# Output: dist/illumio-ops-<version>-offline-windows-x86_64.zip
 ```
 
 Transfer the `.zip` to the air-gapped Windows host.
@@ -677,10 +677,10 @@ Transfer the `.zip` to the air-gapped Windows host.
 
 ```powershell
 # Extract the bundle (built-in Windows 11 / Server 2019+)
-Expand-Archive illumio_ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
+Expand-Archive illumio-ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # Validate the host environment before installing (exits 1 on any FAIL)
-cd C:\illumio_ops-<version>
+cd C:\illumio-ops-<version>
 .\preflight.ps1
 
 # Install to C:\illumio_ops, register IllumioOps Windows service
@@ -703,10 +703,10 @@ Get-Service IllumioOps
 Stop-Service IllumioOps
 
 # 2. Extract new bundle
-Expand-Archive illumio_ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
+Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # 3. Run install.ps1 — config preserved automatically
-cd C:\illumio_ops-<new-version>
+cd C:\illumio-ops-<new-version>
 .\install.ps1
 
 # 4. Verify

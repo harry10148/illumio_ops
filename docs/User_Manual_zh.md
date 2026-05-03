@@ -587,7 +587,7 @@ PDF 採用純 Python 的 ReportLab，已內含於 bundle。
 git clone <repo-url>
 cd illumio-ops
 bash scripts/build_offline_bundle.sh
-# 輸出:dist/illumio_ops-<version>-offline-linux-x86_64.tar.gz
+# 輸出:dist/illumio-ops-<version>-offline-linux-x86_64.tar.gz
 ```
 
 把 `.tar.gz` 傳輸到 air-gapped RHEL 主機(USB、跳板機 SCP 等)。
@@ -595,8 +595,8 @@ bash scripts/build_offline_bundle.sh
 ##### 首次安裝
 
 ```bash
-tar xzf illumio_ops-<version>-offline-linux-x86_64.tar.gz
-cd illumio_ops-<version>
+tar xzf illumio-ops-<version>-offline-linux-x86_64.tar.gz
+cd illumio-ops-<version>
 
 # 安裝前檢驗主機環境(任何 FAIL 都會以 exit 1 結束)
 bash ./preflight.sh
@@ -623,8 +623,8 @@ sudo systemctl status illumio-ops      # 應顯示 Active: active (running)
 sudo systemctl stop illumio-ops
 
 # 2. 解壓新 bundle(與舊版並存沒關係)
-tar xzf illumio_ops-<new-version>-offline-linux-x86_64.tar.gz
-cd illumio_ops-<new-version>
+tar xzf illumio-ops-<new-version>-offline-linux-x86_64.tar.gz
+cd illumio-ops-<new-version>
 
 # 3. 執行 install.sh — config.json 與 rule_schedules.json 會保留
 sudo ./install.sh
@@ -664,7 +664,7 @@ NSSM(Non-Sucking Service Manager)已內含於 `deploy\nssm.exe`,服務安裝程�
 git clone <repo-url>
 cd illumio-ops
 bash scripts/build_offline_bundle.sh
-# 輸出:dist/illumio_ops-<version>-offline-windows-x86_64.zip
+# 輸出:dist/illumio-ops-<version>-offline-windows-x86_64.zip
 ```
 
 把 `.zip` 傳輸到 air-gapped Windows 主機。
@@ -673,10 +673,10 @@ bash scripts/build_offline_bundle.sh
 
 ```powershell
 # 解壓 bundle(Windows 11 / Server 2019+ 內建 Expand-Archive)
-Expand-Archive illumio_ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
+Expand-Archive illumio-ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # 安裝前檢驗主機環境(任何 FAIL 都會以 exit 1 結束)
-cd C:\illumio_ops-<version>
+cd C:\illumio-ops-<version>
 .\preflight.ps1
 
 # 安裝到 C:\illumio_ops、註冊 IllumioOps Windows 服務
@@ -699,10 +699,10 @@ Get-Service IllumioOps
 Stop-Service IllumioOps
 
 # 2. 解壓新 bundle
-Expand-Archive illumio_ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
+Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # 3. 執行 install.ps1 — 設定自動保留
-cd C:\illumio_ops-<new-version>
+cd C:\illumio-ops-<new-version>
 .\install.ps1
 
 # 4. 確認
