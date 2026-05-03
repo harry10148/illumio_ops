@@ -8,8 +8,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# When running from inside the installed directory, illumio_ops.py is a sibling
-if [[ -f "$SCRIPT_DIR/illumio_ops.py" ]]; then
+# When running from inside the installed directory, illumio-ops.py is a sibling
+if [[ -f "$SCRIPT_DIR/illumio-ops.py" ]]; then
     INSTALL_ROOT="$SCRIPT_DIR"
 else
     INSTALL_ROOT="/opt/illumio-ops"
