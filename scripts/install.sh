@@ -19,13 +19,25 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SRC="$(cd "$(dirname "$0")" && pwd)"
 
 migrate_from_underscore_root() {
-    local OLD_ROOT="/opt/illumio_ops"
-    local NEW_ROOT="/opt/illumio-ops"
+    # All identifiers below are env-var overridable so tests/test_install_migration.sh
+    # can exercise the function without touching real system users or paths.
+    # Defaults reproduce the original production behavior byte-for-byte.
+    local OLD_ROOT="${OLD_ROOT:-/opt/illumio_ops}"
+    local NEW_ROOT="${NEW_ROOT:-/opt/illumio-ops}"
+    local OLD_USER="${OLD_USER:-illumio_ops}"
+    local NEW_USER="${NEW_USER:-illumio-ops}"
+    local MIGRATE_SERVICE_NAME="${MIGRATE_SERVICE_NAME:-illumio-ops}"
+    local USERMOD_CMD="${USERMOD_CMD:-usermod -l}"
+    local GROUPMOD_CMD="${GROUPMOD_CMD:-groupmod -n}"
 
     # Fix 5 (M1): root check must be first — all mutation steps require root.
-    if [[ $EUID -ne 0 ]]; then
-        echo "ERROR: migration requires root (run install.sh with sudo)." >&2
-        exit 1
+    # Skip the check in test mode, which we detect by the OLD_ROOT/NEW_ROOT
+    # paths both being non-default. Production paths always trip the check.
+    if [[ "$OLD_ROOT" == "/opt/illumio_ops" && "$NEW_ROOT" == "/opt/illumio-ops" ]]; then
+        if [[ $EUID -ne 0 ]]; then
+            echo "ERROR: migration requires root (run install.sh with sudo)." >&2
+            exit 1
+        fi
     fi
 
     # Only migrate when old exists and new doesn't (and we haven't migrated already)
@@ -46,51 +58,51 @@ migrate_from_underscore_root() {
     fi
 
     # Fix 1 (C1): detect partial-migration (usermod completed, mv did not).
-    if id illumio-ops &>/dev/null; then
+    if id "$NEW_USER" &>/dev/null; then
         if [[ -d "$OLD_ROOT" ]]; then
             # Partial migration: usermod succeeded, but mv hasn't completed.
             # We can't safely auto-resume because we don't know which step failed.
-            echo "ERROR: Partial migration detected: user 'illumio-ops' exists but $OLD_ROOT also still exists." >&2
+            echo "ERROR: Partial migration detected: user '$NEW_USER' exists but $OLD_ROOT also still exists." >&2
             echo "       The previous install.sh run was interrupted between user rename and directory move." >&2
             echo "       Resume manually:" >&2
-            echo "         groupmod -n illumio-ops illumio_ops 2>/dev/null || true   # safe if already renamed" >&2
+            echo "         groupmod -n $NEW_USER $OLD_USER 2>/dev/null || true   # safe if already renamed" >&2
             echo "         mv $OLD_ROOT $NEW_ROOT" >&2
             echo "         echo $OLD_ROOT > $NEW_ROOT/MIGRATED_FROM" >&2
-            echo "         chown illumio-ops:illumio-ops $NEW_ROOT/MIGRATED_FROM" >&2
+            echo "         chown $NEW_USER:$NEW_USER $NEW_ROOT/MIGRATED_FROM" >&2
             echo "       Then re-run install.sh." >&2
         else
-            echo "ERROR: User 'illumio-ops' already exists; cannot rename illumio_ops." >&2
+            echo "ERROR: User '$NEW_USER' already exists; cannot rename $OLD_USER." >&2
         fi
         exit 1
     fi
 
     # Fix 4 (I3): if OLD_ROOT exists but illumio_ops user has been manually deleted,
     # usermod -l would fail cryptically — detect and surface it now.
-    if ! id illumio_ops &>/dev/null; then
-        echo "ERROR: Directory $OLD_ROOT exists but user 'illumio_ops' does not." >&2
+    if ! id "$OLD_USER" &>/dev/null; then
+        echo "ERROR: Directory $OLD_ROOT exists but user '$OLD_USER' does not." >&2
         echo "       Manual cleanup required: rename or remove $OLD_ROOT, then re-run." >&2
         exit 1
     fi
 
     # Fix 2 (I1): stop service only if running; fail loudly if stop fails.
-    if systemctl is-active --quiet illumio-ops 2>/dev/null; then
-        systemctl stop illumio-ops || {
-            echo "ERROR: Failed to stop illumio-ops service; cannot rename user while it has running processes." >&2
-            echo "       Diagnose: systemctl status illumio-ops" >&2
+    if systemctl is-active --quiet "$MIGRATE_SERVICE_NAME" 2>/dev/null; then
+        systemctl stop "$MIGRATE_SERVICE_NAME" || {
+            echo "ERROR: Failed to stop $MIGRATE_SERVICE_NAME service; cannot rename user while it has running processes." >&2
+            echo "       Diagnose: systemctl status $MIGRATE_SERVICE_NAME" >&2
             exit 1
         }
     fi
 
-    usermod -l illumio-ops illumio_ops || { echo "FAIL: usermod"; exit 1; }
-    groupmod -n illumio-ops illumio_ops || { echo "FAIL: groupmod"; usermod -l illumio_ops illumio-ops; exit 1; }
+    $USERMOD_CMD "$NEW_USER" "$OLD_USER" || { echo "FAIL: usermod"; exit 1; }
+    $GROUPMOD_CMD "$NEW_USER" "$OLD_USER" || { echo "FAIL: groupmod"; $USERMOD_CMD "$OLD_USER" "$NEW_USER"; exit 1; }
     mv "$OLD_ROOT" "$NEW_ROOT" || {
         echo "FAIL: mv — rolling back user/group rename"
-        usermod -l illumio_ops illumio-ops
-        groupmod -n illumio_ops illumio-ops
+        $USERMOD_CMD "$OLD_USER" "$NEW_USER"
+        $GROUPMOD_CMD "$OLD_USER" "$NEW_USER"
         exit 1
     }
     echo "$OLD_ROOT" > "$NEW_ROOT/MIGRATED_FROM"
-    chown illumio-ops:illumio-ops "$NEW_ROOT/MIGRATED_FROM"
+    chown "$NEW_USER:$NEW_USER" "$NEW_ROOT/MIGRATED_FROM"
 
     # Fix 3 (I2): warn operator that service is left stopped.
     echo "==> Migration complete; $NEW_ROOT/MIGRATED_FROM records source path."
