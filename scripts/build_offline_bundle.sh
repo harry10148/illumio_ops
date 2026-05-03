@@ -63,7 +63,8 @@ stage_app() {
 
 # ── Linux bundle ──────────────────────────────────────────────────────────────
 build_linux() {
-    local BUILD="$REPO_ROOT/build/offline-linux"
+    local STAGE_NAME="illumio-ops-${VERSION}-offline-linux-x86_64"
+    local BUILD="$REPO_ROOT/build/$STAGE_NAME"
     local ARCHIVE="illumio-ops-${VERSION}-offline-linux-x86_64.tar.gz"
     echo "==> [Linux] Cleaning build dir"
     rm -rf "$BUILD" && mkdir -p "$BUILD"
@@ -103,9 +104,10 @@ build_linux() {
 
 # ── Windows bundle ─────────────────────────────────────────────────────────────
 build_windows() {
-    local BUILD="$REPO_ROOT/build/offline-windows"
+    local STAGE_NAME="illumio-ops-${VERSION}-offline-windows-x86_64"
+    local BUILD="$REPO_ROOT/build/$STAGE_NAME"
     local ARCHIVE="illumio-ops-${VERSION}-offline-windows-x86_64.zip"
-    local LINUX_PYTHON="$REPO_ROOT/build/offline-linux/python/bin/python3"
+    local LINUX_PYTHON="$REPO_ROOT/build/illumio-ops-${VERSION}-offline-linux-x86_64/python/bin/python3"
 
     [[ -x "$LINUX_PYTHON" ]] || \
         { echo "ERROR: Linux PBS Python not found — run build_linux first (required for cross-platform wheel download)"; exit 1; }

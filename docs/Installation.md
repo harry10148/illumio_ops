@@ -51,7 +51,7 @@ Transfer the `.tar.gz` to the air-gapped RHEL host (USB, SCP to a jump host, etc
 
 ```bash
 tar xzf illumio-ops-<version>-offline-linux-x86_64.tar.gz
-cd illumio-ops-<version>
+cd illumio-ops-<version>-offline-linux-x86_64
 
 # Validate the host environment before installing (exits 1 on any FAIL)
 bash ./preflight.sh
@@ -79,7 +79,7 @@ sudo systemctl stop illumio-ops
 
 # 2. Extract the new bundle (alongside the old one is fine)
 tar xzf illumio-ops-<new-version>-offline-linux-x86_64.tar.gz
-cd illumio-ops-<new-version>
+cd illumio-ops-<new-version>-offline-linux-x86_64
 
 # 3. Run install.sh — config.json, alerts.json (rules), and rule_schedules.json are preserved
 sudo ./install.sh
@@ -134,7 +134,7 @@ Transfer the `.zip` to the air-gapped Windows host.
 Expand-Archive illumio-ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # Validate the host environment before installing (exits 1 on any FAIL)
-cd C:\illumio-ops-<version>
+cd C:\illumio-ops-<version>-offline-windows-x86_64
 .\preflight.ps1
 
 # Install to C:\illumio_ops, register IllumioOps Windows service
@@ -160,7 +160,7 @@ Stop-Service IllumioOps
 Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # 3. Run install.ps1 — config preserved automatically
-cd C:\illumio-ops-<new-version>
+cd C:\illumio-ops-<new-version>-offline-windows-x86_64
 .\install.ps1
 
 # 4. Verify

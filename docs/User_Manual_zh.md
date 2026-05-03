@@ -596,7 +596,7 @@ bash scripts/build_offline_bundle.sh
 
 ```bash
 tar xzf illumio-ops-<version>-offline-linux-x86_64.tar.gz
-cd illumio-ops-<version>
+cd illumio-ops-<version>-offline-linux-x86_64
 
 # 安裝前檢驗主機環境(任何 FAIL 都會以 exit 1 結束)
 bash ./preflight.sh
@@ -624,7 +624,7 @@ sudo systemctl stop illumio-ops
 
 # 2. 解壓新 bundle(與舊版並存沒關係)
 tar xzf illumio-ops-<new-version>-offline-linux-x86_64.tar.gz
-cd illumio-ops-<new-version>
+cd illumio-ops-<new-version>-offline-linux-x86_64
 
 # 3. 執行 install.sh — config.json 與 rule_schedules.json 會保留
 sudo ./install.sh
@@ -676,7 +676,7 @@ bash scripts/build_offline_bundle.sh
 Expand-Archive illumio-ops-<version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # 安裝前檢驗主機環境(任何 FAIL 都會以 exit 1 結束)
-cd C:\illumio-ops-<version>
+cd C:\illumio-ops-<version>-offline-windows-x86_64
 .\preflight.ps1
 
 # 安裝到 C:\illumio_ops、註冊 IllumioOps Windows 服務
@@ -702,7 +702,7 @@ Stop-Service IllumioOps
 Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
 # 3. 執行 install.ps1 — 設定自動保留
-cd C:\illumio-ops-<new-version>
+cd C:\illumio-ops-<new-version>-offline-windows-x86_64
 .\install.ps1
 
 # 4. 確認
