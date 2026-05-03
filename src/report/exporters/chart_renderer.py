@@ -60,13 +60,17 @@ _PALETTE = [
 ]
 
 
-def _pie_autopct(pct: float, *, threshold: float = 1.0) -> str:
-    """Suppress autopct labels for slices below `threshold` percent.
+def _pie_autopct(pct: float, *, threshold: float = 0.0) -> str:
+    """Suppress autopct labels for slices at or below `threshold` percent.
 
-    Tiny slices crowd labels at the same angular position, producing the
-    overlapping '0.0%5.5%0.0%' clusters seen in the sample report.
+    Default threshold=0.0 with strict `>` hides only literally-zero slices,
+    which were causing the '0.0%5.5%0.0%' label clusters in the sample
+    report. Higher thresholds risk hiding operationally-significant slices
+    (e.g. a 0.08% 'Critical' category is exactly the slice a security
+    operator needs to see) — only raise the threshold when the chart's
+    domain makes sub-N% noise meaningless.
     """
-    return f"{pct:.1f}%" if pct >= threshold else ""
+    return f"{pct:.1f}%" if pct > threshold else ""
 
 _BASE_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -252,8 +256,8 @@ def render_matplotlib_png(spec: dict[str, Any]) -> bytes:
             labels=data.get("labels", []),
             autopct=_pie_autopct,
             startangle=90,
-            pctdistance=0.78,        # pull % labels slightly inward
-            labeldistance=1.08,      # push slice labels outward
+            pctdistance=0.78,        # % labels at 78% of radius (default 0.6)
+            labeldistance=1.08,      # slice labels at 108% of radius (default 1.1)
             textprops={"fontsize": 9},
         )
         ax.axis("equal")

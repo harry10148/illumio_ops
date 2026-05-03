@@ -116,26 +116,15 @@ def test_i18n_zh_tw_title_renders():
     assert png.startswith(b'\x89PNG')
 
 
-def test_pie_chart_suppresses_zero_percent_labels():
-    """0.0% slices should render no autopct label (avoids overlap with adjacent slices)."""
-    from src.report.exporters.chart_renderer import render_matplotlib_png
-    spec = {
-        "type": "pie",
-        "title": "Test pie",
-        "data": {"labels": ["Big", "Tiny", "Zero"], "values": [99, 1, 0]},
-    }
-    png = render_matplotlib_png(spec)
-    # Sanity: PNG produced
-    assert png.startswith(b"\x89PNG"), "expected PNG bytes"
-    # Behavioural assertion is necessarily indirect for raster output.
-    # We verify the autopct callable directly via the helper introduced
-    # in the fix (see Step 3) — see test_pie_autopct_filter below.
-
-
 def test_pie_autopct_filter():
-    """The autopct callable should return '' for percentages below threshold."""
+    """Default behaviour: hide only exactly-zero slices, render everything else."""
     from src.report.exporters.chart_renderer import _pie_autopct
+    # Default threshold (0.0) — only literal zero hidden
     assert _pie_autopct(0.0) == ""
-    assert _pie_autopct(0.4) == ""           # below 1.0% threshold
+    assert _pie_autopct(0.04) == "0.0%"     # rounds to 0 but not literally zero
+    assert _pie_autopct(0.4) == "0.4%"
     assert _pie_autopct(1.0) == "1.0%"
     assert _pie_autopct(93.4) == "93.4%"
+    # Caller can opt into higher threshold
+    assert _pie_autopct(0.5, threshold=1.0) == ""
+    assert _pie_autopct(1.5, threshold=1.0) == "1.5%"
