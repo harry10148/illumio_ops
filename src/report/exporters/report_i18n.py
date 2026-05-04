@@ -685,6 +685,15 @@ STRINGS: _StringMap = _StringMap({
     "rpt_chart_axis_dimension": _entry("Dimension", "面向"),
     "rpt_chart_axis_factor": _entry("Factor", "因子"),
     "rpt_chart_axis_tier": _entry("Tier", "層級"),
+    # Categorical pie/bar slice labels (analyzer-side translation via t())
+    "rpt_allowed": _entry("Allowed", "已允許"),
+    "rpt_blocked": _entry("Blocked", "已封鎖"),
+    "rpt_potentially_blocked": _entry("Potentially Blocked", "可能被封鎖"),
+    "rpt_unknown": _entry("Unknown", "未知"),
+    "rpt_risk_critical": _entry("Critical", "嚴重"),
+    "rpt_risk_high": _entry("High", "高"),
+    "rpt_risk_medium": _entry("Medium", "中"),
+    "rpt_risk_low": _entry("Low", "低"),
     # Application Ringfence body strings
     "rpt_mod_ringfence_no_labels": _entry("No app labels available for ringfence analysis.", "找不到可用的 App Label，無法執行 Ringfence 分析。"),
     "rpt_mod_ringfence_no_apps": _entry("No apps found.", "找不到任何應用程式。"),

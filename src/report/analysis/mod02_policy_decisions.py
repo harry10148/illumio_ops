@@ -98,9 +98,9 @@ def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
         'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
-                'Allowed',
-                'Blocked',
-                'Potentially Blocked',
+                t('rpt_allowed', default='Allowed'),
+                t('rpt_blocked', default='Blocked'),
+                t('rpt_potentially_blocked', default='Potentially Blocked'),
             ],
             'values': [
                 results.get('allowed', {}).get('count', 0),

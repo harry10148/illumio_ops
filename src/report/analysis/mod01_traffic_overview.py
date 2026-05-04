@@ -99,10 +99,10 @@ def traffic_overview(df: pd.DataFrame) -> dict:
         'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
-                'Allowed',
-                'Blocked',
-                'Potentially Blocked',
-                'Unknown',
+                t('rpt_allowed', default='Allowed'),
+                t('rpt_blocked', default='Blocked'),
+                t('rpt_potentially_blocked', default='Potentially Blocked'),
+                t('rpt_unknown', default='Unknown'),
             ],
             'values': [int(allowed), int(blocked), int(potential), int(unknown)],
         },

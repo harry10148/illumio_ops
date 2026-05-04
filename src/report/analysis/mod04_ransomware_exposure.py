@@ -128,7 +128,10 @@ def ransomware_exposure(df: pd.DataFrame, report_config: dict, top_n: int = 20) 
         'y_label': 'Flows',
         'y_label_key': 'rpt_chart_axis_flows',
         'data': {
-            'labels': [lvl.capitalize() for lvl in risk_levels if lvl in level_counts],
+            'labels': [
+                t(f'rpt_risk_{lvl}', default=lvl.capitalize())
+                for lvl in risk_levels if lvl in level_counts
+            ],
             'values': [level_counts[lvl] for lvl in risk_levels if lvl in level_counts],
         },
         'i18n': {'lang': get_language()},
