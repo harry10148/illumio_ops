@@ -17,7 +17,7 @@
 <!-- END:doc-map -->
 
 ![Version](https://img.shields.io/badge/Version-v3.20.0--report--intelligence-blue?style=flat-square)
-![Python](https://img.shields.io/badge/Python-3.8%2B-yellow?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=flat-square&logo=python&logoColor=white)
 ![API](https://img.shields.io/badge/Illumio_API-v25.2-green?style=flat-square)
 
 > **[English](README.md)** | **[繁體中文](README_zh.md)**
@@ -137,7 +137,7 @@ illumio-ops/
 │   ├── pce_cache/              # SQLite WAL 快取 + ingestor
 │   ├── siem/                   # SIEM forwarder（CEF/JSON/Syslog、UDP/TCP/TLS/HEC）
 │   └── alerts/                 # 警示 plugin（mail、LINE、webhook）
-├── config/                     # config.json、report_config.yaml
+├── config/                     # config.json、alerts.json、report_config.yaml
 ├── docs/                       # EN + ZH_TW 文件
 ├── tests/                      # 19 個測試檔（116 個 test）
 ├── deploy/                     # systemd（Ubuntu/RHEL）+ NSSM（Windows）服務設定

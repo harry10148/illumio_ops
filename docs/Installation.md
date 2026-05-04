@@ -19,9 +19,9 @@
 ---
 
 ## 1.1 System Requirements
-- **Python 3.8+** (tested up to 3.12)
+- **Source/development runtime: Python 3.10+** (3.12 recommended). If you run `python illumio-ops.py` directly from source, the active interpreter must meet this requirement.
 - **Network Access** to Illumio PCE (HTTPS, default port `8443`)
-- **Production deployment:** use `scripts/build_offline_bundle.sh` to produce a self-contained tarball with a portable CPython 3.12 interpreter and all wheels pre-built; see [§1.2](#12-installation) for the full Linux + Windows bundle workflow.
+- **Production deployment:** use `scripts/build_offline_bundle.sh` to produce a self-contained tarball with a bundled CPython 3.12 interpreter and all wheels pre-built; see [§1.2](#12-installation) for the full Linux + Windows bundle workflow. Production hosts do not use the system Python.
 - **Dependencies (pinned in `requirements.txt`):** Flask + security middleware (`flask-wtf`, `flask-limiter`, `flask-talisman`, `flask-login`, `argon2-cffi`, `cryptography`), reports + charts (`pandas`, `pyyaml`, `openpyxl`, `reportlab`, `matplotlib`, `plotly`, `pygments`), HTTP client (`requests`, `orjson`, `cachetools`), config validation (`pydantic`), scheduler + cache (`APScheduler`, `SQLAlchemy`), structured logging (`loguru`), CLI UX (`rich`, `questionary`, `click`, `humanize`), production WSGI server (`cheroot`). The offline bundle pre-builds wheels for all of these.
 - **Development from source:** `pip install -r requirements.txt` (use a venv on Ubuntu 22.04+ / Debian 12+ due to PEP 668).
 - **PDF export:** `reportlab` is included by default (pure Python; no WeasyPrint / Pango / Cairo / GTK / GDK-PixBuf required). PDF output is a static English summary; HTML and XLSX are the recommended formats for full localized content.
@@ -71,6 +71,7 @@ sudo systemctl status illumio-ops      # should show Active: active (running)
 
 `install.sh` detects an existing installation and **never overwrites**:
 - `config/config.json` — your PCE API credentials
+- `config/alerts.json` — your alert rules engine state (`{"rules": [...]}`)
 - `config/rule_schedules.json` — your custom rule schedules
 
 ```bash
@@ -150,7 +151,7 @@ Get-Service IllumioOps
 ##### Upgrading to a new version (PowerShell as Administrator)
 
 `install.ps1` detects an existing installation and **never overwrites**
-`config\config.json` or `config\rule_schedules.json`.
+`config\config.json`, `config\alerts.json`, or `config\rule_schedules.json`.
 
 ```powershell
 # 1. Stop the service
@@ -159,7 +160,7 @@ Stop-Service IllumioOps
 # 2. Extract new bundle
 Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
-# 3. Run install.ps1 — config preserved automatically
+# 3. Run install.ps1 — config.json, alerts.json (rules), and rule_schedules.json are preserved
 cd C:\illumio-ops-<new-version>-offline-windows-x86_64
 .\install.ps1
 
@@ -216,7 +217,7 @@ The systemd unit file is updated automatically to reference the chosen path.
 
 ### Config preservation on upgrade
 
-On upgrade, `install.sh` detects `config/config.json` and skips the entire `config/` tree (comment in source: *"Preserve all of config/ on upgrade — never overwrite operator-owned files"*). Only `*.example` templates are updated so operators can diff for new keys:
+On Linux upgrade, `install.sh` detects `config/config.json` and skips the entire `config/` tree (comment in source: *"Preserve all of config/ on upgrade — never overwrite operator-owned files"*). This preserves operator-owned `config.json`, `alerts.json`, and `rule_schedules.json`. Only `*.example` templates are updated so operators can diff for new keys:
 
 ```bash
 diff /opt/illumio-ops/config/config.json.example \
@@ -240,13 +241,17 @@ sudo ./uninstall.sh --install-root /opt/custom_path
 
 Both variants stop and disable the `illumio-ops` systemd unit, remove the service file, and delete the `illumio-ops` system user. The default (no `--purge`) preserves `config/` in place — run `sudo rm -rf /opt/illumio-ops` afterwards to complete a full removal.
 
-## 1.3 Configuration (`config.json`)
+## 1.3 Configuration (`config.json` and `alerts.json`)
 
 Copy the example config and fill in your PCE API credentials:
 
 ```bash
 cp config/config.json.example config/config.json
 ```
+
+Runtime settings are split across two operator-owned files:
+- `config/config.json` — system settings, PCE credentials, alert channel destinations, GUI/security, reports, cache, SIEM, and logging.
+- `config/alerts.json` — alert rules engine state, stored as `{"rules": [...]}`. Keep this file during upgrades so custom Event / Traffic / Bandwidth rules are not lost.
 
 | Field | Description | Example |
 |:---|:---|:---|

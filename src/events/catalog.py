@@ -7,6 +7,7 @@ Some real PCE builds emit additional event types that are not present in the
 reference catalog. Those are tracked separately as local extensions so the
 viewer can distinguish vendor baseline from environment-observed additions.
 """
+from __future__ import annotations
 
 KNOWN_EVENT_TYPES = {
     "access_restriction.create",

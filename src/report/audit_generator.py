@@ -10,6 +10,8 @@ Enhanced field extraction from Illumio PCE event JSON:
   - pce_fqdn for multi-PCE environments
   - agent hostname for agent-originated events
 """
+from __future__ import annotations
+
 import datetime
 import json
 from loguru import logger

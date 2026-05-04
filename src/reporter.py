@@ -819,13 +819,16 @@ class Reporter:
                     f"Notifications ({event.get('notifications_count', 0)})</div>{''.join(notification_blocks)}</div>"
                 )
 
+            action_rows_html = "".join(action_rows)
+            if not action_rows_html:
+                action_rows_html = '<tr><td style="padding:8px 10px;color:#6F7274;">No action details</td></tr>'
             sections.append(
                 f"<div style='margin-top:14px;padding:16px;border:1px solid #E6E2D8;border-radius:16px;background:#FFFDFC;'>"
                 f"<div style='padding:12px 14px;background:#1A2C32;color:#FFFFFF;border-radius:12px 12px 0 0;font-size:16px;font-weight:800;'>{esc(event.get('event_type', 'event'))}</div>"
                 f"<table style='width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E6E2D8;border-top:none;'><tr>{''.join(meta_cells)}</tr></table>"
                 f"<div style='margin-top:10px;'>"
                 f"<div style='font-size:12px;font-weight:800;color:#24393F;margin-bottom:6px;'>API Action</div>"
-                f"<table style='width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E6E2D8;border-radius:10px;overflow:hidden;'>{''.join(action_rows) or '<tr><td style=\"padding:8px 10px;color:#6F7274;\">No action details</td></tr>'}</table>"
+                f"<table style='width:100%;border-collapse:collapse;background:#FFFFFF;border:1px solid #E6E2D8;border-radius:10px;overflow:hidden;'>{action_rows_html}</table>"
                 f"</div>"
                 f"{resource_changes_html}"
                 f"{notifications_html}"

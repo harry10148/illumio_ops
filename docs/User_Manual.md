@@ -696,7 +696,7 @@ Get-Service IllumioOps
 ##### Upgrading to a new version (PowerShell as Administrator)
 
 `install.ps1` detects an existing installation and **never overwrites**
-`config\config.json` or `config\rule_schedules.json`.
+`config\config.json`, `config\alerts.json`, or `config\rule_schedules.json`.
 
 ```powershell
 # 1. Stop the service
@@ -705,7 +705,7 @@ Stop-Service IllumioOps
 # 2. Extract new bundle
 Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
-# 3. Run install.ps1 — config preserved automatically
+# 3. Run install.ps1 — config.json, alerts.json (rules), and rule_schedules.json are preserved
 cd C:\illumio-ops-<new-version>-offline-windows-x86_64
 .\install.ps1
 
@@ -1002,7 +1002,7 @@ Channels not listed in `alerts.active` are silently skipped even if their creden
 | Rule Scheduler shows `[SKIP]` log | Rule or parent Ruleset in Draft | Complete and Provision the policy edits in PCE Console; the schedule will resume automatically |
 | PCE profile switch has no effect | ApiClient not reinitialized | Use the GUI "Activate" button or CLI profile switch, which triggers reinitialization |
 | Policy Usage report shows 0 hits | Rules are draft-only | Only active (provisioned) rules are queried; provision draft rules first |
-| After upgrade: old config loaded | `config.json` preserved as-is | Compare with `config.json.example` and add any new fields |
+| After upgrade: old config loaded | `config.json`, `alerts.json`, and `rule_schedules.json` are preserved as operator-owned files | Compare with `config.json.example` and add any new fields manually; keep `alerts.json` to preserve custom alert rules |
 | Windows: `nssm.exe not found` | NSSM not in PATH or bundle deploy\ | Add `nssm.exe` to PATH or place it in the bundle `deploy\` folder |
 | `Cache database not configured` | `pce_cache.enabled` is false or `db_path` is wrong | Set `pce_cache.enabled: true` and verify the `db_path` is writable |
 | SIEM test event fails with `Destination not found` | Destination name mismatch or `enabled: false` | Check `siem.destinations[].name` matches the argument; ensure `enabled: true` |

@@ -5,6 +5,8 @@ Optional dependency: pip install flask
 Features full parity with CLI:
   Dashboard, Rules (add event/traffic/bandwidth, delete), Settings, Actions (Run, Debug, Test Alert, Best Practices).
 """
+from __future__ import annotations
+
 import re
 import os
 import sys

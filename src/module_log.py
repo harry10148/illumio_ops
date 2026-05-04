@@ -3,6 +3,8 @@ Per-module execution log.
 Each module gets: a RotatingFileHandler log file + in-memory ring buffer.
 Call ModuleLog.init(log_dir) once at startup, then ModuleLog.get("name") anywhere.
 """
+from __future__ import annotations
+
 import os
 import re
 import threading

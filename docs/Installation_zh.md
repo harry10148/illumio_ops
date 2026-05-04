@@ -19,9 +19,9 @@
 ---
 
 ## 1.1 系統需求
-- **Python 3.8+**（已測試至 3.12）
+- **原始碼/開發執行環境：Python 3.10+**（建議 3.12）。若直接以 `python illumio-ops.py` 從原始碼執行，作用中的直譯器必須符合此要求。
 - **網路存取：** 可透過 HTTPS 連線至 Illumio PCE（預設埠 `8443`）
-- **正式部署：** 使用 `scripts/build_offline_bundle.sh` 建立自包含 tarball，內含可攜式 CPython 3.12 直譯器與所有預建 wheel；完整 Linux + Windows bundle 流程請見 [§1.2](#12-安裝)。
+- **正式部署：** 使用 `scripts/build_offline_bundle.sh` 建立自包含 tarball，內建 CPython 3.12 直譯器與所有預建 wheel；完整 Linux + Windows bundle 流程請見 [§1.2](#12-安裝)。正式主機不使用系統 Python。
 - **相依套件（鎖定於 `requirements.txt`）：** Flask + 安全中介層（`flask-wtf`、`flask-limiter`、`flask-talisman`、`flask-login`、`argon2-cffi`、`cryptography`）、報表 + 圖表（`pandas`、`pyyaml`、`openpyxl`、`reportlab`、`matplotlib`、`plotly`、`pygments`）、HTTP 客戶端（`requests`、`orjson`、`cachetools`）、設定驗證（`pydantic`）、排程 + 快取（`APScheduler`、`SQLAlchemy`）、結構化日誌（`loguru`）、CLI UX（`rich`、`questionary`、`click`、`humanize`）、生產級 WSGI server（`cheroot`）。離線 bundle 已為以上全部預建 wheel。
 - **從原始碼開發：** `pip install -r requirements.txt`（Ubuntu 22.04+ / Debian 12+ 因 PEP 668 需改用 venv）。
 - **PDF 匯出：** `reportlab` 預設包含（純 Python；不需 WeasyPrint / Pango / Cairo / GTK / GDK-PixBuf）。PDF 內容為靜態英文摘要；HTML 與 XLSX 是完整本地化內容的建議格式。
@@ -67,6 +67,7 @@ sudo systemctl status illumio-ops      # should show Active: active (running)
 
 `install.sh` 偵測到現有安裝時**絕不覆寫**：
 - `config/config.json` — 您的 PCE API 憑證
+- `config/alerts.json` — 您的告警規則引擎狀態（`{"rules": [...]}`）
 - `config/rule_schedules.json` — 您的自訂規則排程
 
 ```bash
@@ -142,7 +143,7 @@ Get-Service IllumioOps
 ##### 升級至新版本（以系統管理員身分執行 PowerShell）
 
 `install.ps1` 偵測到現有安裝時**絕不覆寫**
-`config\config.json` 或 `config\rule_schedules.json`。
+`config\config.json`、`config\alerts.json` 或 `config\rule_schedules.json`。
 
 ```powershell
 # 1. Stop the service
@@ -151,7 +152,7 @@ Stop-Service IllumioOps
 # 2. Extract new bundle
 Expand-Archive illumio-ops-<new-version>-offline-windows-x86_64.zip -DestinationPath C:\
 
-# 3. Run install.ps1 — config preserved automatically
+# 3. Run install.ps1 — config.json、alerts.json（rules）與 rule_schedules.json 會被保留
 cd C:\illumio-ops-<new-version>-offline-windows-x86_64
 .\install.ps1
 
@@ -208,7 +209,7 @@ systemd 單元檔案會自動更新以參照所選路徑。
 
 ### 升級時保留設定
 
-升級時，`install.sh` 偵測到 `config/config.json` 後會跳過整個 `config/` 樹（原始碼中的備註：*「升級時保留所有 config/ — 絕不覆寫操作者擁有的檔案」*）。僅更新 `*.example` 範本，讓操作者可以 diff 確認新增的設定鍵：
+Linux 升級時，`install.sh` 偵測到 `config/config.json` 後會跳過整個 `config/` 樹（原始碼中的備註：*「升級時保留所有 config/ — 絕不覆寫操作者擁有的檔案」*）。這會保留操作者擁有的 `config.json`、`alerts.json` 與 `rule_schedules.json`。僅更新 `*.example` 範本，讓操作者可以 diff 確認新增的設定鍵：
 
 ```bash
 diff /opt/illumio-ops/config/config.json.example \
@@ -232,13 +233,17 @@ sudo ./uninstall.sh --install-root /opt/custom_path
 
 兩種方式均會停止並停用 `illumio-ops` systemd 單元、移除服務檔案，並刪除 `illumio-ops` 系統使用者。預設（不含 `--purge`）會保留 `config/` — 之後執行 `sudo rm -rf /opt/illumio-ops` 以完成完全移除。
 
-## 1.3 設定檔（`config.json`）
+## 1.3 設定檔（`config.json` 與 `alerts.json`）
 
 複製範例設定檔後填入 PCE API 憑證：
 
 ```bash
 cp config/config.json.example config/config.json
 ```
+
+執行期設定拆成兩個由操作者擁有的檔案：
+- `config/config.json` — 系統設定、PCE 憑證、告警通道目的地、GUI/安全性、報表、快取、SIEM 與 logging。
+- `config/alerts.json` — 告警規則引擎狀態，格式為 `{"rules": [...]}`。升級時必須保留此檔，避免自訂 Event / Traffic / Bandwidth 規則遺失。
 
 | 欄位 | 說明 | 範例 |
 |:---|:---|:---|

@@ -1,6 +1,8 @@
 """
 Detail tables for policy rules that were hit by traffic.
 """
+from __future__ import annotations
+
 from loguru import logger
 import pandas as pd
 

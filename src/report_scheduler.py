@@ -6,6 +6,7 @@ Usage (called from daemon loop every 60 seconds):
     scheduler = ReportScheduler(config_manager, reporter)
     scheduler.tick()
 """
+from __future__ import annotations
 
 import datetime
 import json

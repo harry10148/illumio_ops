@@ -1,6 +1,8 @@
 """
 Detail table for rules with zero observed traffic hits in the lookback period.
 """
+from __future__ import annotations
+
 from loguru import logger
 import pandas as pd
 

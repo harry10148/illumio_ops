@@ -11,6 +11,8 @@ Approach (per-rule async query, matching workloader rule-usage):
 
 Also supports importing workloader CSV output via generate_from_csv().
 """
+from __future__ import annotations
+
 import datetime
 import json
 from loguru import logger
