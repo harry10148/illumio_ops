@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Optional
 import pandas as pd
-from src.i18n import t, get_language
+from src.i18n import get_language
 
 
 # ── Date-range helpers ────────────────────────────────────────────────────────
@@ -99,10 +99,10 @@ def traffic_overview(df: pd.DataFrame) -> dict:
         'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
-                t('rpt_allowed', default='Allowed'),
-                t('rpt_blocked', default='Blocked'),
-                t('rpt_potentially_blocked', default='Potentially Blocked'),
-                t('rpt_unknown', default='Unknown'),
+                'Allowed',
+                'Blocked',
+                'Potentially Blocked',
+                'Unknown',
             ],
             'values': [int(allowed), int(blocked), int(potential), int(unknown)],
         },

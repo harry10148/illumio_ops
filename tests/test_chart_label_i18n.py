@@ -1,9 +1,10 @@
-"""Regression: pie/bar slice labels must be translated to zh_TW for the PDF.
+"""Regression: chart slice/bar labels in zh_TW PDFs.
 
-Task 4 plumbed `title_key` / `*_label_key` for chart titles and axes, but the
-slice/bar labels (chart_spec.data["labels"]) are populated by each analyzer.
-mod01/mod02/mod04 hardcoded English; this test ensures they now produce
-Chinese when the language is set to zh_TW.
+Only mod04 risk levels (Critical/High/Medium/Low) are translated — those are
+generic severity terminology. mod01/mod02 verdicts (Allowed/Blocked/Potentially
+Blocked/Unknown) are Illumio policy-decision technical terms and stay English
+by design; the guard test below pins down that contract so a future contributor
+can't silently re-introduce translation.
 """
 from __future__ import annotations
 
@@ -54,38 +55,6 @@ def zh_tw_lang():
         set_language(prev)
 
 
-def test_mod01_traffic_overview_labels_translate_to_zh_tw(zh_tw_lang):
-    from src.report.analysis.mod01_traffic_overview import traffic_overview
-
-    out = traffic_overview(_make_traffic_df())
-    labels = out["chart_spec"]["data"]["labels"]
-
-    # Chinese present
-    assert "已允許" in labels
-    assert "已封鎖" in labels
-    assert "可能被封鎖" in labels
-    assert "未知" in labels
-    # English absent (regression: prevents accidental revert to literals)
-    assert "Allowed" not in labels
-    assert "Blocked" not in labels
-    assert "Potentially Blocked" not in labels
-    assert "Unknown" not in labels
-
-
-def test_mod02_policy_decisions_labels_translate_to_zh_tw(zh_tw_lang):
-    from src.report.analysis.mod02_policy_decisions import policy_decision_analysis
-
-    out = policy_decision_analysis(_make_traffic_df())
-    labels = out["chart_spec"]["data"]["labels"]
-
-    assert "已允許" in labels
-    assert "已封鎖" in labels
-    assert "可能被封鎖" in labels
-    assert "Allowed" not in labels
-    assert "Blocked" not in labels
-    assert "Potentially Blocked" not in labels
-
-
 def test_mod04_ransomware_exposure_labels_translate_to_zh_tw(zh_tw_lang):
     from src.report.analysis.mod04_ransomware_exposure import ransomware_exposure
 
@@ -103,3 +72,32 @@ def test_mod04_ransomware_exposure_labels_translate_to_zh_tw(zh_tw_lang):
     assert "High" not in labels
     assert "Medium" not in labels
     assert "Low" not in labels
+
+
+def test_illumio_verdicts_stay_english_in_zh_tw(zh_tw_lang):
+    """Allowed/Blocked/Potentially Blocked/Unknown are Illumio policy-decision
+    technical terms and MUST NOT be translated in the zh_TW PDF.
+
+    This test pins down the user's stated requirement so a future contributor
+    can't silently re-introduce translation by wrapping the literals in t().
+    """
+    from src.report.analysis.mod01_traffic_overview import traffic_overview
+    from src.report.analysis.mod02_policy_decisions import policy_decision_analysis
+
+    df = _make_traffic_df()
+
+    mod01_labels = traffic_overview(df)["chart_spec"]["data"]["labels"]
+    for verdict in ("Allowed", "Blocked", "Potentially Blocked", "Unknown"):
+        assert verdict in mod01_labels, (
+            f"Illumio verdict {verdict!r} should remain English in zh_TW "
+            f"(it is product terminology, not user-facing language). "
+            f"mod01 labels were: {mod01_labels!r}"
+        )
+
+    mod02_labels = policy_decision_analysis(df)["chart_spec"]["data"]["labels"]
+    for verdict in ("Allowed", "Blocked", "Potentially Blocked"):
+        assert verdict in mod02_labels, (
+            f"Illumio verdict {verdict!r} should remain English in zh_TW "
+            f"(it is product terminology, not user-facing language). "
+            f"mod02 labels were: {mod02_labels!r}"
+        )

@@ -1,7 +1,7 @@
 """Module 2: Policy Decision Breakdown."""
 from __future__ import annotations
 import pandas as pd
-from src.i18n import t, get_language
+from src.i18n import get_language
 
 def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
     """
@@ -98,9 +98,9 @@ def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
         'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
-                t('rpt_allowed', default='Allowed'),
-                t('rpt_blocked', default='Blocked'),
-                t('rpt_potentially_blocked', default='Potentially Blocked'),
+                'Allowed',
+                'Blocked',
+                'Potentially Blocked',
             ],
             'values': [
                 results.get('allowed', {}).get('count', 0),

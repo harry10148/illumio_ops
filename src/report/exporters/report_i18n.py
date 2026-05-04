@@ -685,11 +685,9 @@ STRINGS: _StringMap = _StringMap({
     "rpt_chart_axis_dimension": _entry("Dimension", "面向"),
     "rpt_chart_axis_factor": _entry("Factor", "因子"),
     "rpt_chart_axis_tier": _entry("Tier", "層級"),
-    # Categorical pie/bar slice labels (analyzer-side translation via t())
-    "rpt_allowed": _entry("Allowed", "已允許"),
-    "rpt_blocked": _entry("Blocked", "已封鎖"),
-    "rpt_potentially_blocked": _entry("Potentially Blocked", "可能被封鎖"),
-    "rpt_unknown": _entry("Unknown", "未知"),
+    # Risk-level labels (analyzer-side translation via t() in mod04).
+    # Verdicts (Allowed/Blocked/Potentially Blocked/Unknown) are intentionally
+    # NOT translated — they are Illumio policy-decision technical terms.
     "rpt_risk_critical": _entry("Critical", "嚴重"),
     "rpt_risk_high": _entry("High", "高"),
     "rpt_risk_medium": _entry("Medium", "中"),
