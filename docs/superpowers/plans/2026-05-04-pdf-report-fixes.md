@@ -775,19 +775,21 @@ EOF
 
 ---
 
-## Task 5: Translate hardcoded English categorical labels in pie/bar slices
+## Task 5: Translate non-Illumio-specific categorical labels (risk levels only)
 
-**Background:** Task 4's final review surfaced an integration gap. Task 4 translates chart `title` / `x_label` / `y_label`, but the slice / bar labels live in `chart_spec.data["labels"]` and are populated by each analyzer. The codebase has TWO patterns:
+> **Implementation correction (2026-05-04):** Initial plan also included translating the policy-decision verdicts (Allowed / Blocked / Potentially Blocked / Unknown in mod01, mod02) and the managed/unmanaged distinction (mod08). User clarified those are **Illumio-specific product terminology** that operators recognize from the Illumio console — they MUST stay English even in zh_TW PDFs. The verdict and managed-state translations were applied then reverted (commits `25d0926` and `455f5f0`), and a guard test now pins the contract. Final scope of Task 5 is **only the generic risk-level enum in mod04** (Critical/High/Medium/Low → 嚴重/高/中/低).
 
-1. **Already-correct** (mod08, mod13, mod03): uses `t('rpt_<key>', default='English')` so labels are language-resolved at analyzer-execution time. Works.
-2. **Broken** (mod01, mod02, mod04): hardcodes English literals (`'Allowed'`, `'Blocked'`, `'Potentially Blocked'`, `'Unknown'`) or computes them from English dict keys (`[lvl.capitalize() for lvl in risk_levels]`). The zh_TW PDF then shows the chart title in Chinese but the slices stay English — visually inconsistent.
+**Background:** Task 4's final review surfaced an integration gap. Task 4 translates chart `title` / `x_label` / `y_label`, but the slice / bar labels live in `chart_spec.data["labels"]` and are populated by each analyzer. mod04 hardcodes risk-level labels via `.capitalize()` of English dict keys, so the zh_TW PDF showed the chart title in Chinese but the bar labels stayed English.
 
-**Fix:** Convert the broken sites to use the `t()` pattern, matching the existing convention. NO new mechanism — extend what mod08/mod13 already do.
+**Fix:** Convert the mod04 risk-level labels to use the `t('rpt_<key>', default='English')` pattern (matches existing convention in mod13/mod03). DO NOT touch mod01/mod02 verdicts or mod08 managed/unmanaged — those are Illumio terminology and must stay English.
 
-**In-scope sites** (3 files):
-- `src/report/analysis/mod01_traffic_overview.py:101-105` — pie labels `['Allowed', 'Blocked', 'Potentially Blocked', 'Unknown']`
-- `src/report/analysis/mod02_policy_decisions.py:100-104` — pie labels `['Allowed', 'Blocked', 'Potentially Blocked']`
+**In-scope sites** (1 file):
 - `src/report/analysis/mod04_ransomware_exposure.py:131` — bar labels `[lvl.capitalize() for lvl in risk_levels]` (risk_levels = `['critical', 'high', 'medium', 'low']`)
+
+**Explicitly out of scope — Illumio terminology kept English:**
+- `mod01_traffic_overview.py` policy-decision pie (Allowed/Blocked/Potentially Blocked/Unknown)
+- `mod02_policy_decisions.py` policy-decision pie (Allowed/Blocked/Potentially Blocked)
+- `mod08_unmanaged_hosts.py` managed/unmanaged pie
 
 **Out of scope** (correctly NOT translated — these are data identifiers, not categorical enums):
 - `mod05_remote_access.py` (top5_labels — IPs/hosts)
