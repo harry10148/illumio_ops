@@ -176,8 +176,11 @@ def audit_policy_changes(df: pd.DataFrame) -> dict:
             chart_spec = {
                 "type": "bar",
                 "title": "Top Users by Policy Changes",
+                "title_key": "rpt_chart_top_users_by_policy_changes",
                 "x_label": "User",
+                "x_label_key": "rpt_chart_axis_user",
                 "y_label": "Change Count",
+                "y_label_key": "rpt_chart_axis_change_count",
                 "data": {"labels": labels, "values": values},
                 "i18n": {"lang": "en"},
             }

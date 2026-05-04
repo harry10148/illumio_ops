@@ -1,7 +1,7 @@
 """Module 2: Policy Decision Breakdown."""
 from __future__ import annotations
 import pandas as pd
-from src.i18n import t, get_language
+from src.i18n import get_language
 
 def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
     """
@@ -95,6 +95,7 @@ def policy_decision_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
     results['chart_spec'] = {
         'type': 'pie',
         'title': 'Policy Decision Breakdown',
+        'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
                 'Allowed',

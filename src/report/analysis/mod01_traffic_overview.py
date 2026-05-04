@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Optional
 import pandas as pd
-from src.i18n import t, get_language
+from src.i18n import get_language
 
 
 # ── Date-range helpers ────────────────────────────────────────────────────────
@@ -96,6 +96,7 @@ def traffic_overview(df: pd.DataFrame) -> dict:
     chart_spec = {
         'type': 'pie',
         'title': 'Policy Decision Breakdown',
+        'title_key': 'rpt_chart_policy_decision_breakdown',
         'data': {
             'labels': [
                 'Allowed',

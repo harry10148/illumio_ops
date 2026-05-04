@@ -285,8 +285,11 @@ def infrastructure_scoring(df: pd.DataFrame, top_n: int = 20) -> dict:
         "chart_spec": {
             "type": "bar",
             "title": "Infrastructure Apps by Tier",
+            "title_key": "rpt_chart_infrastructure_apps_by_tier",
             "x_label": t("rpt_tier", default="Tier"),
+            "x_label_key": "rpt_chart_axis_tier",
             "y_label": t("rpt_app_count", default="App Count"),
+            "y_label_key": "rpt_chart_axis_app_count",
             "data": {"labels": tier_labels, "values": tier_values},
             "i18n": {"lang": get_language()},
         },

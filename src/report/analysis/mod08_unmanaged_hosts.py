@@ -1,7 +1,7 @@
 """Module 8: Unmanaged Host Analysis."""
 from __future__ import annotations
 import pandas as pd
-from src.i18n import t, get_language
+from src.i18n import get_language
 
 def unmanaged_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
     """
@@ -77,10 +77,11 @@ def unmanaged_traffic(df: pd.DataFrame, top_n: int = 20) -> dict:
         'chart_spec': {
             'type': 'pie',
             'title': 'Managed vs Unmanaged Flows',
+            'title_key': 'rpt_chart_managed_vs_unmanaged',
             'data': {
                 'labels': [
-                    t('rpt_managed', default='Managed'),
-                    t('rpt_unmanaged', default='Unmanaged'),
+                    'Managed',
+                    'Unmanaged',
                 ],
                 'values': [managed_flow_count, unmanaged_flow_count],
             },

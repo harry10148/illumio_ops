@@ -198,8 +198,11 @@ def audit_executive_summary(results: dict, df: pd.DataFrame) -> dict:
             chart_spec = {
                 "type": "bar",
                 "title": "Top Audit Event Types",
+                "title_key": "rpt_chart_top_audit_event_types",
                 "x_label": "Event Type",
+                "x_label_key": "rpt_chart_axis_event_type",
                 "y_label": "Count",
+                "y_label_key": "rpt_chart_axis_count",
                 "data": {"labels": labels, "values": values},
                 "i18n": {"lang": "en"},
             }

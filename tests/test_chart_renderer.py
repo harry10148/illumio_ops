@@ -114,3 +114,61 @@ def test_i18n_zh_tw_title_renders():
     assert "前" in html or "%E5%89%8D" in html.upper() or "5" in html
     png = render_matplotlib_png(spec)
     assert png.startswith(b'\x89PNG')
+
+
+def test_pie_autopct_filter():
+    """Default behaviour: hide only exactly-zero slices, render everything else."""
+    from src.report.exporters.chart_renderer import _pie_autopct
+    # Default threshold (0.0) — only literal zero hidden
+    assert _pie_autopct(0.0) == ""
+    assert _pie_autopct(0.04) == "0.0%"     # rounds to 0 but not literally zero
+    assert _pie_autopct(0.4) == "0.4%"
+    assert _pie_autopct(1.0) == "1.0%"
+    assert _pie_autopct(93.4) == "93.4%"
+    # Caller can opt into higher threshold
+    assert _pie_autopct(0.5, threshold=1.0) == ""
+    assert _pie_autopct(1.5, threshold=1.0) == "1.5%"
+
+
+def test_filter_existing_font_families_keeps_sans_serif_safety_net():
+    from src.report.exporters.chart_renderer import _filter_existing_font_families
+    # 'sans-serif' is a generic family name matplotlib always honours.
+    out = _filter_existing_font_families(["DefinitelyNotAFontXYZ", "sans-serif"])
+    assert out[-1] == "sans-serif"
+    assert "DefinitelyNotAFontXYZ" not in out
+
+
+def test_filter_existing_font_families_keeps_real_font_when_present():
+    """If a known matplotlib default like DejaVu Sans is installed, it survives."""
+    from src.report.exporters.chart_renderer import _filter_existing_font_families
+    out = _filter_existing_font_families(["DejaVu Sans", "sans-serif"])
+    # DejaVu Sans is bundled with matplotlib itself, so always present.
+    assert "DejaVu Sans" in out
+
+
+def test_render_matplotlib_resolves_title_key_for_lang(monkeypatch):
+    """If chart_spec carries title_key, the renderer resolves it via STRINGS+lang."""
+    from src.report.exporters import chart_renderer
+    from src.report.exporters import report_i18n
+    # monkeypatch.setitem ensures the synthetic entry is removed after the test
+    monkeypatch.setitem(
+        report_i18n.STRINGS,
+        "rpt_chart_test_title",
+        {"en": "English Title", "zh_TW": "中文標題"},
+    )
+    spec = {
+        "type": "bar",
+        "title": "English Title",        # backward-compat literal
+        "title_key": "rpt_chart_test_title",
+        "data": {"labels": ["a"], "values": [1]},
+    }
+    out_en = chart_renderer._resolve_chart_text(spec, "title", lang="en")
+    out_zh = chart_renderer._resolve_chart_text(spec, "title", lang="zh_TW")
+    assert out_en == "English Title"
+    assert out_zh == "中文標題"
+
+
+def test_render_matplotlib_falls_back_to_literal_when_key_missing():
+    from src.report.exporters import chart_renderer
+    spec = {"type": "bar", "title": "Plain Title", "data": {"labels": [], "values": []}}
+    assert chart_renderer._resolve_chart_text(spec, "title", lang="zh_TW") == "Plain Title"

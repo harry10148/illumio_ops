@@ -62,8 +62,11 @@ def host_to_host_protocol_analysis(df: pd.DataFrame, report_config: dict, top_n:
         'chart_spec': {
             'type': 'bar',
             'title': 'Top Remote Access Ports',
+            'title_key': 'rpt_chart_top_remote_access_ports',
             'x_label': 'Service',
+            'x_label_key': 'rpt_chart_axis_service',
             'y_label': 'Connections',
+            'y_label_key': 'rpt_chart_axis_connections',
             'data': {
                 'labels': top5_labels,
                 'values': top5_values,

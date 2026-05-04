@@ -279,8 +279,11 @@ def executive_summary(results: dict[str, Any], profile: str = "security_risk", l
         "chart_spec": {
             "type": "bar",
             "title": "Microsegmentation Maturity Dimensions",
+            "title_key": "rpt_chart_maturity_dimensions",
             "x_label": t("rpt_dimension", default="Dimension"),
+            "x_label_key": "rpt_chart_axis_dimension",
             "y_label": t("rpt_score", default="Score"),
+            "y_label_key": "rpt_chart_axis_score",
             "data": {"labels": dim_labels, "values": dim_values},
             "i18n": {"lang": get_language()},
         },

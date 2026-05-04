@@ -283,3 +283,26 @@ class TestPuMod04DenyEffectiveness:
         result = pu_deny_effectiveness([], {}, {})
         assert "chart_spec" in result
         assert result["chart_spec"] is None
+
+
+def test_every_analyzer_chart_spec_has_title_key():
+    """Every chart_spec dict in src/report/analysis/ must carry title_key
+    alongside title (so the PDF render path can show Chinese titles)."""
+    import ast, pathlib
+    repo = pathlib.Path(__file__).resolve().parent.parent
+    analyzers = list((repo / "src/report/analysis").rglob("*.py"))
+    missing: list[str] = []
+    for p in analyzers:
+        if "__pycache__" in str(p) or p.name == "__init__.py":
+            continue
+        tree = ast.parse(p.read_text())
+        for node in ast.walk(tree):
+            # Look for dict literals containing "type": "bar"|"pie"|... — these are chart_spec.
+            if not isinstance(node, ast.Dict):
+                continue
+            keys = {k.value for k in node.keys
+                    if isinstance(k, ast.Constant) and isinstance(k.value, str)}
+            if "type" in keys and "title" in keys:
+                if "title_key" not in keys:
+                    missing.append(f"{p.relative_to(repo)}:{node.lineno}")
+    assert not missing, "chart_spec dicts missing title_key:\n  " + "\n  ".join(missing)

@@ -47,17 +47,82 @@ _BUNDLED_CJK_FONT = (
 if _BUNDLED_CJK_FONT.exists():
     font_manager.fontManager.addfont(str(_BUNDLED_CJK_FONT))
 
+def _filter_existing_font_families(candidates: list[str]) -> list[str]:
+    """Drop families matplotlib cannot resolve, always keep 'sans-serif' last.
+
+    Without this filter, listing macOS/Windows-only families (PingFang TC,
+    Microsoft JhengHei, Heiti TC) on Linux triggers a findfont warning per
+    family per chart render — 30+ warning lines per report.
+    """
+    kept: list[str] = []
+    for fam in candidates:
+        if fam == "sans-serif":
+            continue  # added at end
+        try:
+            font_manager.findfont(fam, fallback_to_default=False)
+            kept.append(fam)
+        except ValueError:
+            logger.debug("font.family candidate {!r} not installed; dropping", fam)
+    kept.append("sans-serif")
+    return kept
+
+
 # CJK font fallback for matplotlib — ensures zh_TW titles/labels render.
-# Order: bundled Noto Sans CJK TC first; OS-installed faces (Win / macOS)
-# next; finally the default sans-serif as a safety net.
-rcParams["font.family"] = ["Noto Sans CJK TC", "Microsoft JhengHei",
-                            "PingFang TC", "Heiti TC", "sans-serif"]
+# Filtered to fonts actually installed so we don't spam warnings on Linux
+# where Microsoft JhengHei / PingFang TC / Heiti TC are absent.
+rcParams["font.family"] = _filter_existing_font_families([
+    "Noto Sans CJK TC", "Microsoft JhengHei", "PingFang TC", "Heiti TC",
+    "sans-serif",
+])
 rcParams["axes.unicode_minus"] = False  # minus sign glitch fix
 
 _PALETTE = [
     "#FF5500", "#FFA22F", "#299B65", "#375379", "#857ad6",
     "#38BDF8", "#F43F51", "#10B981", "#F59E0B", "#6366F1",
 ]
+
+
+def _resolve_chart_text(spec: dict[str, Any], field: str, *, lang: str = "en") -> str:
+    """Resolve a chart_spec text field, preferring `<field>_key` i18n lookup.
+
+    Lookup order:
+      1. spec[f"{field}_key"] -> STRINGS[key].get(lang) if both present
+      2. spec[field] (literal fallback for backward compat)
+      3. "" if neither present
+
+    NOTE on silent failure: when the key IS set but the entry is missing
+    from STRINGS (typo or stale key), we log a WARNING and fall back to
+    the literal. This catches translation gaps in CI/dev logs that would
+    otherwise pass unnoticed (a zh_TW PDF showing English for one chart
+    is hard to spot in visual review).
+    """
+    key = spec.get(f"{field}_key")
+    if key:
+        from src.report.exporters.report_i18n import STRINGS
+        if key not in STRINGS:
+            logger.warning(
+                "chart i18n key not found: {!r} (field={}, lang={}) — "
+                "falling back to literal",
+                key, field, lang,
+            )
+        else:
+            translated = STRINGS[key].get(lang)
+            if translated:
+                return translated
+    return str(spec.get(field, ""))
+
+
+def _pie_autopct(pct: float, *, threshold: float = 0.0) -> str:
+    """Suppress autopct labels for slices at or below `threshold` percent.
+
+    Default threshold=0.0 with strict `>` hides only literally-zero slices,
+    which were causing the '0.0%5.5%0.0%' label clusters in the sample
+    report. Higher thresholds risk hiding operationally-significant slices
+    (e.g. a 0.08% 'Critical' category is exactly the slice a security
+    operator needs to see) — only raise the threshold when the chart's
+    domain makes sub-N% noise meaningless.
+    """
+    return f"{pct:.1f}%" if pct > threshold else ""
 
 _BASE_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -225,26 +290,41 @@ def render_plotly_html(spec: dict[str, Any], *, include_js: bool = True) -> str:
         show_link=False,
     )
 
-def render_matplotlib_png(spec: dict[str, Any]) -> bytes:
-    """Render chart spec as a PNG byte string (for PDF/Excel embedding)."""
+def render_matplotlib_png(spec: dict[str, Any], *, lang: str = "en") -> bytes:
+    """Render chart spec as a PNG byte string (for PDF/Excel embedding).
+
+    Title and axis labels are resolved through `_resolve_chart_text` so that
+    chart_specs carrying `title_key` / `x_label_key` / `y_label_key` render in
+    the requested language. Specs without those keys fall back to the literal
+    `title` / `x_label` / `y_label` for backward compatibility.
+    """
     chart_type = spec.get("type")
     data = spec.get("data", {})
-    title = spec.get("title", "")
+    title = _resolve_chart_text(spec, "title", lang=lang)
+    x_label = _resolve_chart_text(spec, "x_label", lang=lang)
+    y_label = _resolve_chart_text(spec, "y_label", lang=lang)
 
     fig, ax = plt.subplots(figsize=(8, 5), dpi=100)
 
     if chart_type == "bar":
         ax.bar(data.get("labels", []), data.get("values", []), color="#375379")
-        ax.set_xlabel(spec.get("x_label", ""))
-        ax.set_ylabel(spec.get("y_label", ""))
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
     elif chart_type == "pie":
-        ax.pie(data.get("values", []), labels=data.get("labels", []),
-               autopct="%1.1f%%", startangle=90)
+        ax.pie(
+            data.get("values", []),
+            labels=data.get("labels", []),
+            autopct=_pie_autopct,
+            startangle=90,
+            pctdistance=0.78,        # % labels at 78% of radius (default 0.6)
+            labeldistance=1.08,      # slice labels at 108% of radius (default 1.1)
+            textprops={"fontsize": 9},
+        )
         ax.axis("equal")
     elif chart_type == "line":
         ax.plot(data.get("x", []), data.get("y", []), marker="o")
-        ax.set_xlabel(spec.get("x_label", ""))
-        ax.set_ylabel(spec.get("y_label", ""))
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
     elif chart_type == "heatmap":
         import numpy as np
         raw_matrix = data.get("matrix", [[0]])

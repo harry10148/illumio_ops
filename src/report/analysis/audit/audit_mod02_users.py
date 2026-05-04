@@ -142,8 +142,11 @@ def audit_user_activity(df: pd.DataFrame) -> dict:
             chart_spec = {
                 "type": "bar",
                 "title": "Top Users by Activity",
+                "title_key": "rpt_chart_top_users_by_activity",
                 "x_label": "User",
+                "x_label_key": "rpt_chart_axis_user",
                 "y_label": "Event Count",
+                "y_label_key": "rpt_chart_axis_event_count",
                 "data": {"labels": labels, "values": values},
                 "i18n": {"lang": "en"},
             }

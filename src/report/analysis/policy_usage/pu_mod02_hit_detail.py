@@ -74,8 +74,11 @@ def pu_hit_detail(
             chart_spec = {
                 "type": "bar",
                 "title": "Top 10 Hit Rules",
+                "title_key": "rpt_chart_top_hit_rules",
                 "x_label": "Rule",
+                "x_label_key": "rpt_chart_axis_rule",
                 "y_label": "Hit Count",
+                "y_label_key": "rpt_chart_axis_hit_count",
                 "data": {"labels": labels, "values": values},
                 "i18n": {"lang": "en"},
             }

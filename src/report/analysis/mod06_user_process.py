@@ -68,18 +68,24 @@ def user_process_analysis(df: pd.DataFrame, top_n: int = 20) -> dict:
         labels = top_procs['Process'].tolist()[:10]
         values = top_procs['Connections'].tolist()[:10]
         chart_label = 'Process'
+        chart_label_key = 'rpt_chart_axis_process'
     elif user_available:
         labels = result['top_users']['User Name'].tolist()[:10]
         values = result['top_users']['Connections'].tolist()[:10]
         chart_label = 'User'
+        chart_label_key = 'rpt_chart_axis_user'
     else:
         labels, values, chart_label = [], [], ''
+        chart_label_key = ''
 
     result['chart_spec'] = {
         'type': 'bar',
         'title': 'Top Activity by Process/User',
+        'title_key': 'rpt_chart_top_activity_by_process_user',
         'x_label': chart_label,
+        'x_label_key': chart_label_key,
         'y_label': 'Connections',
+        'y_label_key': 'rpt_chart_axis_connections',
         'data': {'labels': labels, 'values': values},
         'i18n': {'lang': get_language()},
     }
