@@ -232,7 +232,8 @@ illumio-ops/
 ├── requirements.txt       # Python dependencies
 │
 ├── config/
-│   ├── config.json            # Runtime config (credentials, rules, alerts, settings)
+│   ├── config.json            # Runtime config (credentials, alert channels, settings)
+│   ├── alerts.json            # Alert rules engine state ({"rules": [...]})
 │   ├── config.json.example    # Example config template
 │   └── report_config.yaml     # Security Findings rule thresholds
 │

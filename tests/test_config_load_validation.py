@@ -245,3 +245,20 @@ def test_first_run_uses_illumio_default_password_with_must_change(tmp_path):
     # The hash verifies against "illumio"
     from src.config import verify_password
     assert verify_password("illumio", gui["password"]) is True
+
+
+def test_minimal_config_enables_self_signed_tls_by_default(tmp_path):
+    """Minimal config should match the shipped example: HTTPS comes up with
+    generated self-signed TLS unless operators explicitly disable it."""
+    from src.config import ConfigManager
+    cfg = tmp_path / "config.json"
+    alerts = tmp_path / "alerts.json"
+    cfg.write_text(json.dumps({
+        "api": {"url": "https://p.test", "org_id": "1", "key": "k", "secret": "s"},
+    }), encoding="utf-8")
+
+    cm = ConfigManager(str(cfg), alerts_file=str(alerts))
+    tls = cm.config["web_gui"]["tls"]
+    assert tls["enabled"] is True
+    assert tls["self_signed"] is True
+    assert tls["key_algorithm"] == "ecdsa-p256"

@@ -194,7 +194,7 @@ thresholds:
 | Frequency | Daily / Weekly（星期幾） / Monthly（每月幾號） |
 | Time | 小時與分鐘 — 以您**設定的時區**輸入（自動以 UTC 儲存） |
 | Lookback Days | 包含多少天的流量資料 |
-| Output Format | HTML / CSV Raw ZIP / Both |
+| Output Format | HTML / CSV / PDF / XLSX / All |
 | Send by Email | 使用 SMTP 設定將報表附加至 Email 寄送 |
 | Custom Recipients | 覆寫此排程的預設收件者 |
 

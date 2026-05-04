@@ -16,7 +16,7 @@
 | Troubleshooting | [Troubleshooting.md](docs/Troubleshooting.md) | [Troubleshooting_zh.md](docs/Troubleshooting_zh.md) |
 <!-- END:doc-map -->
 
-![Version](https://img.shields.io/badge/Version-v3.20.0--report--intelligence-blue?style=flat-square)
+![Version](https://img.shields.io/badge/Version-v3.24.0--h6--cli--menus-blue?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-yellow?style=flat-square&logo=python&logoColor=white)
 ![API](https://img.shields.io/badge/Illumio_API-v25.2-green?style=flat-square)
 
@@ -50,7 +50,7 @@ If you only need the PCE web console for occasional manual queries, you don't ne
 | **Enterprise Security** | Argon2id passwords with first-login force-change, HTTPS by default (ECDSA P-256 self-signed), CSRF synchronizer tokens, login rate limiting, IP allowlisting (CIDR/Subnet) |
 | **Security Event Monitoring** | Tracks PCE audit events with anchor-based timestamps — guaranteed zero duplicate alerts |
 | **High-Performance Traffic Engine** | Aggregates rules into a single bulk API query; O(1) memory streaming for large datasets |
-| **Advanced Report Engine** | 15-module traffic reports with **Bulk-Delete** management; 4-module audit reports, policy usage reports, and VEN Status inventory reports — HTML + CSV |
+| **Advanced Report Engine** | 15-module traffic reports with **Bulk-Delete** management; 4-module audit reports, policy usage reports, and VEN Status inventory reports — HTML, CSV, PDF, XLSX, or all formats |
 | **Security Findings** | 19 automated rules: B-series (Ransomware, Coverage) + L-series (Lateral Movement, Exfiltration) + R-series (Draft Policy alignment) |
 | **Report Schedules** | Cron-style recurring reports (daily/weekly/monthly) with automatic email delivery |
 | **Rule Scheduler** | Auto enable/disable PCE rules; **three-layer Draft protection** prevents accidental provisioning |

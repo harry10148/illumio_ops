@@ -152,7 +152,7 @@ python illumio-ops.py [OPTIONS]
 | `--report-type TYPE` | `traffic` | Report type: `traffic`, `audit`, `ven_status`, `policy_usage` |
 | `--source api\|csv` | `api` | Report data source |
 | `--file PATH` | — | CSV file path (used with `--source csv`) |
-| `--format html\|csv\|all` | `html` | Report output format |
+| `--format html\|csv\|pdf\|xlsx\|all` | `html` | Report output format |
 | `--email` | — | Send report by email after generation |
 | `--output-dir PATH` | `reports/` | Output directory for report files |
 
@@ -171,7 +171,7 @@ python illumio-ops.py --report --report-type ven_status
 # Generate policy usage report from CSV export
 python illumio-ops.py --report --report-type policy_usage --source csv --file workloader_export.csv
 
-# Generate report from CSV export and save both HTML + raw CSV
+# Generate report from CSV export and save all supported formats
 python illumio-ops.py --report --source csv --file traffic_export.csv --format all
 
 # Web GUI on a custom port
@@ -187,9 +187,9 @@ The package also ships the `illumio-ops` entry-point CLI with the following subc
 | `cache` | Manage the local PCE cache: backfill, status, retention | `illumio-ops cache backfill --source events --since 2026-01-01` |
 | `monitor` | Run a single monitoring cycle (non-daemon) | `illumio-ops monitor` |
 | `gui` | Start the standalone Web GUI | `illumio-ops gui --port 8080` |
-| `report` | Generate a report from the CLI | `illumio-ops report --type traffic --format html` |
+| `report` | Generate a report from the CLI | `illumio-ops report traffic --format html` |
 | `rule` | Inspect configured monitoring rules | `illumio-ops rule list --type traffic` |
-| `siem` | Manage SIEM destinations: test, flush, status | `illumio-ops siem test splunk-hec` |
+| `siem` | Manage SIEM destinations: test, status, dlq, replay, purge | `illumio-ops siem test splunk-hec` |
 | `workload` | Fetch and display PCE workloads | `illumio-ops workload list --env prod --limit 100` |
 | `config` | Validate or display `config.json` | `illumio-ops config validate` |
 | `status` | Show daemon / scheduler / config status | `illumio-ops status` |
@@ -197,7 +197,7 @@ The package also ships the `illumio-ops` entry-point CLI with the following subc
 
 > **Daemon mode note:** Use `--monitor-gui` to start the scheduler and Web GUI together (Persistent Mode, preferred for production). Use `--monitor` alone for a headless scheduler with no GUI.
 
-> **SIEM operator commands:** `illumio-ops siem test`, `illumio-ops siem flush`, `illumio-ops siem status`.
+> **SIEM operator commands:** `illumio-ops siem test`, `illumio-ops siem status`, `illumio-ops siem dlq`, `illumio-ops siem replay`, `illumio-ops siem purge`.
 
 #### `illumio-ops cache` subcommands
 
@@ -312,7 +312,7 @@ Three runtime flows share the same data sources but produce different outputs:
                         └─ bandwidth rules ──► metric_alerts ─► Reporter
    Health checks   ──────► health_alerts ─────────────────────► Reporter
 
-   Cache ──► Report Engine ──► HTML / CSV (15 traffic + 4 audit + Policy Usage + VEN Status)
+   Cache ──► Report Engine ──► HTML / CSV / PDF / XLSX (15 traffic + 4 audit + Policy Usage + VEN Status)
    Cache ──► SIEM Dispatcher ──► CEF / JSON / HEC out
 ```
 
@@ -618,6 +618,7 @@ sudo systemctl status illumio-ops      # should show Active: active (running)
 
 `install.sh` detects an existing installation and **never overwrites**:
 - `config/config.json` — your PCE API credentials
+- `config/alerts.json` — your alert rules engine state (`{"rules": [...]}`)
 - `config/rule_schedules.json` — your custom rule schedules
 
 ```bash
@@ -628,7 +629,7 @@ sudo systemctl stop illumio-ops
 tar xzf illumio-ops-<new-version>-offline-linux-x86_64.tar.gz
 cd illumio-ops-<new-version>-offline-linux-x86_64
 
-# 3. Run install.sh — config.json and rule_schedules.json are preserved
+# 3. Run install.sh — config.json, alerts.json (rules), and rule_schedules.json are preserved
 sudo ./install.sh
 
 # 4. Restart
@@ -905,7 +906,7 @@ The `web_gui` block in `config.json` controls authentication and the web server 
 
 **Port:** the GUI port is set on the command line via `--port N` (default `5001`); it is not persisted in `config.json`.
 
-**Bind host:** the GUI bind address is set on the command line via `--host` (default `127.0.0.1`); it is not persisted in `config.json`.
+**Bind host:** the GUI bind address is set on the command line via `--host` (default `0.0.0.0`); it is not persisted in `config.json`.
 
 > **First-login flow:** If `web_gui.password` is empty on startup, an initial password is generated, written to `web_gui._initial_password`, and the user is forced to change it on first login. Look for the value in the console banner / log or directly in `config.json`.
 

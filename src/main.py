@@ -479,11 +479,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
-            "  python illumio_ops.py                       # Interactive CLI menu\n"
-            "  python illumio_ops.py --monitor             # Headless daemon mode\n"
-            "  python illumio_ops.py --monitor -i 5        # Daemon with 5-min interval\n"
-            "  python illumio_ops.py --gui                 # Launch Web GUI (port 5001)\n"
-            "  python illumio_ops.py --gui --port 8080     # Web GUI on custom port\n"
+            "  python illumio-ops.py                       # Interactive CLI menu\n"
+            "  python illumio-ops.py --monitor             # Headless daemon mode\n"
+            "  python illumio-ops.py --monitor -i 5        # Daemon with 5-min interval\n"
+            "  python illumio-ops.py --gui                 # Launch Web GUI (port 5001)\n"
+            "  python illumio-ops.py --gui --port 8080     # Web GUI on custom port\n"
         ),
     )
     parser.add_argument(

@@ -633,7 +633,7 @@ STRINGS: _StringMap = _StringMap({
     "rpt_chart_ransomware_exposure": _entry(
         "Ransomware Exposure by Risk Level", "依風險等級的勒索軟體暴露面"),
     "rpt_chart_top_remote_access_ports": _entry(
-        "Top Remote Access Ports", "遠端存取連接埠排行"),
+        "Top Remote Access Ports", "Remote Access Port 排行"),
     "rpt_chart_top_activity_by_process_user": _entry(
         "Top Activity by Process/User", "依 Process/User 排行的活動"),
     "rpt_chart_cross_label_matrix": _entry(
@@ -641,7 +641,7 @@ STRINGS: _StringMap = _StringMap({
     "rpt_chart_managed_vs_unmanaged": _entry(
         "Managed vs Unmanaged Flows", "受管 vs 未受管流量"),
     "rpt_chart_top_ports": _entry(
-        "Top 20 Ports by Flow Count", "Top 20 連接埠（依流量數）"),
+        "Top 20 Ports by Flow Count", "Top 20 Ports（依流量數）"),
     "rpt_chart_allowed_traffic_timeline": _entry(
         "Allowed Traffic Timeline", "允許流量時間軸"),
     "rpt_chart_top_apps_by_data_volume": _entry(
@@ -676,10 +676,10 @@ STRINGS: _StringMap = _StringMap({
     "rpt_chart_axis_app_count": _entry("App Count", "應用程式數"),
     "rpt_chart_axis_process": _entry("Process", "Process"),
     "rpt_chart_axis_user": _entry("User", "使用者"),
-    "rpt_chart_axis_port": _entry("Port", "連接埠"),
+    "rpt_chart_axis_port": _entry("Port", "Port"),
     "rpt_chart_axis_app": _entry("Application", "應用程式"),
     "rpt_chart_axis_risk_level": _entry("Risk Level", "風險等級"),
-    "rpt_chart_axis_service": _entry("Service", "服務"),
+    "rpt_chart_axis_service": _entry("Service", "Service"),
     "rpt_chart_axis_event_type": _entry("Event Type", "事件類型"),
     "rpt_chart_axis_rule": _entry("Rule", "規則"),
     "rpt_chart_axis_dimension": _entry("Dimension", "面向"),

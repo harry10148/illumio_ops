@@ -87,7 +87,7 @@ if (Test-Path $bundledPython) {
 $installRoot = "C:\illumio-ops"
 if (Test-Path (Join-Path $installRoot "config\config.json")) {
     Warn "Existing installation at $installRoot — this is an UPGRADE"
-    Warn "config.json and rule_schedules.json will be preserved"
+    Warn "config.json, alerts.json (rules), and rule_schedules.json will be preserved"
 } else {
     Pass "No existing installation at $installRoot — fresh install"
 }

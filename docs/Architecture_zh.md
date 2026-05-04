@@ -231,7 +231,8 @@ illumio-ops/
 ├── requirements.txt       # Python 相依套件
 │
 ├── config/
-│   ├── config.json            # 執行期設定（憑證、規則、告警、設定）
+│   ├── config.json            # 執行期設定（憑證、告警通道、設定）
+│   ├── alerts.json            # 告警規則引擎狀態（{"rules": [...]}）
 │   ├── config.json.example    # 設定範本範例
 │   └── report_config.yaml     # Security Findings 規則閾值
 │

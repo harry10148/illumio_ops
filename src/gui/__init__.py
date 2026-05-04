@@ -120,7 +120,7 @@ def _rs_background_scheduler(cm: ConfigManager) -> None:
         except Exception as exc:
             logger.error("[RuleScheduler] Background error: {}", exc, exc_info=True)
 
-def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
+def _create_app(cm: ConfigManager, persistent_mode: bool = False, use_https: bool = True) -> 'Flask':
     app = Flask(__name__, template_folder=os.path.join(_PKG_DIR, 'templates'), static_folder=os.path.join(_PKG_DIR, 'static'))
     app.config['JSON_AS_ASCII'] = False
     app.config['TEMPLATES_AUTO_RELOAD'] = False
@@ -254,12 +254,12 @@ def _create_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
 
     _talisman = Talisman(
         app,
-        force_https=True,
-        strict_transport_security=True,
-        strict_transport_security_max_age=31536000,
-        strict_transport_security_include_subdomains=True,
-        strict_transport_security_preload=True,
-        session_cookie_secure=True,
+        force_https=use_https,
+        strict_transport_security=use_https,
+        strict_transport_security_max_age=31536000 if use_https else 0,
+        strict_transport_security_include_subdomains=use_https,
+        strict_transport_security_preload=use_https,
+        session_cookie_secure=use_https,
         content_security_policy=_csp,
         # No nonce injection: per CSP Level 3, the presence of a nonce in a
         # directive causes browsers to IGNORE 'unsafe-inline' in the same
@@ -452,6 +452,7 @@ def _run_http(app, host: str, port: int) -> None:
     except OSError as e:
         if "Address already in use" in str(e):
             logger.error("Port {} is already in use. Stop the existing process first (fuser -k {}/tcp) then retry.", port, port)
+            print(f"\n  ERROR: Port {port} is already in use. Stop the existing process first, then retry.")
         else:
             raise
     except KeyboardInterrupt:
@@ -545,6 +546,7 @@ def _run_https(app, host: str, port: int, cert_file: str, key_file: str) -> None
     except OSError as e:
         if "Address already in use" in str(e):
             logger.error("Port {} is already in use. Stop the existing process first (fuser -k {}/tcp) then retry.", port, port)
+            print(f"\n  ERROR: Port {port} is already in use. Stop the existing process first, then retry.")
         else:
             raise
     except KeyboardInterrupt:
@@ -553,12 +555,12 @@ def _run_https(app, host: str, port: int, cert_file: str, key_file: str) -> None
         server.stop()
 
 
-def build_app(cm: ConfigManager, persistent_mode: bool = False) -> 'Flask':
+def build_app(cm: ConfigManager, persistent_mode: bool = False, use_https: bool = True) -> 'Flask':
     """Public factory: build a configured Flask app bound to the given ConfigManager.
 
     Pure constructor — does NOT call app.run(). Used by launch_gui and tests.
     """
-    return _create_app(cm, persistent_mode=persistent_mode)
+    return _create_app(cm, persistent_mode=persistent_mode, use_https=use_https)
 
 def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_mode=False):
     if not HAS_FLASK:
@@ -575,16 +577,18 @@ def launch_gui(cm: ConfigManager = None, host='0.0.0.0', port=5001, persistent_m
     from src.module_log import ModuleLog as _ML
     _ML.init(os.path.join(_ROOT_DIR, 'logs'))
 
-    app = build_app(cm, persistent_mode=persistent_mode)
-
-    # TLS / HTTPS configuration
+    # TLS / HTTPS configuration — must be determined before build_app so that
+    # Talisman's force_https and session_cookie_secure match the actual transport.
     cm.load()
+    tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
+    use_https = bool(tls_cfg.get("enabled"))
+
+    app = build_app(cm, persistent_mode=persistent_mode, use_https=use_https)
     try:
         from src.siem.preview import emit_preview_warning
         emit_preview_warning(cm, context="web_gui_startup")
     except Exception:
         pass  # intentional fallback: preview warning must not block GUI startup
-    tls_cfg = cm.config.get("web_gui", {}).get("tls", {})
     ssl_context = None
     cert_file = ""
     key_file = ""

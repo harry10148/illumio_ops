@@ -73,7 +73,7 @@ def make_config_blueprint(
         if d.get("new_password"):
             new_pw = d["new_password"]
             confirm_pw = d.get("confirm_password", new_pw)
-            if not (12 <= len(new_pw) <= 512) or new_pw != confirm_pw:
+            if not (8 <= len(new_pw) <= 512) or new_pw != confirm_pw:
                 return jsonify({"ok": False, "error": t("gui_err_invalid_password_form")}), 400
             gui_cfg["password"] = hash_password(new_pw)
             gui_cfg.pop("_initial_password", None)

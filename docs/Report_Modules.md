@@ -194,7 +194,7 @@ Configure automated recurring reports via CLI **2. Report Generation → 5. Repo
 | Frequency | Daily / Weekly (day of week) / Monthly (day of month) |
 | Time | Hour and minute — input in your **configured timezone** (automatically stored as UTC) |
 | Lookback Days | How many days of traffic data to include |
-| Output Format | HTML / CSV Raw ZIP / Both |
+| Output Format | HTML / CSV / PDF / XLSX / All |
 | Send by Email | Attach report to email using SMTP settings |
 | Custom Recipients | Override default recipients for this schedule |
 

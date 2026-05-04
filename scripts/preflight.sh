@@ -68,16 +68,16 @@ else fail "Bundled Python not executable: $BUNDLED_PY"; fi
 INSTALL_ROOT="/opt/illumio-ops"
 if [ -f "$INSTALL_ROOT/config/config.json" ]; then
     warn "Existing installation at $INSTALL_ROOT — this is an UPGRADE"
-    warn "config.json and rule_schedules.json will be preserved"
+    warn "config.json, alerts.json (rules), and rule_schedules.json will be preserved"
 else
     pass "No existing installation at $INSTALL_ROOT — fresh install"
 fi
 
-# 8. Port 5000
-if ss -tlnp 2>/dev/null | grep -q ':5000 ' || netstat -tlnp 2>/dev/null | grep -q ':5000 '; then
-    warn "Port 5000 is already in use — web UI may not start"
+# 8. Port 5001
+if ss -tlnp 2>/dev/null | grep -q ':5001 ' || netstat -tlnp 2>/dev/null | grep -q ':5001 '; then
+    warn "Port 5001 is already in use — web UI may not start"
 else
-    pass "Port 5000: available"
+    pass "Port 5001: available"
 fi
 
 echo ""

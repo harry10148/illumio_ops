@@ -92,7 +92,7 @@ _DEFAULT_CONFIG = {
             "enabled": True,
             "cert_file": "",
             "key_file": "",
-            "self_signed": False,
+            "self_signed": True,
             "min_version": "TLSv1.2",
             "ciphers": None,
             "key_algorithm": "ecdsa-p256",

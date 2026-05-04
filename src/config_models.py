@@ -117,7 +117,7 @@ class WebGuiTls(_Base):
     enabled: bool = True
     cert_file: str = ""
     key_file: str = ""
-    self_signed: bool = False
+    self_signed: bool = True
     auto_renew: bool = True
     auto_renew_days: int = Field(default=30, ge=1)
     min_version: str = "TLSv1.2"

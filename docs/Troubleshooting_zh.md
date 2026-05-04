@@ -56,7 +56,7 @@
 | 登入頁出現 `429 Too Many Requests` | 觸發登入速率限制（每 IP 每分鐘 5 次） | 等待 60 秒，或重啟服務以清除記憶體中的限制器。持續 429 表示遭暴力破解嘗試——請檢視 `logs/illumio_ops.log`。 |
 | 正確登入後仍出現 `403 Forbidden` | 來源 IP 不在 `web_gui.allowed_ips` 允許清單中 | 將用戶端 IP 或 CIDR（如 `192.168.1.50` 或 `10.0.0.0/24`）加入 `web_gui.allowed_ips`。空清單代表允許所有來源。GUI 位於代理之後時，允許清單會採用 `X-Forwarded-For`。 |
 | 解除安裝後重新安裝，Web GUI 登入失敗 | 重新安裝期間保留了含舊 Argon2id `web_gui.password` 的 `config.json` | 雜湊密碼在升級間保留；以先前設定的密碼登入。若要重新觸發初始密碼流程，於 `config/config.json` 清除 `web_gui.password` 與 `web_gui._initial_password`。 |
-| 無法連上 `https://<host>:5000`（TLS 交握失敗） | 用戶端 TLS 版本低於 `web_gui.tls.min_version`（預設 `TLSv1.2`），或瀏覽器拒絕自簽憑證 | 確認用戶端支援設定的 `min_version`。對自簽憑證可接受瀏覽器警告，或將自動產生於 `data/web_gui_cert.pem` 的憑證發布給用戶端。 |
+| 無法連上 `https://<host>:5001`（TLS 交握失敗） | 用戶端 TLS 版本低於 `web_gui.tls.min_version`（預設 `TLSv1.2`），或瀏覽器拒絕自簽憑證 | 確認用戶端支援設定的 `min_version`。對自簽憑證可接受瀏覽器警告，或將自動產生於 `data/web_gui_cert.pem` 的憑證發布給用戶端。 |
 | POST/PUT/DELETE 出現 CSRF token 錯誤 | 分頁過期 / 缺少 `X-CSRF-Token` 標頭 | 重新整理頁面；token 透過 `X-CSRF-Token` 回應標頭與 `<meta>` 標籤遞送，並必須隨所有狀態變更請求一起送出。 |
 
 ## 4. 報表
